@@ -214,23 +214,55 @@ export function stopLoop() {
   }, 150);
 }
 
-let melodyIdx = 3;
+// 전통 민요 «아리랑» 멜로디 (퍼블릭 도메인). 가야금풍 pluck으로 연주합니다.
+const A3 = 220;
+const E4 = 329.63;
+const G4 = 392;
+const A4 = 440;
+const C5 = 523.25;
+const D5 = 587.33;
+const E5 = 659.25;
+
+/** [주파수, 박 수] — 0은 쉼표 */
+const ARIRANG: [number, number][] = [
+  // 아리랑 아리랑 아라리요
+  [A4, 1], [A4, 1], [C5, 2], [D5, 1], [E5, 3], [D5, 1], [C5, 1], [A4, 1], [G4, 3],
+  // 아리랑 고개로 넘어간다
+  [A4, 1], [A4, 1], [C5, 2], [D5, 1], [E5, 1], [D5, 2], [C5, 1], [A4, 1], [G4, 1], [E4, 3],
+  // 나를 버리고 가시는 님은
+  [G4, 1], [A4, 1], [C5, 1], [D5, 1], [E5, 4], [D5, 1], [C5, 1], [A4, 4],
+  // 십리도 못가서 발병난다
+  [G4, 1], [A4, 1], [C5, 1], [D5, 3], [E5, 1], [D5, 1], [C5, 1], [A4, 1], [G4, 4],
+  // 구 사이 숨
+  [0, 2],
+];
+
 let beat = 0;
+let noteIdx = 0;
+let noteLeft = 0;
 
 export function startMusic() {
   musicWanted = true;
   const c = ac();
   if (!c || musicTimer) return;
+  beat = 0;
+  noteIdx = 0;
+  noteLeft = 0;
+  // 한 박 ≈ 420ms — 느리게 잔잔한 아리랑
   musicTimer = setInterval(() => {
     if (muted || !ctx || ctx.state !== "running") return;
     beat++;
-    if (beat % 8 === 1) pluck(PENTA[0] / 2, 0, 0.3, musicGain);
-    if (beat % 8 === 5) pluck(PENTA[3] / 2, 0, 0.22, musicGain);
-    if (Math.random() < 0.28) return;
-    melodyIdx = Math.max(0, Math.min(PENTA.length - 1, melodyIdx + Math.round((Math.random() - 0.5) * 3)));
-    pluck(PENTA[melodyIdx], 0, 0.2, musicGain);
-    if (Math.random() < 0.2) pluck(PENTA[Math.min(PENTA.length - 1, melodyIdx + 1)], 0.18, 0.12, musicGain);
-  }, 520);
+    if (beat % 8 === 1) pluck(A3, 0, 0.18, musicGain);
+    if (beat % 16 === 9) pluck(E4 / 2, 0, 0.12, musicGain);
+
+    if (noteLeft <= 0) {
+      const [freq, dur] = ARIRANG[noteIdx];
+      noteLeft = dur;
+      noteIdx = (noteIdx + 1) % ARIRANG.length;
+      if (freq > 0) pluck(freq, 0, 0.22, musicGain);
+    }
+    noteLeft -= 1;
+  }, 420);
 }
 
 export function stopMusic() {
