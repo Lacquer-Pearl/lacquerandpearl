@@ -28,8 +28,11 @@ interface SaveState {
   musicOn: boolean;
   tutorialSeen: boolean;
   realCraftInterest: string[];
+  redeemedCoupons: string[];
 
   buy: (id: MaterialId) => boolean;
+  /** "ok" | "used" | "invalid" */
+  redeemCoupon: (code: string) => "ok" | "used" | "invalid";
   missingFor: (design: Pick<Design, "pearl" | "pieces">) => MaterialId[];
   consumeFor: (design: Pick<Design, "pearl" | "pieces">) => boolean;
   ensureCommissions: () => void;
@@ -62,6 +65,11 @@ const initial = {
   musicOn: true,
   tutorialSeen: false,
   realCraftInterest: [] as string[],
+  redeemedCoupons: [] as string[],
+};
+
+const COUPONS: Record<string, number> = {
+  SAMUELKIHOON: 1911,
 };
 
 export const useSave = create<SaveState>()(
@@ -75,6 +83,16 @@ export const useSave = create<SaveState>()(
         if (money < m.price) return false;
         set({ money: money - m.price, inventory: { ...inventory, [id]: inventory[id] + m.pack } });
         return true;
+      },
+
+      redeemCoupon: (raw) => {
+        const code = raw.trim().toUpperCase();
+        const reward = COUPONS[code];
+        if (!reward) return "invalid";
+        const { redeemedCoupons, money } = get();
+        if (redeemedCoupons.includes(code)) return "used";
+        set({ money: money + reward, redeemedCoupons: [...redeemedCoupons, code] });
+        return "ok";
       },
 
       missingFor: (design) => {
@@ -161,6 +179,7 @@ export const useSave = create<SaveState>()(
         musicOn: s.musicOn,
         tutorialSeen: s.tutorialSeen,
         realCraftInterest: s.realCraftInterest,
+        redeemedCoupons: s.redeemedCoupons,
       }),
     },
   ),

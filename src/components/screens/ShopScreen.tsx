@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Btn, Coin, TopBar } from "@/components/ui";
+import { Btn, Coin, Modal, TopBar } from "@/components/ui";
 import { NacreSwatch } from "@/components/MotifIcon";
 import { MATERIAL_LIST, PEARL_LIST, type MaterialId } from "@/lib/data";
 import { sfx } from "@/lib/sound";
@@ -14,7 +14,26 @@ export default function ShopScreen() {
   const inventory = useSave((s) => s.inventory);
   const money = useSave((s) => s.money);
   const buy = useSave((s) => s.buy);
+  const redeemCoupon = useSave((s) => s.redeemCoupon);
   const [flash, setFlash] = useState<string | null>(null);
+  const [couponOpen, setCouponOpen] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
+  const [couponMsg, setCouponMsg] = useState<string | null>(null);
+
+  const submitCoupon = () => {
+    const result = redeemCoupon(couponCode);
+    if (result === "ok") {
+      sfx.coin();
+      setCouponMsg(null);
+      setCouponOpen(false);
+      setCouponCode("");
+      setFlash("쿠폰 적용! +1911 엽전");
+      setTimeout(() => setFlash(null), 1400);
+      return;
+    }
+    sfx.fail();
+    setCouponMsg(result === "used" ? "이미 사용한 쿠폰이에요." : "잘못된 쿠폰 코드예요.");
+  };
 
   return (
     <div className="screen">
@@ -27,6 +46,15 @@ export default function ShopScreen() {
             <div className="text-sm opacity-80">“좋은 재료가 좋은 작품을 만든다네~”</div>
           </div>
         </div>
+        <Btn
+          variant="lavender"
+          onClick={() => {
+            setCouponMsg(null);
+            setCouponOpen(true);
+          }}
+        >
+          🎟 쿠폰 코드 입력
+        </Btn>
         {MATERIAL_LIST.map((m) => (
           <div key={m.id} className="panel flex items-center gap-3 py-3">
             {pearlOf(m.id) ? (
@@ -84,6 +112,35 @@ export default function ShopScreen() {
         <div className="score-toast-wrap pointer-events-none">
           <div className="event-toast static pop-in">{flash}</div>
         </div>
+      )}
+      {couponOpen && (
+        <Modal onClose={() => setCouponOpen(false)}>
+          <div className="flex flex-col gap-3 text-[var(--brown)]">
+            <h3 className="step-title text-center">쿠폰 코드</h3>
+            <p className="text-center text-sm opacity-80">코드를 입력하면 엽전을 받을 수 있어요.</p>
+            <input
+              className="w-full rounded-2xl border-2 border-[var(--line-deep)] bg-[#fffdf8] px-4 py-3 text-center tracking-wider outline-none focus:border-[var(--gold-deep)]"
+              placeholder="쿠폰 코드"
+              value={couponCode}
+              autoFocus
+              autoCapitalize="characters"
+              spellCheck={false}
+              onChange={(e) => setCouponCode(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") submitCoupon();
+              }}
+            />
+            {couponMsg && <div className="text-center text-sm text-[var(--red)]">{couponMsg}</div>}
+            <div className="grid grid-cols-2 gap-2">
+              <Btn variant="cream" onClick={() => setCouponOpen(false)}>
+                취소
+              </Btn>
+              <Btn variant="gold" sound={false} disabled={!couponCode.trim()} onClick={submitCoupon}>
+                사용하기
+              </Btn>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );
