@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Btn, Meter } from "@/components/ui";
 import type { ShapeId } from "@/lib/data";
+import { t } from "@/lib/i18n";
+import { useSave } from "@/lib/store";
 import PaintCanvas, { type PaintConfig, type PaintStats } from "./PaintCanvas";
 import { StepHeader } from "./common";
 
@@ -31,6 +33,7 @@ export default function PaintStep({
   foreground?: React.ReactNode;
   onDone: (score: number, stats: PaintStats) => void;
 }) {
+  const lang = useSave((s) => s.lang);
   const [stats, setStats] = useState<PaintStats>({ touched: 0, inRange: 0, over: 0, mean: 0 });
   const [done, setDone] = useState(false);
   const ready = stats.touched >= def.minTouched;
@@ -83,7 +86,7 @@ export default function PaintStep({
           onDone(Math.max(0, Math.min(100, Math.round(def.score(stats)))), stats);
         }}
       >
-        {ready ? "완료!" : "조금 더 작업해 주세요"}
+        {ready ? t(lang, "common.done") : t(lang, "common.doneMore")}
       </Btn>
     </div>
   );

@@ -76,6 +76,7 @@ const ko: Dict = {
   "gallery.name": "나전칠기 공방",
   "gallery.empty": "아직 전시된 작품이 없어요.\n첫 작품을 만들어 보세요!",
   "gallery.delivered": "납품 완료 · {name}",
+  "gallery.deliveredDone": "납품 완료",
   "gallery.sold": "판매 완료",
   "gallery.onDisplay": "전시 중 · 감정가 {value}",
   "gallery.share": "📸 자랑하기",
@@ -125,7 +126,8 @@ const ko: Dict = {
   "design.title": "디자인하기",
   "design.tipCommission":
     "손님의 주문서를 잘 보고 문양을 배치해 보렴. 요구한 문양과 개수를 맞추면 손님이 기뻐하실 게다.",
-  "design.tipFree": "마음 가는 대로 꾸며 보렴. 문양을 눌러 추가하고, 끌어서 옮길 수 있단다.",
+  "design.tipFree":
+    "마음 가는 대로 꾸며 보렴. 문양을 눌러 추가하고, 끌어서 옮길 수 있단다. 자개 종류는 조각마다 고를 수 있단다.",
   "design.order": "📜 주문서",
   "design.motifs": "자개 문양 ({n}/{max})",
   "design.shape": "백골 모양",
@@ -138,6 +140,10 @@ const ko: Dict = {
   "design.needMotif": "자개 문양을 하나 이상 배치해 주세요",
   "design.start": "디자인 완성! 제작 시작 🔨",
   "design.dup": "복제",
+  "design.chain": "이어 붙이기",
+  "design.patternMotifs": "패턴 문양 · 이웃에 이어 붙여 면을 채워요",
+  "design.pieceShell": "이 조각의 자개",
+  "design.newPearl": "새로 놓을 자개",
 
   "cloth.title": "백골에 삼베 바르기",
   "cloth.tip":
@@ -167,6 +173,11 @@ const ko: Dict = {
   "dry.cool": "❄️\n식히기",
   "dry.wind": "🌬️ 바람이 들어와 습도가 떨어졌어요!",
   "dry.sun": "☀️ 햇볕이 들어 온도가 올라갔어요!",
+  "dry.tipOpen": "문이 열린 옻장에 작품을 넣었단다. {b} 안쪽에서 습도와 온도를 맞출 수 있단다.",
+  "dry.tipOpenB": "문을 닫으면",
+  "dry.tipClosing": "문을 닫고 있어요. 작품이 옻장 안으로 들어간단다…",
+  "dry.panelClosing": "문이 닫히고 있습니다…",
+  "dry.panelOpen": "문을 닫으면 옻장 안에서 건조가 시작됩니다.",
 
   "cut.title": "자개 자르기",
   "cut.tip":
@@ -439,6 +450,7 @@ const en: Dict = {
   "gallery.name": "Najeon Workshop",
   "gallery.empty": "No pieces on display yet.\nMake your first artwork!",
   "gallery.delivered": "Delivered · {name}",
+  "gallery.deliveredDone": "Delivered",
   "gallery.sold": "Sold",
   "gallery.onDisplay": "On display · Value {value}",
   "gallery.share": "📸 Share",
@@ -487,7 +499,8 @@ const en: Dict = {
   "design.title": "Design",
   "design.tipCommission":
     "Check the order carefully and place motifs. Matching the requested motifs and counts will please the client.",
-  "design.tipFree": "Decorate as you like. Tap to add motifs, then drag to move them.",
+  "design.tipFree":
+    "Decorate as you like. Tap to add motifs, then drag to move them. You can pick a shell type for each piece.",
   "design.order": "📜 Order sheet",
   "design.motifs": "Shell motifs ({n}/{max})",
   "design.shape": "Wooden form",
@@ -500,6 +513,10 @@ const en: Dict = {
   "design.needMotif": "Place at least one shell motif",
   "design.start": "Design done! Start crafting 🔨",
   "design.dup": "Copy",
+  "design.chain": "Chain",
+  "design.patternMotifs": "Pattern motifs · chain them to fill a surface",
+  "design.pieceShell": "Shell for this piece",
+  "design.newPearl": "Shell for new pieces",
 
   "cloth.title": "Wrap hemp on the wood",
   "cloth.tip":
@@ -529,6 +546,11 @@ const en: Dict = {
   "dry.cool": "❄️\nCool",
   "dry.wind": "🌬️ A draft dropped the humidity!",
   "dry.sun": "☀️ Sunlight raised the temperature!",
+  "dry.tipOpen": "The piece is in the open cabinet. {b} you can tune humidity and temperature inside.",
+  "dry.tipOpenB": "Once you close the door,",
+  "dry.tipClosing": "Closing the door. The piece slides into the cabinet…",
+  "dry.panelClosing": "The door is closing…",
+  "dry.panelOpen": "Drying begins inside the cabinet once the door is closed.",
 
   "cut.title": "Cut the shell",
   "cut.tip":

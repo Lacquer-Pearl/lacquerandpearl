@@ -2,8 +2,8 @@
 
 import { useEffect } from "react";
 import { setMuted as setAudioMuted, sfx, startMusic, stopMusic } from "@/lib/sound";
+import { rankTitle, t } from "@/lib/i18n";
 import { useSave } from "@/lib/store";
-import { workshopTitle } from "@/lib/data";
 
 type Variant = "pink" | "mint" | "cream" | "gold" | "lavender" | "brown";
 
@@ -59,6 +59,7 @@ export function SoundToggle() {
   const setMuted = useSave((s) => s.setMuted);
   const musicOn = useSave((s) => s.musicOn);
   const setMusic = useSave((s) => s.setMusic);
+  const lang = useSave((s) => s.lang);
 
   useEffect(() => {
     setAudioMuted(muted);
@@ -72,7 +73,7 @@ export function SoundToggle() {
     <div className="flex gap-1.5">
       <button
         className="icon-btn"
-        aria-label="배경음악"
+        aria-label={t(lang, "common.music")}
         onClick={() => {
           setMusic(!musicOn);
           sfx.click();
@@ -83,7 +84,7 @@ export function SoundToggle() {
       </button>
       <button
         className="icon-btn"
-        aria-label="소리"
+        aria-label={t(lang, "common.sfx")}
         onClick={() => {
           setMuted(!muted);
           sfx.click();
@@ -98,13 +99,15 @@ export function SoundToggle() {
 export function TopBar({ onBack, title }: { onBack?: () => void; title?: string }) {
   const money = useSave((s) => s.money);
   const rep = useSave((s) => s.reputation);
+  const lang = useSave((s) => s.lang);
   return (
     <div className="topbar">
       <div className="flex min-w-0 items-center gap-2">
         {onBack && (
           <button
             className="icon-btn"
-            aria-label="뒤로"
+            aria-label={t(lang, "common.back")}
+            data-nav-back
             onClick={() => {
               sfx.click();
               onBack();
@@ -116,7 +119,7 @@ export function TopBar({ onBack, title }: { onBack?: () => void; title?: string 
         {title ? (
           <span className="topbar-title truncate text-lg">{title}</span>
         ) : (
-          <span className="chip">🏅 {workshopTitle(rep)}</span>
+          <span className="chip">🏅 {rankTitle(lang, rep)}</span>
         )}
       </div>
       <div className="flex items-center gap-1.5">

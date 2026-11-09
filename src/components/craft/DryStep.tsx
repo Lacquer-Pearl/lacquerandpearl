@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import Artwork from "@/components/Artwork";
 import { Btn, Meter } from "@/components/ui";
 import type { Design } from "@/lib/game";
+import { t as tr, tNode } from "@/lib/i18n";
 import { sfx } from "@/lib/sound";
+import { useSave } from "@/lib/store";
 import { StepHeader } from "./common";
 
 const H_ZONE: [number, number] = [70, 85];
@@ -13,7 +15,20 @@ const TICK = 100;
 
 type Phase = "open" | "closing" | "inside";
 
+/** "이모지\n라벨" 형태의 사전 문자열을 두 줄 버튼 라벨로 */
+function NudgeLabel({ text }: { text: string }) {
+  const [emoji, label] = text.split("\n");
+  return (
+    <>
+      {emoji}
+      <br />
+      <small>{label}</small>
+    </>
+  );
+}
+
 export default function DryStep({ design, onDone }: { design: Design; onDone: (score: number) => void }) {
+  const lang = useSave((s) => s.lang);
   const [phase, setPhase] = useState<Phase>("open");
   const [running, setRunning] = useState(false);
   const [h, setH] = useState(52);
@@ -34,10 +49,10 @@ export default function DryStep({ design, onDone }: { design: Design; onDone: (s
         const ev = Math.random() < 0.5 ? "dry" : "hot";
         if (ev === "dry") {
           s.h -= 12;
-          setEvent("🌬️ 바람이 들어와 습도가 떨어졌어요!");
+          setEvent(tr(lang, "dry.wind"));
         } else {
           s.t += 5;
-          setEvent("☀️ 온도가 갑자기 올랐어요!");
+          setEvent(tr(lang, "dry.sun"));
         }
         sfx.fail();
         setTimeout(() => setEvent(null), 1800);
@@ -62,7 +77,7 @@ export default function DryStep({ design, onDone }: { design: Design; onDone: (s
       }
     }, TICK);
     return () => clearInterval(id);
-  }, [running, onDone]);
+  }, [running, onDone, lang]);
 
   const nudge = (dh: number, dt: number) => {
     live.current.h = Math.max(20, Math.min(100, live.current.h + dh));
@@ -89,14 +104,18 @@ export default function DryStep({ design, onDone }: { design: Design; onDone: (s
 
   return (
     <div className="flex flex-col gap-3">
-      <StepHeader title="옻장에서 건조하기" emoji="🌡️">
+      <StepHeader title={tr(lang, "dry.title")} emoji="🌡️">
         {phase === "open" ? (
-          <>문이 열린 옻장에 작품을 넣었단다. <b>문을 닫으면</b> 안쪽에서 습도와 온도를 맞출 수 있단다.</>
+          <>{tNode(lang, "dry.tipOpen", { b: <b>{tr(lang, "dry.tipOpenB")}</b> })}</>
         ) : phase === "closing" ? (
-          <>문을 닫고 있어요. 작품이 옻장 안으로 들어간단다…</>
+          <>{tr(lang, "dry.tipClosing")}</>
         ) : (
           <>
-            옻장 <b>안에서</b> 작품을 보며 맞춰 보렴. 습도 <b>70~85%</b>, 온도 <b>20~30℃</b>.
+            {tNode(lang, "dry.tip", {
+              b: <b>{tr(lang, "dry.tipB")}</b>,
+              h: <b>70~85%</b>,
+              t: <b>20~30℃</b>,
+            })}
           </>
         )}
       </StepHeader>
@@ -124,7 +143,7 @@ export default function DryStep({ design, onDone }: { design: Design; onDone: (s
             color={inH ? "var(--mint-deep)" : "var(--blue)"}
             label={
               <>
-                <span>💧 습도</span>
+                <span>{tr(lang, "dry.humidity")}</span>
                 <span>{Math.round(h)}%</span>
               </>
             }
@@ -135,7 +154,7 @@ export default function DryStep({ design, onDone }: { design: Design; onDone: (s
             color={inT ? "var(--mint-deep)" : "var(--orange)"}
             label={
               <>
-                <span>🌡️ 온도</span>
+                <span>{tr(lang, "dry.temp")}</span>
                 <span>{t.toFixed(1)}℃</span>
               </>
             }
@@ -145,7 +164,7 @@ export default function DryStep({ design, onDone }: { design: Design; onDone: (s
             color="var(--gold)"
             label={
               <>
-                <span>건조 진행</span>
+                <span>{tr(lang, "dry.progress")}</span>
                 <span>{Math.min(100, Math.round(progress))}%</span>
               </>
             }
@@ -153,31 +172,27 @@ export default function DryStep({ design, onDone }: { design: Design; onDone: (s
         </div>
       ) : (
         <div className="panel py-3 text-center text-sm text-[var(--brown)]">
-          {phase === "closing" ? "문이 닫히고 있습니다…" : "문을 닫으면 옻장 안에서 건조가 시작됩니다."}
+          {phase === "closing" ? tr(lang, "dry.panelClosing") : tr(lang, "dry.panelOpen")}
         </div>
       )}
       {phase === "open" && (
         <Btn variant="mint" size="lg" onClick={closeDoors}>
-          옻장 문 닫고 안으로 넣기
+          {tr(lang, "dry.start")}
         </Btn>
       )}
       {inside && (
         <div className="grid grid-cols-4 gap-2">
           <Btn size="sm" variant="lavender" sound={false} onClick={() => nudge(6, 0)} disabled={!running}>
-            💧<br />
-            <small>가습</small>
+            <NudgeLabel text={tr(lang, "dry.humidify")} />
           </Btn>
           <Btn size="sm" variant="cream" sound={false} onClick={() => nudge(-6, 0)} disabled={!running}>
-            🌬️<br />
-            <small>환기</small>
+            <NudgeLabel text={tr(lang, "dry.vent")} />
           </Btn>
           <Btn size="sm" variant="pink" sound={false} onClick={() => nudge(0, 2)} disabled={!running}>
-            🔥<br />
-            <small>불 지피기</small>
+            <NudgeLabel text={tr(lang, "dry.heat")} />
           </Btn>
           <Btn size="sm" variant="mint" sound={false} onClick={() => nudge(0, -2)} disabled={!running}>
-            ❄️<br />
-            <small>식히기</small>
+            <NudgeLabel text={tr(lang, "dry.cool")} />
           </Btn>
         </div>
       )}

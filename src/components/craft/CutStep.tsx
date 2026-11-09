@@ -6,6 +6,7 @@ import { TOOL_TIP, ToolGraphic } from "@/components/Tools";
 import { Btn, Meter } from "@/components/ui";
 import { MOTIFS, PEARLS, motifOutline, type MotifId } from "@/lib/data";
 import { countMotifs, mainPearl, type Design } from "@/lib/game";
+import { motifName, t, tNode } from "@/lib/i18n";
 import { loopLevel, sfx, startLoop, stopLoop } from "@/lib/sound";
 import { useSave } from "@/lib/store";
 import { StepHeader } from "./common";
@@ -13,6 +14,7 @@ import { StepHeader } from "./common";
 type Method = "jul" | "kkeun" | "auto";
 
 export default function CutStep({ design, onDone }: { design: Design; onDone: (score: number) => void }) {
+  const lang = useSave((s) => s.lang);
   const [method, setMethod] = useState<Method | null>(null);
   const motif = useMemo<MotifId>(() => {
     const counts = Object.entries(countMotifs(design.pieces)) as [MotifId, number][];
@@ -22,33 +24,28 @@ export default function CutStep({ design, onDone }: { design: Design; onDone: (s
   if (!method)
     return (
       <div className="flex flex-col gap-3">
-        <StepHeader title="자개 자르기" emoji="🪚">
-          이제 자개를 문양대로 오려낼 차례란다. 자개는 얇아서 <b>힘을 너무 주면 부러진단다</b>. 어떤 방법으로
-          해 보겠니?
+        <StepHeader title={t(lang, "cut.title")} emoji="🪚">
+          {tNode(lang, "cut.tip", { b: <b>{t(lang, "cut.tipB")}</b> })}
         </StepHeader>
         <button className="method-card" onClick={() => (sfx.click(), setMethod("jul"))}>
           <span className="text-4xl">🪚</span>
           <span className="flex flex-col text-left">
-            <b className="text-lg">줄음질</b>
-            <span className="text-sm opacity-80">
-              실톱으로 밑그림 선을 따라 천천히 오려요. 손가락/마우스로 선을 따라가거나 마우스 휠로 톱질해요.
-            </span>
+            <b className="text-lg">{t(lang, "cut.jul")}</b>
+            <span className="text-sm opacity-80">{t(lang, "cut.julDesc")}</span>
           </span>
         </button>
         <button className="method-card" onClick={() => (sfx.click(), setMethod("kkeun"))}>
           <span className="text-4xl">🔪</span>
           <span className="flex flex-col text-left">
-            <b className="text-lg">끊음질</b>
-            <span className="text-sm opacity-80">
-              가늘게 켠 자개 실을 칼로 톡톡 끊어요. 표시가 칼날 밑에 올 때 탭!
-            </span>
+            <b className="text-lg">{t(lang, "cut.kkeun")}</b>
+            <span className="text-sm opacity-80">{t(lang, "cut.kkeunDesc")}</span>
           </span>
         </button>
         <button className="method-card" onClick={() => (sfx.click(), setMethod("auto"))}>
           <span className="text-4xl">⚙️</span>
           <span className="flex flex-col text-left">
-            <b className="text-lg">기계 가공</b>
-            <span className="text-sm opacity-80">빠르고 안전하지만 손맛이 없어 품질은 보통이에요.</span>
+            <b className="text-lg">{t(lang, "cut.auto")}</b>
+            <span className="text-sm opacity-80">{t(lang, "cut.autoDesc")}</span>
           </span>
         </button>
       </div>
@@ -139,6 +136,7 @@ function cutPolylines(pts: { x: number; y: number }[], upTo: number, gapAfter: S
 }
 
 function JulStep({ design, motif, onDone }: { design: Design; motif: MotifId; onDone: (s: number) => void }) {
+  const lang = useSave((s) => s.lang);
   const m = MOTIFS[motif];
   const SCALE = 4.5;
   const [{ pts, gapAfter }] = useState(() => {
@@ -188,9 +186,9 @@ function JulStep({ design, motif, onDone }: { design: Design; motif: MotifId; on
     const inv = useSave.getState().inventory;
     if (inv[pearlMat] > 0) {
       useSave.setState({ inventory: { ...inv, [pearlMat]: inv[pearlMat] - 1 } });
-      setWarn("💥 자개가 부러졌어요! 새 자개 1조각으로 다시 시작해요.");
+      setWarn(t(lang, "cut.brokeNew"));
     } else {
-      setWarn("💥 자개가 부러졌어요! 남은 자개가 없어 금 간 채로 이어가요…");
+      setWarn(t(lang, "cut.brokeKeep"));
     }
     setTimeout(() => setWarn(null), 2000);
     if (s.breaks >= 3) finish();
@@ -247,7 +245,7 @@ function JulStep({ design, motif, onDone }: { design: Design; motif: MotifId; on
     } else {
       s.off++;
       loopLevel(0);
-      if (s.off % 25 === 0) setWarn("✋ 밑그림 선을 따라가 주세요!");
+      if (s.off % 25 === 0) setWarn(t(lang, "cut.follow"));
     }
   };
 
@@ -268,9 +266,11 @@ function JulStep({ design, motif, onDone }: { design: Design; motif: MotifId; on
 
   return (
     <div className="flex flex-col gap-3">
-      <StepHeader title="줄음질 — 실톱으로 오려내기" emoji="🪚">
-        <b>{m.name}</b> 문양이구나. 반짝이는 점에서 시작해 점선을 따라 천천히 톱질하렴. 급하게 하면 자개가{" "}
-        <b>뚝</b> 부러진단다!
+      <StepHeader title={t(lang, "cut.julTitle")} emoji="🪚">
+        {tNode(lang, "cut.julTip", {
+          name: <b>{motifName(lang, motif)}</b>,
+          snap: <b>{t(lang, "cut.snap")}</b>,
+        })}
       </StepHeader>
       <div className={`workbench relative ${shake ? "shake" : ""}`}>
         <svg
@@ -351,7 +351,7 @@ function JulStep({ design, motif, onDone }: { design: Design; motif: MotifId; on
           color="var(--pink)"
           label={
             <>
-              <span>오려낸 정도</span>
+              <span>{t(lang, "cut.progress")}</span>
               <span>{pts.length ? Math.round((idx / (pts.length - 1)) * 100) : 0}%</span>
             </>
           }
@@ -362,10 +362,8 @@ function JulStep({ design, motif, onDone }: { design: Design; motif: MotifId; on
           color={stress > 0.7 ? "var(--red)" : stress > 0.4 ? "var(--orange)" : "var(--mint-deep)"}
           label={
             <>
-              <span>자개에 가해지는 힘</span>
-              <span>
-                부러짐 {breaks}/3 · 남은 자개 {inventory[pearlMat]}
-              </span>
+              <span>{t(lang, "cut.force")}</span>
+              <span>{t(lang, "cut.breaks", { n: breaks, left: inventory[pearlMat] })}</span>
             </>
           }
         />
@@ -388,6 +386,7 @@ function makeMarks() {
 }
 
 function KkeunStep({ design, onDone }: { design: Design; onDone: (s: number) => void }) {
+  const lang = useSave((s) => s.lang);
   const [marks] = useState(makeMarks);
   const [offset, setOffset] = useState(0);
   const [results, setResults] = useState<(number | null | undefined)[]>(Array(MARKS).fill(undefined));
@@ -408,7 +407,7 @@ function KkeunStep({ design, onDone }: { design: Design; onDone: (s: number) => 
         if (s.results[i] === undefined && marks[i] - s.offset < KNIFE - 22) {
           s.results[i] = null;
           setResults([...s.results]);
-          setFlash("놓쳤어요!");
+          setFlash(t(lang, "cut.missed"));
           sfx.fail();
           setTimeout(() => setFlash(null), 500);
         }
@@ -428,7 +427,7 @@ function KkeunStep({ design, onDone }: { design: Design; onDone: (s: number) => 
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [marks, onDone]);
+  }, [marks, onDone, lang]);
 
   const tap = () => {
     const s = st.current;
@@ -449,12 +448,12 @@ function KkeunStep({ design, onDone }: { design: Design; onDone: (s: number) => 
       const score = Math.max(0, 100 - bestD * 5);
       s.results[best] = score;
       setResults([...s.results]);
-      setFlash(bestD < 4 ? "완벽해요! ✨" : bestD < 10 ? "좋아요!" : "조금 빗나갔어요");
+      setFlash(bestD < 4 ? t(lang, "cut.perfect") : bestD < 10 ? t(lang, "cut.good") : t(lang, "cut.miss"));
       if (bestD < 4) sfx.shimmer();
       sfx.cut();
     } else {
       s.wasted++;
-      setFlash("헛손질!");
+      setFlash(t(lang, "cut.waste"));
       sfx.crack();
     }
     setTimeout(() => setFlash(null), 450);
@@ -462,8 +461,8 @@ function KkeunStep({ design, onDone }: { design: Design; onDone: (s: number) => 
 
   return (
     <div className="flex flex-col gap-3">
-      <StepHeader title="끊음질 — 자개 실 끊기" emoji="🔪">
-        가늘게 켠 자개 실이 지나간단다. <b>노란 표시가 칼날 아래에 왔을 때</b> 화면을 톡! 눌러 끊어 보렴.
+      <StepHeader title={t(lang, "cut.kkeunTitle")} emoji="🔪">
+        {tNode(lang, "cut.kkeunTip", { b: <b>{t(lang, "cut.kkeunTipB")}</b> })}
       </StepHeader>
       <div
         className="workbench relative cursor-pointer select-none"
@@ -507,16 +506,17 @@ function KkeunStep({ design, onDone }: { design: Design; onDone: (s: number) => 
         {flash && <div className="event-toast pop-in">{flash}</div>}
       </div>
       <div className="panel py-3 text-center text-[var(--brown)]">
-        끊은 조각 {results.filter((r) => r != null).length} / {MARKS}
+        {t(lang, "cut.pieces", { n: results.filter((r) => r != null).length, max: MARKS })}
       </div>
       <Btn variant="pink" size="lg" sound={false} onClick={tap}>
-        🔪 톡! 끊기
+        {t(lang, "cut.cutBtn")}
       </Btn>
     </div>
   );
 }
 
 function AutoStep({ onDone }: { onDone: (s: number) => void }) {
+  const lang = useSave((s) => s.lang);
   const [p, setP] = useState(0);
   useEffect(() => {
     startLoop("saw");
@@ -539,14 +539,14 @@ function AutoStep({ onDone }: { onDone: (s: number) => void }) {
   }, [onDone]);
   return (
     <div className="flex flex-col gap-3">
-      <StepHeader title="기계 가공" emoji="⚙️">
-        기계는 빠르지만, 장인의 손끝 같은 섬세함은 없단다.
+      <StepHeader title={t(lang, "cut.autoTitle")} emoji="⚙️">
+        {t(lang, "cut.autoTip")}
       </StepHeader>
       <div className="workbench flex aspect-square items-center justify-center text-7xl">
         <span className="spin">⚙️</span>
       </div>
       <div className="panel py-3">
-        <Meter value={p / 100} color="var(--blue)" label={<><span>가공 중…</span><span>{p}%</span></>} />
+        <Meter value={p / 100} color="var(--blue)" label={<><span>{t(lang, "cut.autoProgress")}</span><span>{p}%</span></>} />
       </div>
     </div>
   );

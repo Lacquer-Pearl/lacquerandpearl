@@ -33,7 +33,7 @@ export default function Game() {
         App.addListener("backButton", () => {
           const backdrop = document.querySelector<HTMLElement>(".modal-backdrop");
           if (backdrop) return backdrop.click();
-          const backBtn = document.querySelector<HTMLElement>('[aria-label="뒤로"]');
+          const backBtn = document.querySelector<HTMLElement>("[data-nav-back]");
           if (backBtn) return backBtn.click();
           if (useUI.getState().screen === "title") void App.exitApp();
           else useUI.getState().go("title");
@@ -51,6 +51,11 @@ export default function Game() {
   useEffect(() => {
     window.scrollTo({ top: 0 });
   }, [screen]);
+
+  const lang = useSave((s) => s.lang);
+  useEffect(() => {
+    document.documentElement.lang = lang === "en" ? "en" : "ko";
+  }, [lang]);
 
   if (!ready)
     return (

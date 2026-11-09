@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Btn, Coin, Modal, TopBar } from "@/components/ui";
 import { NacreSwatch } from "@/components/MotifIcon";
 import { MATERIAL_LIST, PEARL_LIST, type MaterialId } from "@/lib/data";
+import { materialDesc, materialName, t } from "@/lib/i18n";
 import { sfx } from "@/lib/sound";
 import { useSave, useUI } from "@/lib/store";
 
@@ -15,6 +16,7 @@ export default function ShopScreen() {
   const money = useSave((s) => s.money);
   const buy = useSave((s) => s.buy);
   const redeemCoupon = useSave((s) => s.redeemCoupon);
+  const lang = useSave((s) => s.lang);
   const [flash, setFlash] = useState<string | null>(null);
   const [couponOpen, setCouponOpen] = useState(false);
   const [couponCode, setCouponCode] = useState("");
@@ -27,23 +29,23 @@ export default function ShopScreen() {
       setCouponMsg(null);
       setCouponOpen(false);
       setCouponCode("");
-      setFlash("쿠폰 적용! +1911 엽전");
+      setFlash(t(lang, "shop.couponOk", { n: 1911 }));
       setTimeout(() => setFlash(null), 1400);
       return;
     }
     sfx.fail();
-    setCouponMsg(result === "used" ? "이미 사용한 쿠폰이에요." : "잘못된 쿠폰 코드예요.");
+    setCouponMsg(t(lang, result === "used" ? "shop.couponUsed" : "shop.couponBad"));
   };
 
   return (
     <div className="screen">
-      <TopBar title="🛒 재료 상점" onBack={back} />
+      <TopBar title={t(lang, "shop.title")} onBack={back} />
       <div className="screen-body">
         <div className="shop-sign">
           <span className="text-3xl">🏮</span>
           <div>
-            <b className="text-lg">옻골 재료상</b>
-            <div className="text-sm opacity-80">“좋은 재료가 좋은 작품을 만든다네~”</div>
+            <b className="text-lg">{t(lang, "shop.sign")}</b>
+            <div className="text-sm opacity-80">{t(lang, "shop.signSub")}</div>
           </div>
         </div>
         <Btn
@@ -53,7 +55,7 @@ export default function ShopScreen() {
             setCouponOpen(true);
           }}
         >
-          🎟 쿠폰 코드 입력
+          {t(lang, "shop.coupon")}
         </Btn>
         {MATERIAL_LIST.map((m) => (
           <div key={m.id} className="panel flex items-center gap-3 py-3">
@@ -64,10 +66,10 @@ export default function ShopScreen() {
             )}
             <div className="min-w-0 flex-1">
               <div className="flex items-baseline gap-2">
-                <b className="text-[var(--brown)]">{m.name}</b>
-                <span className="text-xs opacity-70">보유 {inventory[m.id]}</span>
+                <b className="text-[var(--brown)]">{materialName(lang, m.id)}</b>
+                <span className="text-xs opacity-70">{t(lang, "shop.owned", { n: inventory[m.id] })}</span>
               </div>
-              <div className="text-xs opacity-80">{m.desc}</div>
+              <div className="text-xs opacity-80">{materialDesc(lang, m.id)}</div>
             </div>
             <Btn
               size="sm"
@@ -77,7 +79,7 @@ export default function ShopScreen() {
               onClick={() => {
                 if (buy(m.id)) {
                   sfx.coin();
-                  setFlash(`${m.name} 구매!`);
+                  setFlash(`${materialName(lang, m.id)} ${t(lang, "shop.buy")}`);
                   setTimeout(() => setFlash(null), 900);
                 }
               }}
@@ -88,12 +90,12 @@ export default function ShopScreen() {
         ))}
 
         <div className="panel flex flex-col gap-2 py-3 opacity-90">
-          <b className="text-[var(--brown)]">💎 엽전 꾸러미 (준비 중)</b>
+          <b className="text-[var(--brown)]">{t(lang, "shop.iap")}</b>
           <div className="grid grid-cols-3 gap-2 text-center text-sm">
             {[
-              ["한 줌", 500, "₩1,200"],
-              ["한 꾸러미", 1500, "₩3,300"],
-              ["한 궤짝", 5000, "₩9,900"],
+              [t(lang, "shop.iapPack1"), 500, "₩1,200"],
+              [t(lang, "shop.iapPack2"), 1500, "₩3,300"],
+              [t(lang, "shop.iapPack3"), 5000, "₩9,900"],
             ].map(([n, c, p]) => (
               <div key={n as string} className="iap-card">
                 <div className="text-2xl">🪙</div>
@@ -105,7 +107,7 @@ export default function ShopScreen() {
               </div>
             ))}
           </div>
-          <div className="text-xs opacity-70">스토어 인앱 결제는 정식 출시 때 열려요.</div>
+          <div className="text-xs opacity-70">{t(lang, "shop.iapNote")}</div>
         </div>
       </div>
       {flash && (
@@ -116,11 +118,11 @@ export default function ShopScreen() {
       {couponOpen && (
         <Modal onClose={() => setCouponOpen(false)}>
           <div className="flex flex-col gap-3 text-[var(--brown)]">
-            <h3 className="step-title text-center">쿠폰 코드</h3>
-            <p className="text-center text-sm opacity-80">코드를 입력하면 엽전을 받을 수 있어요.</p>
+            <h3 className="step-title text-center">{t(lang, "shop.couponTitle")}</h3>
+            <p className="text-center text-sm opacity-80">{t(lang, "shop.couponHint")}</p>
             <input
               className="w-full rounded-2xl border-2 border-[var(--line-deep)] bg-[#fffdf8] px-4 py-3 text-center tracking-wider outline-none focus:border-[var(--gold-deep)]"
-              placeholder="쿠폰 코드"
+              placeholder={t(lang, "shop.couponPlaceholder")}
               value={couponCode}
               autoFocus
               autoCapitalize="characters"
@@ -133,10 +135,10 @@ export default function ShopScreen() {
             {couponMsg && <div className="text-center text-sm text-[var(--red)]">{couponMsg}</div>}
             <div className="grid grid-cols-2 gap-2">
               <Btn variant="cream" onClick={() => setCouponOpen(false)}>
-                취소
+                {t(lang, "common.cancel")}
               </Btn>
               <Btn variant="gold" sound={false} disabled={!couponCode.trim()} onClick={submitCoupon}>
-                사용하기
+                {t(lang, "shop.couponUse")}
               </Btn>
             </div>
           </div>

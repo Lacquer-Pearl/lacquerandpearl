@@ -278,12 +278,12 @@ export function gradeOf(total: number): Grade {
   return "D";
 }
 
-export const GRADE_INFO: Record<Grade, { label: string; color: string; rep: number; mult: number }> = {
-  S: { label: "명품", color: "#a8433b", rep: 40, mult: 1.5 },
-  A: { label: "수작", color: "#a65f62", rep: 25, mult: 1.2 },
-  B: { label: "양품", color: "#5b8a74", rep: 14, mult: 1 },
-  C: { label: "보통", color: "#66789a", rep: 6, mult: 0.75 },
-  D: { label: "아쉬움", color: "#8c8079", rep: 1, mult: 0.45 },
+export const GRADE_INFO: Record<Grade, { color: string; rep: number; mult: number }> = {
+  S: { color: "#a8433b", rep: 40, mult: 1.5 },
+  A: { color: "#a65f62", rep: 25, mult: 1.2 },
+  B: { color: "#5b8a74", rep: 14, mult: 1 },
+  C: { color: "#66789a", rep: 6, mult: 0.75 },
+  D: { color: "#8c8079", rep: 1, mult: 0.45 },
 };
 
 export function artworkValue(design: Design, total: number) {
@@ -294,22 +294,16 @@ export function artworkValue(design: Design, total: number) {
   return Math.round(base * bonus * (0.3 + (total / 100) * 1.1));
 }
 
-export function reactionFor(grade: Grade, isCommission: boolean) {
-  const lines: Record<Grade, string[]> = {
-    S: ["세상에… 이건 가보로 물려줘야겠어요!", "빛깔이 살아 숨 쉬는 것 같아요! 최고예요!"],
-    A: ["정말 아름다워요. 부탁드리길 잘했어요!", "자개가 영롱하게 반짝여요~"],
-    B: ["마음에 들어요. 잘 쓸게요!", "깔끔하게 잘 만들어 주셨네요."],
-    C: ["음… 조금 아쉽지만 괜찮아요.", "생각했던 거랑 살짝 달라요."],
-    D: ["이건… 다음엔 더 신경 써 주세요.", "옻칠이 고르지 않네요…"],
-  };
-  const pool = lines[grade];
-  return isCommission ? pick(pool) : pick(["공방에 전시해 두면 손님들이 좋아하겠어요!", "멋진 작품이 완성됐어요!"]);
-}
-
-export function titleFor(design: Design) {
+export function topMotif(design: Design): MotifId | "plain" {
   const counts = countMotifs(design.pieces);
   const top = (Object.entries(counts) as [MotifId, number][]).sort((a, b) => b[1] - a[1])[0];
-  const motifName = top ? MOTIFS[top[0]].name : "무문";
+  return top ? top[0] : "plain";
+}
+
+/** @deprecated 표시용 제목은 i18n.artworkTitle 사용 */
+export function titleFor(design: Design) {
+  const motif = topMotif(design);
+  const motifName = motif === "plain" ? "무문" : MOTIFS[motif].name;
   const lac = LACQUER_LIST.find((l) => l.id === design.lacquer)!.name;
   return `${lac} ${motifName}문 ${SHAPES[design.shape].name}`;
 }

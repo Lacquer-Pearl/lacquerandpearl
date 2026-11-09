@@ -12,9 +12,10 @@ import Artwork, {
   pieceTransform,
 } from "@/components/Artwork";
 import { Btn, Meter } from "@/components/ui";
-import { MOTIFS } from "@/lib/data";
 import { piecePearl, type Design, type PlacedPiece } from "@/lib/game";
+import { motifName, t, tNode } from "@/lib/i18n";
 import { sfx } from "@/lib/sound";
+import { useSave } from "@/lib/store";
 import { StepHeader } from "./common";
 
 const SNAP = 30;
@@ -27,6 +28,7 @@ export default function AttachStep({
   design: Design;
   onDone: (score: number, placed: PlacedPiece[]) => void;
 }) {
+  const lang = useSave((s) => s.lang);
   const [placed, setPlaced] = useState<PlacedPiece[]>([]);
   const [current, setCurrent] = useState(0);
   const [drag, setDrag] = useState<{ x: number; y: number } | null>(null);
@@ -58,13 +60,13 @@ export default function AttachStep({
     if (!piece) return;
     const d = Math.hypot(p.x - piece.x, p.y - piece.y);
     if (d > SNAP) {
-      setMsg("밑그림 가까이에 놓아 주세요!");
+      setMsg(t(lang, "attach.near"));
       sfx.fail();
       setTimeout(() => setMsg(null), 900);
       return;
     }
     if (glue <= 0) {
-      setMsg("아교가 말라버렸어요! 🍯 다시 발라 주세요");
+      setMsg(t(lang, "attach.dry"));
       sfx.fail();
       setTimeout(() => setMsg(null), 1200);
       return;
@@ -73,7 +75,7 @@ export default function AttachStep({
     const s = acc * 75 + Math.min(1, glue * 1.4) * 25;
     scores.current.push(s);
     sfx.place();
-    setMsg(d < 6 ? "딱 맞아요! ✨" : d < 15 ? "좋아요!" : "살짝 비뚤어졌어요");
+    setMsg(d < 6 ? t(lang, "attach.perfect") : d < 15 ? t(lang, "attach.ok") : t(lang, "attach.skew"));
     setTimeout(() => setMsg(null), 700);
     const next = [...placed, { ...piece, x: p.x, y: p.y }];
     setPlaced(next);
@@ -91,9 +93,8 @@ export default function AttachStep({
 
   return (
     <div className="flex flex-col gap-3 select-none">
-      <StepHeader title="아교 바르고 자개 붙이기" emoji="🍯">
-        아교는 금방 마른단다! 자개를 <b>점선 밑그림 위로 끌어다</b> 놓으렴. 아교가 마르기 전에 붙여야 단단히
-        붙는단다.
+      <StepHeader title={t(lang, "attach.title")} emoji="🍯">
+        {tNode(lang, "attach.tip", { b: <b>{t(lang, "attach.tipB")}</b> })}
       </StepHeader>
       <div
         className="workbench relative"
@@ -177,7 +178,9 @@ export default function AttachStep({
           </div>
           <div className="flex flex-1 flex-col gap-1">
             <div className="text-sm text-[var(--brown)]">
-              {piece ? `${MOTIFS[piece.motif].name} 조각 (${current + 1}/${total})` : "모두 붙였어요!"}
+              {piece
+                ? t(lang, "attach.piece", { name: motifName(lang, piece.motif), n: current + 1, max: total })
+                : t(lang, "attach.all")}
             </div>
             <Meter value={glue} color={glue > 0.4 ? "var(--gold)" : "var(--red)"} />
           </div>
@@ -192,7 +195,7 @@ export default function AttachStep({
               sfx.bubble();
             }}
           >
-            🍯 다시
+            {t(lang, "attach.reglue")}
           </Btn>
         </div>
       </div>

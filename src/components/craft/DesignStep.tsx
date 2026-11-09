@@ -10,7 +10,6 @@ import {
   MATERIALS,
   MOTIFS,
   PATTERN_MOTIFS,
-  PEARLS,
   PEARL_LIST,
   SHAPE_LIST,
   SHAPE_MOTIFS,
@@ -30,6 +29,15 @@ import {
   type Design,
   type PlacedPiece,
 } from "@/lib/game";
+import {
+  lacquerName,
+  materialName,
+  motifMeaning,
+  motifName,
+  pearlName,
+  shapeName,
+  t,
+} from "@/lib/i18n";
 import { sfx } from "@/lib/sound";
 import { costFor, useSave, useUI } from "@/lib/store";
 import { StepHeader } from "./common";
@@ -54,6 +62,7 @@ export default function DesignStep({
   useEffect(() => {
     piecesRef.current = design.pieces;
   }, [design.pieces]);
+  const lang = useSave((s) => s.lang);
   const inventory = useSave((s) => s.inventory);
   const missingFor = useSave((s) => s.missingFor);
   const go = useUI((s) => s.go);
@@ -102,30 +111,26 @@ export default function DesignStep({
 
   return (
     <div className="flex flex-col gap-3">
-      <StepHeader title="디자인하기" emoji="✏️">
-        {commission ? (
-          <>손님의 주문서를 잘 보고 문양을 배치해 보렴. 요구한 문양과 개수를 맞추면 손님이 기뻐하실 게다.</>
-        ) : (
-          <>마음 가는 대로 꾸며 보렴. 문양을 눌러 추가하고, 끌어서 옮길 수 있단다. 자개 종류는 조각마다 고를 수 있단다.</>
-        )}
+      <StepHeader title={t(lang, "design.title")} emoji="✏️">
+        {commission ? <>{t(lang, "design.tipCommission")}</> : <>{t(lang, "design.tipFree")}</>}
       </StepHeader>
 
       {commission && (
         <div className="panel flex flex-wrap items-center gap-2 py-2 text-sm">
-          <b className="text-[var(--brown)]">📜 주문서</b>
-          <span className="chip">{SHAPE_LIST.find((s) => s.id === commission.shape)!.name}</span>
+          <b className="text-[var(--brown)]">{t(lang, "design.order")}</b>
+          <span className="chip">{shapeName(lang, commission.shape)}</span>
           <span className={`chip ${design.lacquer === commission.lacquer ? "chip-ok" : ""}`}>
             <span className="swatch" style={{ background: LACQUERS[commission.lacquer].color }} />
-            {LACQUERS[commission.lacquer].name}
+            {lacquerName(lang, commission.lacquer)}
           </span>
           {commission.pearl && (
             <span className={`chip ${pearlShare(design, commission.pearl) >= 0.5 ? "chip-ok" : ""}`}>
-              <NacreSwatch pearl={commission.pearl} className="swatch" /> {PEARLS[commission.pearl].name}
+              <NacreSwatch pearl={commission.pearl} className="swatch" /> {pearlName(lang, commission.pearl)}
             </span>
           )}
           {(Object.entries(commission.motifs) as [MotifId, number][]).map(([m, n]) => (
             <span key={m} className={`chip ${(counts[m] ?? 0) === n ? "chip-ok" : ""}`}>
-              <MotifIcon motif={m} className="h-5 w-5" /> {MOTIFS[m].name} {counts[m] ?? 0}/{n}
+              <MotifIcon motif={m} className="h-5 w-5" /> {motifName(lang, m)} {counts[m] ?? 0}/{n}
             </span>
           ))}
         </div>
@@ -171,7 +176,7 @@ export default function DesignStep({
           <div className="flex items-center justify-between gap-1">
             <span className="flex items-center gap-1 text-sm text-[var(--brown)]">
               <MotifIcon motif={sel.motif} pearl={piecePearl(sel, design)} className="h-6 w-6" />
-              {MOTIFS[sel.motif].name}
+              {motifName(lang, sel.motif)}
             </span>
             <div className="flex gap-1">
               <Btn size="sm" variant="cream" onClick={() => patch(sel.id, (p) => ({ ...p, r: turnPiece(p.r, -1) }))}>
@@ -205,7 +210,7 @@ export default function DesignStep({
                   setSelected(c.id);
                 }}
               >
-                {MOTIFS[sel.motif].tile ? "이어 붙이기" : "복제"}
+                {MOTIFS[sel.motif].tile ? t(lang, "design.chain") : t(lang, "design.dup")}
               </Btn>
               <Btn
                 size="sm"
@@ -220,12 +225,12 @@ export default function DesignStep({
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-xs text-[var(--brown-light)]">이 조각의 자개</span>
+            <span className="text-xs text-[var(--brown-light)]">{t(lang, "design.pieceShell")}</span>
             {PEARL_LIST.map((p) => (
               <button
                 key={p.id}
                 className={`pearl-pick ${piecePearl(sel, design) === p.id ? "on" : ""}`}
-                title={p.name}
+                title={pearlName(lang, p.id)}
                 onClick={() => {
                   sfx.click();
                   patch(sel.id, (pc) => ({ ...pc, pearl: p.id }));
@@ -240,24 +245,24 @@ export default function DesignStep({
 
       <div className="panel flex flex-col gap-3 py-3">
         <div>
-          <div className="label">모양 문양 ({design.pieces.length}/{MAX_PIECES})</div>
+          <div className="label">{t(lang, "design.motifs", { n: design.pieces.length, max: MAX_PIECES })}</div>
           <div className="grid grid-cols-4 gap-2">
             {SHAPE_MOTIFS.map((m) => (
-              <button key={m.id} className="motif-btn" onClick={() => addMotif(m.id)} title={m.meaning}>
+              <button key={m.id} className="motif-btn" onClick={() => addMotif(m.id)} title={motifMeaning(lang, m.id)}>
                 <MotifIcon motif={m.id} pearl={design.pearl} className="h-9 w-9" />
-                <span>{m.name}</span>
+                <span>{motifName(lang, m.id)}</span>
               </button>
             ))}
           </div>
         </div>
 
         <div>
-          <div className="label">패턴 문양 · 이웃에 이어 붙여 면을 채워요</div>
+          <div className="label">{t(lang, "design.patternMotifs")}</div>
           <div className="grid grid-cols-4 gap-2">
             {PATTERN_MOTIFS.map((m) => (
-              <button key={m.id} className="motif-btn" onClick={() => addMotif(m.id)} title={m.meaning}>
+              <button key={m.id} className="motif-btn" onClick={() => addMotif(m.id)} title={motifMeaning(lang, m.id)}>
                 <MotifIcon motif={m.id} pearl={design.pearl} className="h-9 w-9" />
-                <span>{m.name}</span>
+                <span>{motifName(lang, m.id)}</span>
               </button>
             ))}
           </div>
@@ -265,7 +270,7 @@ export default function DesignStep({
 
         {!commission && (
           <div>
-            <div className="label">백골 모양</div>
+            <div className="label">{t(lang, "design.shape")}</div>
             <div className="grid grid-cols-4 gap-2">
               {SHAPE_LIST.map((s) => (
                 <button
@@ -279,7 +284,7 @@ export default function DesignStep({
                   <svg viewBox="0 0 300 300" className="h-8 w-8">
                     <path d={s.path} fill="#a77c52" />
                   </svg>
-                  <span>{s.name}</span>
+                  <span>{shapeName(lang, s.id)}</span>
                 </button>
               ))}
             </div>
@@ -287,7 +292,7 @@ export default function DesignStep({
         )}
 
         <div>
-          <div className="label">옻칠 색</div>
+          <div className="label">{t(lang, "design.lacquer")}</div>
           <div className="grid grid-cols-4 gap-2">
             {LACQUER_LIST.map((l) => (
               <button
@@ -299,14 +304,14 @@ export default function DesignStep({
                 }}
               >
                 <span className="swatch lg" style={{ background: `radial-gradient(circle at 35% 30%, ${l.light}, ${l.color})` }} />
-                <span>{l.name}</span>
+                <span>{lacquerName(lang, l.id)}</span>
               </button>
             ))}
           </div>
         </div>
 
         <div>
-          <div className="label">새로 놓을 자개</div>
+          <div className="label">{t(lang, "design.newPearl")}</div>
           <div className="grid grid-cols-2 gap-2">
             {PEARL_LIST.map((p) => (
               <button
@@ -319,9 +324,9 @@ export default function DesignStep({
               >
                 <NacreSwatch pearl={p.id} className="swatch lg shrink-0" />
                 <span className="text-left">
-                  {p.name}
+                  {pearlName(lang, p.id)}
                   <br />
-                  <small>보유 {inventory[p.material]}조각</small>
+                  <small>{t(lang, "design.owned", { n: inventory[p.material] })}</small>
                 </span>
               </button>
             ))}
@@ -330,19 +335,19 @@ export default function DesignStep({
       </div>
 
       <div className="panel py-3">
-        <div className="label">필요한 재료</div>
+        <div className="label">{t(lang, "design.materials")}</div>
         <div className="grid grid-cols-3 gap-1.5 text-sm">
           {(Object.entries(cost) as [MaterialId, number][]).map(([k, n]) => (
             <div key={k} className={`mat ${inventory[k] < n ? "lack" : ""}`}>
-              {MATERIALS[k].emoji} {MATERIALS[k].name.split(" ")[0]} {inventory[k]}/{n}
+              {MATERIALS[k].emoji} {lang === "ko" ? materialName(lang, k).split(" ")[0] : materialName(lang, k)} {inventory[k]}/{n}
             </div>
           ))}
         </div>
         {missing.length > 0 && (
           <div className="mt-2 flex items-center justify-between gap-2 text-sm text-[var(--red)]">
-            재료가 부족해요!
+            {t(lang, "design.lack")}
             <Btn size="sm" variant="gold" onClick={() => go("shop")}>
-              🛒 상점 가기
+              {t(lang, "design.goShop")}
             </Btn>
           </div>
         )}
@@ -354,7 +359,7 @@ export default function DesignStep({
         disabled={design.pieces.length === 0 || missing.length > 0}
         onClick={onStart}
       >
-        {design.pieces.length === 0 ? "자개 문양을 하나 이상 배치해 주세요" : "디자인 완성! 제작 시작 🔨"}
+        {design.pieces.length === 0 ? t(lang, "design.needMotif") : t(lang, "design.start")}
       </Btn>
     </div>
   );

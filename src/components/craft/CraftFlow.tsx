@@ -11,7 +11,7 @@ import {
   scoreCraft,
   scoreDesign,
   STEP_INFO,
-  titleFor,
+  topMotif,
   uid,
   type Artwork as ArtworkT,
   type Design,
@@ -19,6 +19,7 @@ import {
   type StepId,
   type StepScores,
 } from "@/lib/game";
+import { artworkTitle, lacquerName, stepName, t, tNode, type Locale } from "@/lib/i18n";
 import { sfx } from "@/lib/sound";
 import { useSave, useUI } from "@/lib/store";
 import AttachStep from "./AttachStep";
@@ -31,18 +32,13 @@ import PeelStep from "./PeelStep";
 
 const STEPS: ("design" | StepId)[] = ["design", "cloth", "lacquer", "dry", "cut", "attach", "iron", "peel", "fill", "sand"];
 
-function paintDefs(design: Design): Record<"cloth" | "lacquer" | "iron" | "fill" | "sand", PaintStepDef> {
+function paintDefs(design: Design, lang: Locale): Record<"cloth" | "lacquer" | "iron" | "fill" | "sand", PaintStepDef> {
   const lac = LACQUERS[design.lacquer];
   return {
     cloth: {
-      title: "백골에 삼베 바르기",
+      title: t(lang, "cloth.title"),
       emoji: "🧵",
-      tip: (
-        <>
-          나무 틀(백골)에 생칠을 먹이고 <b>삼베</b>를 붙이면 나무가 뒤틀리거나 갈라지지 않는단다. 빈틈없이
-          골고루 덮어 보렴.
-        </>
-      ),
+      tip: <>{tNode(lang, "cloth.tip", { b: <b>{t(lang, "cloth.tipB")}</b> })}</>,
       config: {
         brushRadius: 28,
         passAmount: 1,
@@ -56,17 +52,19 @@ function paintDefs(design: Design): Record<"cloth" | "lacquer" | "iron" | "fill"
         sound: "brush",
         tool: "spatula",
       },
-      goodLabel: "삼베로 덮은 면적",
+      goodLabel: t(lang, "cloth.good"),
       minTouched: 0.35,
       score: (s) => s.inRange * 108,
     },
     lacquer: {
-      title: `${lac.name} 하기`,
+      title: t(lang, "lacquer.title", { name: lacquerName(lang, design.lacquer) }),
       emoji: "🖌️",
       tip: (
         <>
-          옻칠은 <b>얇고 고르게</b>가 생명이란다. 두 번쯤 겹쳐 칠하면 딱 좋지만, 한곳만 너무 칠하면{" "}
-          <b>흘러내려</b> 자국이 남는단다.
+          {tNode(lang, "lacquer.tip", {
+            b1: <b>{t(lang, "lacquer.tipB1")}</b>,
+            b2: <b>{t(lang, "lacquer.tipB2")}</b>,
+          })}
         </>
       ),
       config: {
@@ -82,18 +80,20 @@ function paintDefs(design: Design): Record<"cloth" | "lacquer" | "iron" | "fill"
         sound: "brush",
         tool: "brush",
       },
-      goodLabel: "고르게 칠한 면적",
-      overLabel: "흘러내린 곳",
+      goodLabel: t(lang, "lacquer.good"),
+      overLabel: t(lang, "lacquer.over"),
       minTouched: 0.4,
       score: (s) => s.inRange * 112 - s.over * 160,
     },
     iron: {
-      title: "유산지 대고 다림질",
+      title: t(lang, "iron.title"),
       emoji: "♨️",
       tip: (
         <>
-          자개 위에 유산지를 덮고 인두로 <b>골고루</b> 눌러 주렴. 그래야 자개가 바닥에 착 달라붙는단다. 한곳에
-          오래 대면 <b>눌어붙어</b> 버린단다!
+          {tNode(lang, "iron.tip", {
+            b1: <b>{t(lang, "iron.tipB1")}</b>,
+            b2: <b>{t(lang, "iron.tipB2")}</b>,
+          })}
         </>
       ),
       config: {
@@ -110,20 +110,15 @@ function paintDefs(design: Design): Record<"cloth" | "lacquer" | "iron" | "fill"
         sound: "iron",
         tool: "iron",
       },
-      goodLabel: "고르게 다린 면적",
-      overLabel: "눌은 자국",
+      goodLabel: t(lang, "iron.good"),
+      overLabel: t(lang, "iron.over"),
       minTouched: 0.4,
       score: (s) => s.inRange * 110 - s.over * 150,
     },
     fill: {
-      title: "메움칠",
+      title: t(lang, "fill.title"),
       emoji: "🫙",
-      tip: (
-        <>
-          붙인 자개 위까지 옻칠을 <b>한 번 더 덮어</b> 틈을 메우는 거란다. 자개가 안 보여도 걱정 말렴, 나중에
-          갈아내면 다시 나타난단다.
-        </>
-      ),
+      tip: <>{tNode(lang, "fill.tip", { b: <b>{t(lang, "fill.tipB")}</b> })}</>,
       config: {
         brushRadius: 22,
         passAmount: 0.65,
@@ -137,18 +132,20 @@ function paintDefs(design: Design): Record<"cloth" | "lacquer" | "iron" | "fill"
         sound: "brush",
         tool: "brush",
       },
-      goodLabel: "메운 면적",
-      overLabel: "뭉친 곳",
+      goodLabel: t(lang, "fill.good"),
+      overLabel: t(lang, "fill.over"),
       minTouched: 0.4,
       score: (s) => s.inRange * 108 - s.over * 90,
     },
     sand: {
-      title: "갈아내기 (연마)",
+      title: t(lang, "sand.title"),
       emoji: "✨",
       tip: (
         <>
-          숫돌로 살살 갈아내면 덮였던 자개가 <b>영롱하게</b> 드러난단다. 하지만 <b>너무 많이 갈면</b> 자개 광택이
-          죽어 버리니 적당히 멈추렴!
+          {tNode(lang, "sand.tip", {
+            b1: <b>{t(lang, "sand.tipB1")}</b>,
+            b2: <b>{t(lang, "sand.tipB2")}</b>,
+          })}
         </>
       ),
       config: {
@@ -165,8 +162,8 @@ function paintDefs(design: Design): Record<"cloth" | "lacquer" | "iron" | "fill"
         sound: "sand",
         tool: "stone",
       },
-      goodLabel: "알맞게 갈아낸 면적",
-      overLabel: "너무 갈아낸 곳",
+      goodLabel: t(lang, "sand.good"),
+      overLabel: t(lang, "sand.over"),
       minTouched: 0.4,
       score: (s) => s.inRange * 112 - s.over * 170,
     },
@@ -193,14 +190,15 @@ function WetSheen({ shape }: { shape: Design["shape"] }) {
   );
 }
 
-function cheer(score: number) {
-  if (score >= 90) return "완벽해요! 🌟";
-  if (score >= 75) return "훌륭해요! ✨";
-  if (score >= 55) return "좋아요! 👍";
-  return "다음엔 더 잘할 수 있어요 💪";
+function cheer(lang: Locale, score: number) {
+  if (score >= 90) return t(lang, "craft.cheer90");
+  if (score >= 75) return t(lang, "craft.cheer75");
+  if (score >= 55) return t(lang, "craft.cheer55");
+  return t(lang, "craft.cheerLow");
 }
 
 export default function CraftFlow() {
+  const lang = useSave((s) => s.lang);
   const commission = useUI((s) => s.commission);
   const draft = useUI((s) => s.draft);
   const setDraft = useUI((s) => s.setDraft);
@@ -230,7 +228,7 @@ export default function CraftFlow() {
 
   const step = STEPS[stepIdx];
   const built: Design = { ...design, pieces: placed };
-  const defs = paintDefs(design);
+  const defs = paintDefs(design, lang);
 
   const complete = useCallback(() => {
     const d: Design = { ...design, pieces: placedRef.current };
@@ -253,13 +251,13 @@ export default function CraftFlow() {
       earned: commission ? Math.round(commission.reward * GRADE_INFO[grade].mult) : 0,
       value: artworkValue(d, total),
       sold: !!commission,
-      title: titleFor(d),
+      title: artworkTitle(lang, d.shape, d.lacquer, topMotif(d)),
       gloss: 0.25 + (sand / 100) * 0.6,
       dull: Math.min(0.7, (sandStats.current?.over ?? 0) * 2.5),
     };
     finishArtwork(art, Math.round(GRADE_INFO[grade].rep * (commission ? 1 : 0.5)));
     showResult(art);
-  }, [design, commission, finishArtwork, showResult]);
+  }, [design, commission, finishArtwork, showResult, lang]);
 
   const stepRef = useRef(step);
   const completeRef = useRef(complete);
@@ -271,7 +269,7 @@ export default function CraftFlow() {
   const onStepDone = useCallback((score: number) => {
     const id = stepRef.current as StepId;
     scores.current[id] = score;
-    setToast({ score, label: cheer(score) });
+    setToast({ score, label: cheer(lang, score) });
     if (score >= 75) sfx.success();
     else sfx.pop();
     setTimeout(() => {
@@ -279,7 +277,7 @@ export default function CraftFlow() {
       if (id === "sand") completeRef.current();
       else setStepIdx((i) => i + 1);
     }, 1500);
-  }, []);
+  }, [lang]);
 
   const onAttachDone = useCallback(
     (score: number, p: PlacedPiece[]) => {
@@ -301,7 +299,7 @@ export default function CraftFlow() {
   return (
     <div className="screen">
       <TopBar
-        title={commission ? "의뢰 제작" : "자유 디자인"}
+        title={commission ? t(lang, "craft.commission") : t(lang, "craft.free")}
         onBack={() => {
           if (stepIdx === 0) {
             setDraft(undefined);
@@ -311,7 +309,7 @@ export default function CraftFlow() {
       />
       <div className="steps-bar">
         {STEPS.map((s, i) => (
-          <div key={s} className={`step-dot ${i < stepIdx ? "done" : i === stepIdx ? "now" : ""}`} title={s === "design" ? "디자인" : STEP_INFO[s].name}>
+          <div key={s} className={`step-dot ${i < stepIdx ? "done" : i === stepIdx ? "now" : ""}`} title={stepName(lang, s)}>
             {s === "design" ? "✏️" : STEP_INFO[s].emoji}
           </div>
         ))}
@@ -393,13 +391,13 @@ export default function CraftFlow() {
           <div className="flex flex-col gap-3 text-center">
             <div className="text-5xl">😢</div>
             <p className="text-lg text-[var(--brown)]">
-              작업을 그만둘까요?
+              {t(lang, "craft.quitAsk")}
               <br />
-              <small>이미 사용한 재료는 돌려받을 수 없어요.</small>
+              <small>{t(lang, "craft.quitWarn")}</small>
             </p>
             <div className="grid grid-cols-2 gap-2">
               <Btn variant="cream" onClick={() => setConfirmExit(false)}>
-                계속하기
+                {t(lang, "craft.continue")}
               </Btn>
               <Btn
                 variant="pink"
@@ -408,7 +406,7 @@ export default function CraftFlow() {
                   go("title");
                 }}
               >
-                그만두기
+                {t(lang, "craft.quit")}
               </Btn>
             </div>
           </div>

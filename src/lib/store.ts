@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { CRAFT_COST, MATERIALS, MOTIF_LIST, PEARLS, type MaterialId, type MotifId, type PearlId } from "./data";
 import { generateCommission, pearlCost, type Artwork, type Commission, type Design } from "./game";
+import type { Locale } from "./i18n";
 
 export type Inventory = Record<MaterialId, number>;
 
@@ -26,6 +27,7 @@ interface SaveState {
   gallery: Artwork[];
   muted: boolean;
   musicOn: boolean;
+  lang: Locale;
   tutorialSeen: boolean;
   realCraftInterest: string[];
   redeemedCoupons: string[];
@@ -40,6 +42,7 @@ interface SaveState {
   sellArtwork: (id: string) => void;
   setMuted: (m: boolean) => void;
   setMusic: (m: boolean) => void;
+  setLang: (lang: Locale) => void;
   setTutorialSeen: () => void;
   toggleInterest: (id: string) => void;
   resetSave: () => void;
@@ -63,6 +66,7 @@ const initial = {
   gallery: [] as Artwork[],
   muted: false,
   musicOn: true,
+  lang: "ko" as Locale,
   tutorialSeen: false,
   realCraftInterest: [] as string[],
   redeemedCoupons: [] as string[],
@@ -143,6 +147,7 @@ export const useSave = create<SaveState>()(
 
       setMuted: (muted) => set({ muted }),
       setMusic: (musicOn) => set({ musicOn }),
+      setLang: (lang) => set({ lang }),
       setTutorialSeen: () => set({ tutorialSeen: true }),
       toggleInterest: (id) => {
         const list = get().realCraftInterest;
@@ -160,9 +165,11 @@ export const useSave = create<SaveState>()(
       merge: (persisted, current) => {
         const p = persisted as Partial<SaveState> | undefined;
         const listed = new Set(MOTIF_LIST.map((m) => m.id));
+        const lang = p?.lang === "en" || p?.lang === "ko" ? p.lang : current.lang;
         return {
           ...current,
           ...p,
+          lang,
           inventory: { ...START_INVENTORY, ...p?.inventory },
           commissions: (p?.commissions ?? current.commissions).filter((c) =>
             Object.keys(c.motifs).every((m) => listed.has(m as MotifId)),
@@ -177,6 +184,7 @@ export const useSave = create<SaveState>()(
         gallery: s.gallery,
         muted: s.muted,
         musicOn: s.musicOn,
+        lang: s.lang,
         tutorialSeen: s.tutorialSeen,
         realCraftInterest: s.realCraftInterest,
         redeemedCoupons: s.redeemedCoupons,

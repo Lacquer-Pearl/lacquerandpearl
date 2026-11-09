@@ -5,10 +5,13 @@ import Artwork from "@/components/Artwork";
 import { Btn, Meter } from "@/components/ui";
 import { SHAPES } from "@/lib/data";
 import type { Design } from "@/lib/game";
+import { t, tNode } from "@/lib/i18n";
 import { loopLevel, sfx, startLoop, stopLoop } from "@/lib/sound";
+import { useSave } from "@/lib/store";
 import { StepHeader } from "./common";
 
 export default function PeelStep({ design, onDone }: { design: Design; onDone: (score: number) => void }) {
+  const lang = useSave((s) => s.lang);
   const [progress, setProgress] = useState(0);
   const [wet, setWet] = useState(false);
   const [lifts, setLifts] = useState(0);
@@ -46,7 +49,7 @@ export default function PeelStep({ design, onDone }: { design: Design; onDone: (
       sfx.crack();
       setShake(true);
       setTimeout(() => setShake(false), 350);
-      setMsg(wet ? "앗, 자개가 들떴어요! 천천히~" : "종이가 말라서 자개가 같이 들려요! 물을 먼저 적셔 보세요");
+      setMsg(wet ? t(lang, "peel.warnWet") : t(lang, "peel.warnDry"));
       setTimeout(() => setMsg(null), 1300);
     }
     s.p = Math.min(1, s.p + dy / 260);
@@ -64,8 +67,11 @@ export default function PeelStep({ design, onDone }: { design: Design; onDone: (
 
   return (
     <div className="flex flex-col gap-3">
-      <StepHeader title="종이 떼기" emoji="📜">
-        자개를 고정했던 유산지를 떼어낼 차례란다. <b>물을 살짝 적시고</b>, 위에서 아래로 <b>천천히</b> 쓸어내리렴.
+      <StepHeader title={t(lang, "peel.title")} emoji="📜">
+        {tNode(lang, "peel.tip", {
+          b1: <b>{t(lang, "peel.tipB1")}</b>,
+          b2: <b>{t(lang, "peel.tipB2")}</b>,
+        })}
       </StepHeader>
       <div className={`workbench relative ${shake ? "shake" : ""}`}>
         <div
@@ -119,7 +125,7 @@ export default function PeelStep({ design, onDone }: { design: Design; onDone: (
           color="var(--gold)"
           label={
             <>
-              <span>떼어낸 정도</span>
+              <span>{t(lang, "peel.progress")}</span>
               <span>{Math.round(progress * 100)}%</span>
             </>
           }
@@ -130,8 +136,8 @@ export default function PeelStep({ design, onDone }: { design: Design; onDone: (
           color={speed > limit ? "var(--red)" : "var(--mint-deep)"}
           label={
             <>
-              <span>떼는 속도</span>
-              <span>들뜬 자개 {lifts}</span>
+              <span>{t(lang, "peel.speed")}</span>
+              <span>{t(lang, "peel.lifts", { n: lifts })}</span>
             </>
           }
         />
@@ -146,7 +152,7 @@ export default function PeelStep({ design, onDone }: { design: Design; onDone: (
           setTimeout(sfx.bubble, 120);
         }}
       >
-        {wet ? "💦 촉촉하게 적셨어요" : "💦 물 적시기"}
+        {wet ? t(lang, "peel.wetDone") : t(lang, "peel.wet")}
       </Btn>
     </div>
   );

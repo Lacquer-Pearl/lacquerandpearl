@@ -3,32 +3,42 @@
 import { useRef, useState } from "react";
 import Artwork from "@/components/Artwork";
 import { Btn, Coin, Modal, TopBar } from "@/components/ui";
-import { CUSTOMERS, workshopTitle } from "@/lib/data";
-import { GRADE_INFO, type Artwork as ArtworkT } from "@/lib/game";
+import { GRADE_INFO, topMotif, type Artwork as ArtworkT } from "@/lib/game";
+import {
+  artworkTitle,
+  customerName,
+  gradeLabel,
+  rankTitle,
+  t,
+} from "@/lib/i18n";
 import { saveArtworkImage } from "@/lib/exportImage";
 import { sfx } from "@/lib/sound";
 import { useSave, useUI } from "@/lib/store";
+
+function localizedTitle(lang: Parameters<typeof artworkTitle>[0], art: ArtworkT) {
+  return artworkTitle(lang, art.design.shape, art.design.lacquer, topMotif(art.design));
+}
 
 export default function GalleryScreen() {
   const back = useUI((s) => s.back);
   const gallery = useSave((s) => s.gallery);
   const rep = useSave((s) => s.reputation);
+  const lang = useSave((s) => s.lang);
   const [open, setOpen] = useState<ArtworkT | null>(null);
   const current = open ? gallery.find((a) => a.id === open.id) ?? open : null;
 
   return (
     <div className="screen">
-      <TopBar title="🏯 나의 공방" onBack={back} />
+      <TopBar title={t(lang, "gallery.title")} onBack={back} />
       <div className="screen-body">
         <div className="workshop-sign">
-          <div className="text-sm opacity-80">{workshopTitle(rep)}의</div>
-          <div className="text-2xl">나전칠기 공방</div>
+          <div className="text-sm opacity-80">{t(lang, "gallery.of", { rank: rankTitle(lang, rep) })}</div>
+          <div className="text-2xl">{t(lang, "gallery.name")}</div>
         </div>
         {gallery.length === 0 ? (
-          <div className="panel py-10 text-center text-[var(--brown)]">
+          <div className="panel py-10 text-center text-[var(--brown)] whitespace-pre-line">
             <div className="text-5xl">🪵</div>
-            아직 전시된 작품이 없어요.
-            <br />첫 작품을 만들어 보세요!
+            {t(lang, "gallery.empty")}
           </div>
         ) : (
           <div className="shelf grid grid-cols-2 gap-3">
@@ -47,13 +57,17 @@ export default function GalleryScreen() {
                 <span className="art-grade" style={{ background: GRADE_INFO[a.grade].color }}>
                   {a.grade}
                 </span>
-                <span className="truncate text-sm">{a.title}</span>
+                <span className="truncate text-sm">{localizedTitle(lang, a)}</span>
                 {a.commissionId ? (
-                  <span className="text-xs opacity-70">납품 완료 · {CUSTOMERS[a.customer ?? 0].name}</span>
+                  <span className="text-xs opacity-70">
+                    {t(lang, "gallery.delivered", { name: customerName(lang, a.customer ?? 0) })}
+                  </span>
                 ) : a.sold ? (
-                  <span className="text-xs opacity-70">판매 완료</span>
+                  <span className="text-xs opacity-70">{t(lang, "gallery.sold")}</span>
                 ) : (
-                  <span className="text-xs opacity-70">전시 중 · 감정가 {a.value}</span>
+                  <span className="text-xs opacity-70">
+                    {t(lang, "gallery.onDisplay", { value: a.value })}
+                  </span>
                 )}
               </button>
             ))}
@@ -70,8 +84,12 @@ function ArtDetail({ art, onClose }: { art: ArtworkT; onClose: () => void }) {
   const sell = useSave((s) => s.sellArtwork);
   const interest = useSave((s) => s.realCraftInterest.includes(art.id));
   const toggleInterest = useSave((s) => s.toggleInterest);
+  const lang = useSave((s) => s.lang);
   const [msg, setMsg] = useState<string | null>(null);
   const g = GRADE_INFO[art.grade];
+  const title = localizedTitle(lang, art);
+  const label = gradeLabel(lang, art.grade);
+  const localeTag = lang === "en" ? "en-US" : "ko-KR";
 
   return (
     <Modal onClose={onClose}>
@@ -80,12 +98,13 @@ function ArtDetail({ art, onClose }: { art: ArtworkT; onClose: () => void }) {
           <Artwork svgRef={svgRef} design={art.design} gloss={art.gloss} dull={art.dull} className="aspect-square w-full" />
         </div>
         <div className="text-center">
-          <h3 className="step-title">{art.title}</h3>
+          <h3 className="step-title">{title}</h3>
           <div className="text-sm text-[var(--brown)]">
             <b style={{ color: g.color }}>
-              {art.grade} {g.label}
+              {art.grade} {label}
             </b>{" "}
-            · {art.total}점 · {new Date(art.createdAt).toLocaleDateString("ko-KR")}
+            · {art.total}
+            {lang === "ko" ? "점" : " pts"} · {new Date(art.createdAt).toLocaleDateString(localeTag)}
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2">
@@ -93,11 +112,15 @@ function ArtDetail({ art, onClose }: { art: ArtworkT; onClose: () => void }) {
             variant="lavender"
             onClick={async () => {
               if (!svgRef.current) return;
-              const r = await saveArtworkImage(svgRef.current, art.title, `${art.grade} ${g.label} · ${art.total}점`);
-              setMsg(r === "shared" ? "공유했어요!" : "이미지를 저장했어요!");
+              const r = await saveArtworkImage(
+                svgRef.current,
+                title,
+                `${art.grade} ${label} · ${art.total}${lang === "ko" ? "점" : " pts"}`,
+              );
+              setMsg(t(lang, r === "shared" ? "gallery.shared" : "gallery.saved"));
             }}
           >
-            📸 자랑하기
+            {t(lang, "gallery.share")}
           </Btn>
           {!art.sold ? (
             <Btn
@@ -106,34 +129,32 @@ function ArtDetail({ art, onClose }: { art: ArtworkT; onClose: () => void }) {
               onClick={() => {
                 sell(art.id);
                 sfx.coin();
-                setMsg(`${art.value}냥에 판매했어요!`);
+                setMsg(t(lang, "gallery.soldToast", { n: art.value }));
               }}
             >
-              <Coin /> {art.value} 판매
+              <Coin /> {art.value} {t(lang, "gallery.sell")}
             </Btn>
           ) : (
             <Btn variant="cream" disabled>
-              {art.commissionId ? "납품 완료" : "판매 완료"}
+              {art.commissionId ? t(lang, "gallery.deliveredDone") : t(lang, "gallery.sold")}
             </Btn>
           )}
         </div>
         <div className="rounded-2xl bg-[#f6ece6] p-3 text-sm text-[var(--brown)]">
-          <b>✨ 실물로 갖고 싶나요?</b>
-          <p className="mt-1 opacity-80">
-            이 디자인 그대로 실제 나전칠기 장인 공방에서 제작해 드리는 서비스를 준비하고 있어요.
-          </p>
+          <b>{t(lang, "gallery.interestTitle")}</b>
+          <p className="mt-1 opacity-80">{t(lang, "gallery.interestBody")}</p>
           <Btn
             className="mt-2 w-full"
             variant={interest ? "mint" : "pink"}
             size="sm"
             onClick={() => toggleInterest(art.id)}
           >
-            {interest ? "💌 관심 등록 완료! (다시 누르면 취소)" : "❤️ 실물 제작 관심 있어요"}
+            {t(lang, interest ? "gallery.interestOn" : "gallery.interestOff")}
           </Btn>
         </div>
         {msg && <div className="text-center text-[var(--mint-deep)]">{msg}</div>}
         <Btn variant="cream" onClick={onClose}>
-          닫기
+          {t(lang, "common.close")}
         </Btn>
       </div>
     </Modal>
