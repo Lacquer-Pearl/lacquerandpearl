@@ -1,8 +1,12 @@
 "use client";
 
-// Web Audio로 합성하는 효과음/배경음. 외부 음원 파일 없이 동작합니다.
+// 효과음은 Web Audio 합성. 배경음은 arirang.mp3 또는 합성 아리랑을 랜덤 재생합니다.
 
 type LoopKind = "brush" | "sand" | "saw" | "iron" | "peel";
+type MusicMode = "mp3" | "synth";
+
+/** public/ 정적 경로 — Turbopack mp3 import 대신 URL로 재생 */
+const ARIRANG_MP3 = "/audio/arirang.mp3";
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -11,6 +15,8 @@ let noiseBuf: AudioBuffer | null = null;
 let muted = false;
 let musicWanted = false;
 let musicTimer: ReturnType<typeof setInterval> | null = null;
+let musicEl: HTMLAudioElement | null = null;
+let musicMode: MusicMode | null = null;
 
 function ac() {
   if (typeof window === "undefined") return null;
@@ -39,14 +45,20 @@ export function unlockAudio() {
 
 /** 앱이 백그라운드로 가면 소리를 멈추고, 돌아오면 다시 재생합니다. */
 export function setAudioActive(active: boolean) {
-  if (!ctx) return;
-  if (active) void ctx.resume();
-  else void ctx.suspend();
+  if (ctx) {
+    if (active) void ctx.resume();
+    else void ctx.suspend();
+  }
+  if (musicEl) {
+    if (active && musicWanted && !muted) void musicEl.play().catch(() => {});
+    else musicEl.pause();
+  }
 }
 
 export function setMuted(m: boolean) {
   muted = m;
   if (master && ctx) master.gain.setTargetAtTime(m ? 0 : 0.8, ctx.currentTime, 0.05);
+  if (musicEl) musicEl.volume = m ? 0 : 0.45;
 }
 
 function tone(
@@ -241,14 +253,18 @@ let beat = 0;
 let noteIdx = 0;
 let noteLeft = 0;
 
-export function startMusic() {
-  musicWanted = true;
+function musicPlaying() {
+  return !!musicTimer || (!!musicEl && !musicEl.paused);
+}
+
+function startSynthMusic() {
   const c = ac();
   if (!c || musicTimer) return;
+  musicMode = "synth";
   beat = 0;
   noteIdx = 0;
   noteLeft = 0;
-  // 한 박 ≈ 420ms — 느리게 잔잔한 아리랑
+  // 한 박 ≈ 420ms — 느리게 잔잔한 합성 아리랑
   musicTimer = setInterval(() => {
     if (muted || !ctx || ctx.state !== "running") return;
     beat++;
@@ -265,8 +281,37 @@ export function startMusic() {
   }, 420);
 }
 
+function startMp3Music() {
+  if (typeof window === "undefined") return;
+  if (!musicEl) {
+    musicEl = new Audio(ARIRANG_MP3);
+    musicEl.loop = true;
+    musicEl.preload = "auto";
+  }
+  musicMode = "mp3";
+  musicEl.volume = muted ? 0 : 0.45;
+  musicEl.currentTime = 0;
+  void musicEl.play().catch(() => {
+    // 자동재생이 막히면 unlockAudio 때 다시 시도합니다.
+  });
+}
+
+export function startMusic() {
+  musicWanted = true;
+  ac();
+  if (musicPlaying()) return;
+  // arirang.mp3 또는 합성 기본 BGM을 랜덤 선택
+  if (Math.random() < 0.5) startMp3Music();
+  else startSynthMusic();
+}
+
 export function stopMusic() {
   musicWanted = false;
+  musicMode = null;
   if (musicTimer) clearInterval(musicTimer);
   musicTimer = null;
+  if (musicEl) {
+    musicEl.pause();
+    musicEl.currentTime = 0;
+  }
 }
