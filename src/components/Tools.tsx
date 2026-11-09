@@ -4,7 +4,7 @@ export type ToolId = "brush" | "spatula" | "iron" | "stone" | "saw";
 export const TOOL_TIP: Record<ToolId, [number, number]> = {
   brush: [8, 56],
   spatula: [8, 56],
-  iron: [10, 54],
+  iron: [8, 56],
   stone: [22, 42],
   saw: [14, 58],
 };
@@ -30,14 +30,22 @@ export function ToolGraphic({ tool, color = "#1c1416" }: { tool: ToolId; color?:
         </g>
       );
     case "iron":
+      // 전통 인두: 나무 손잡이 + 금속 축 + 달군 납작 끝
       return (
         <g>
-          <path d="M34 30 L56 8 L61 13 L39 35 Z" fill="#7a4e2c" />
-          <path d="M36 32 L58 10" stroke="#a87346" strokeWidth="1" />
-          <rect x="30" y="30" width="7" height="5" transform="rotate(-45 33 32)" fill="#9aa0a6" />
-          <path d="M33 34 L10 54 L6 48 L28 28 Z" fill="#3b3e42" />
-          <path d="M28 28 L6 48" stroke="#8b9096" strokeWidth="1.4" />
-          <ellipse cx="9" cy="52" rx="5" ry="3" fill="#ff8a3d" opacity="0.35" />
+          {/* 손잡이 */}
+          <path d="M40 8 L58 4 L61 10 L44 18 Z" fill="#7a4a28" />
+          <path d="M42 9 L57 5.5" stroke="#b07a4a" strokeWidth="1" opacity="0.7" />
+          <ellipse cx="42" cy="14" rx="5.5" ry="4" transform="rotate(-28 42 14)" fill="#8f5a34" stroke="#5a3418" strokeWidth="0.8" />
+          {/* 금속 축 */}
+          <path d="M40 14 L18 42" stroke="#6f757c" strokeWidth="3.2" strokeLinecap="round" />
+          <path d="M40 14 L18 42" stroke="#c5ccd3" strokeWidth="1.2" strokeLinecap="round" opacity="0.7" />
+          {/* 인두 날 */}
+          <path d="M20 38 L6 56 L14 58 L24 44 Z" fill="#3a3e44" stroke="#1f2226" strokeWidth="0.8" />
+          <path d="M19 40 L10 54 L14 55 L22 43 Z" fill="#8a9098" opacity="0.55" />
+          {/* 열기 */}
+          <ellipse cx="9" cy="55" rx="7" ry="4" fill="#ff7a2e" opacity="0.35" />
+          <ellipse cx="9" cy="55" rx="3.5" ry="2" fill="#ffd28a" opacity="0.55" />
         </g>
       );
     case "stone":

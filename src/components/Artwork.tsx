@@ -310,11 +310,17 @@ export default function Artwork({
           <feTurbulence type="fractalNoise" baseFrequency="0.004 0.11" numOctaves="4" seed="7" />
           <feColorMatrix type="matrix" values="0 0 0 0 0.36  0 0 0 0 0.21  0 0 0 0 0.1  2.4 0 0 0 -0.95" />
         </filter>
-        <pattern id={ids.hemp} width="5" height="5" patternUnits="userSpaceOnUse">
-          <rect width="5" height="5" fill="#dccaa4" />
-          <rect y="0.6" width="5" height="1.5" fill="#cdb88c" />
-          <rect x="0.6" width="1.4" height="5" fill="#e6d6b4" opacity="0.8" />
-          <rect x="3" y="3" width="1.6" height="1.4" fill="#c4ad80" opacity="0.6" />
+        {/* 삼베 단계 표면: 직물 격자 대신 한지·종이 질감 */}
+        <pattern id={ids.hemp} width="28" height="28" patternUnits="userSpaceOnUse">
+          <rect width="28" height="28" fill="#f1e6d2" />
+          <rect width="28" height="28" fill="#e8d8be" opacity="0.35" />
+          <path d="M0 6 Q7 4 14 7 T28 5" stroke="#d4c0a0" strokeWidth="1.2" fill="none" opacity="0.45" />
+          <path d="M0 16 Q9 14 18 17 T28 15" stroke="#e9dfcc" strokeWidth="1.4" fill="none" opacity="0.55" />
+          <path d="M0 24 Q8 22 16 25 T28 23" stroke="#cbb896" strokeWidth="0.9" fill="none" opacity="0.35" />
+          <circle cx="5" cy="11" r="0.7" fill="#c9b48e" opacity="0.35" />
+          <circle cx="19" cy="4" r="0.55" fill="#fffaf0" opacity="0.5" />
+          <circle cx="22" cy="20" r="0.65" fill="#d2bc96" opacity="0.3" />
+          <circle cx="11" cy="22" r="0.5" fill="#fff8ec" opacity="0.4" />
         </pattern>
         <filter id={ids.micro} x="0" y="0" width="1" height="1">
           <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="3" />

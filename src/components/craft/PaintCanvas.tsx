@@ -37,30 +37,42 @@ const N = 50;
 const CELL = 300 / N;
 const RES = 2;
 
+/** 삼베 대신 한지·유산지처럼 보이는 종이 질감 */
 function makeHempPattern(ctx: CanvasRenderingContext2D) {
-  const S = 40;
+  const S = 64;
   const c = document.createElement("canvas");
   c.width = c.height = S;
   const g = c.getContext("2d")!;
-  g.fillStyle = "#d6c39c";
+  // 바탕: 따뜻한 한지색
+  g.fillStyle = "#f3ead8";
   g.fillRect(0, 0, S, S);
-  for (let y = 0; y < S; y += 4) {
-    g.fillStyle = `rgba(${180 + Math.random() * 20},${155 + Math.random() * 15},${110 + Math.random() * 15},0.9)`;
-    g.fillRect(0, y + 0.5, S, 2.2);
+  // 섬유 얼룩
+  for (let i = 0; i < 420; i++) {
+    const x = Math.random() * S;
+    const y = Math.random() * S;
+    const a = 0.04 + Math.random() * 0.1;
+    g.fillStyle =
+      Math.random() < 0.55
+        ? `rgba(210, 190, 155, ${a})`
+        : `rgba(255, 250, 240, ${a})`;
+    g.fillRect(x, y, 0.8 + Math.random() * 2.2, 0.5 + Math.random() * 1.4);
   }
-  for (let x = 0; x < S; x += 4) {
-    for (let y = 0; y < S; y += 8) {
-      const o = (x / 4) % 2 ? 4 : 0;
-      g.fillStyle = `rgba(${225 + Math.random() * 15},${208 + Math.random() * 12},${170 + Math.random() * 12},0.85)`;
-      g.fillRect(x + 0.6, y + o, 2.2, 3.4);
-    }
+  // 은은한 결
+  g.strokeStyle = "rgba(170, 145, 110, 0.12)";
+  g.lineWidth = 0.6;
+  for (let i = 0; i < 10; i++) {
+    g.beginPath();
+    g.moveTo(0, (i * S) / 9 + Math.random() * 2);
+    g.bezierCurveTo(S * 0.35, i * 6 + 4, S * 0.65, i * 5 + 2, S, (i * S) / 9 + Math.random() * 3);
+    g.stroke();
   }
-  g.strokeStyle = "rgba(120,90,50,0.25)";
-  g.lineWidth = 0.4;
-  for (let i = 0; i < 6; i++) {
+  // 살짝 구겨진 주름
+  g.strokeStyle = "rgba(140, 115, 85, 0.08)";
+  g.lineWidth = 1;
+  for (let i = 0; i < 4; i++) {
     g.beginPath();
     g.moveTo(Math.random() * S, Math.random() * S);
-    g.lineTo(Math.random() * S, Math.random() * S);
+    g.quadraticCurveTo(Math.random() * S, Math.random() * S, Math.random() * S, Math.random() * S);
     g.stroke();
   }
   return ctx.createPattern(c, "repeat")!;
