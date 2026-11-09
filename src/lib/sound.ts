@@ -5,8 +5,13 @@
 type LoopKind = "brush" | "sand" | "saw" | "iron" | "peel";
 type MusicMode = "mp3" | "synth";
 
-/** public/ 정적 경로 — Turbopack mp3 import 대신 URL로 재생 */
-const MUSIC_TRACKS = ["/audio/arirang.mp3", "/audio/minjokaria.mp3"] as const;
+/** public/audio 곡 목록 — 한 곡이 끝나면 다른 곡을 랜덤 재생 */
+const MUSIC_TRACKS = [
+  "/audio/arirang.mp3",
+  "/audio/minjokaria.mp3",
+  "/audio/aegukga.mp3",
+  "/audio/usanthem.mp3",
+] as const;
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -17,6 +22,8 @@ let musicWanted = false;
 let musicTimer: ReturnType<typeof setInterval> | null = null;
 let musicEl: HTMLAudioElement | null = null;
 let musicMode: MusicMode | null = null;
+let lastTrack: string | null = null;
+let onTrackEnded: (() => void) | null = null;
 
 function ac() {
   if (typeof window === "undefined") return null;
@@ -281,17 +288,31 @@ function startSynthMusic() {
   }, 420);
 }
 
-function startMp3Music(src: string) {
+function pickNextTrack() {
+  if (MUSIC_TRACKS.length === 1) return MUSIC_TRACKS[0];
+  let next = MUSIC_TRACKS[Math.floor(Math.random() * MUSIC_TRACKS.length)];
+  // 직전에 들은 곡과 같으면 다시 뽑기
+  for (let i = 0; i < 6 && next === lastTrack; i++) {
+    next = MUSIC_TRACKS[Math.floor(Math.random() * MUSIC_TRACKS.length)];
+  }
+  return next;
+}
+
+function playMp3Track(src: string) {
   if (typeof window === "undefined") return;
   if (!musicEl) {
     musicEl = new Audio();
-    musicEl.loop = true;
     musicEl.preload = "auto";
+    onTrackEnded = () => {
+      if (!musicWanted) return;
+      playMp3Track(pickNextTrack());
+    };
+    musicEl.addEventListener("ended", () => onTrackEnded?.());
   }
   musicMode = "mp3";
-  if (musicEl.src !== new URL(src, window.location.origin).href) {
-    musicEl.src = src;
-  }
+  lastTrack = src;
+  musicEl.loop = false;
+  musicEl.src = src;
   musicEl.volume = muted ? 0 : 0.45;
   musicEl.currentTime = 0;
   void musicEl.play().catch(() => {
@@ -303,10 +324,12 @@ export function startMusic() {
   musicWanted = true;
   ac();
   if (musicPlaying()) return;
-  // mp3 트랙들 + 합성 기본 BGM 중 랜덤
-  const pick = Math.floor(Math.random() * (MUSIC_TRACKS.length + 1));
-  if (pick < MUSIC_TRACKS.length) startMp3Music(MUSIC_TRACKS[pick]);
-  else startSynthMusic();
+  // public/audio 곡을 랜덤으로 재생하고, 끝나면 다음 곡을 또 랜덤 픽
+  if (musicTimer) {
+    clearInterval(musicTimer);
+    musicTimer = null;
+  }
+  playMp3Track(pickNextTrack());
 }
 
 export function stopMusic() {
