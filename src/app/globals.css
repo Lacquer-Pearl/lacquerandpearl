@@ -85,7 +85,7 @@ b {
 .title-screen {
   background:
     radial-gradient(ellipse at 50% 40%, rgba(10, 6, 4, 0.18) 0, rgba(10, 6, 4, 0.45) 100%),
-    url("/images/bgbg.png") center / cover no-repeat;
+    url("/images/bgbgbg.png") center / cover no-repeat;
   overflow: hidden;
 }
 .title-screen::before {
