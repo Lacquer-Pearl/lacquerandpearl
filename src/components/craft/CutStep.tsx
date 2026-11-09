@@ -1,0 +1,504 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { NacreDefs, NacreTexture } from "@/components/Artwork";
+import { TOOL_TIP, ToolGraphic } from "@/components/Tools";
+import { Btn, Meter } from "@/components/ui";
+import { MOTIFS, PEARLS, type MotifId } from "@/lib/data";
+import { countMotifs, type Design } from "@/lib/game";
+import { loopLevel, sfx, startLoop, stopLoop } from "@/lib/sound";
+import { useSave } from "@/lib/store";
+import { StepHeader } from "./common";
+
+type Method = "jul" | "kkeun" | "auto";
+
+export default function CutStep({ design, onDone }: { design: Design; onDone: (score: number) => void }) {
+  const [method, setMethod] = useState<Method | null>(null);
+  const motif = useMemo<MotifId>(() => {
+    const counts = Object.entries(countMotifs(design.pieces)) as [MotifId, number][];
+    return counts.sort((a, b) => b[1] - a[1])[0]?.[0] ?? "plum";
+  }, [design.pieces]);
+
+  if (!method)
+    return (
+      <div className="flex flex-col gap-3">
+        <StepHeader title="자개 자르기" emoji="🪚">
+          이제 자개를 문양대로 오려낼 차례란다. 자개는 얇아서 <b>힘을 너무 주면 부러진단다</b>. 어떤 방법으로
+          해 보겠니?
+        </StepHeader>
+        <button className="method-card" onClick={() => (sfx.click(), setMethod("jul"))}>
+          <span className="text-4xl">🪚</span>
+          <span className="flex flex-col text-left">
+            <b className="text-lg">줄음질</b>
+            <span className="text-sm opacity-80">
+              실톱으로 밑그림 선을 따라 천천히 오려요. 손가락/마우스로 선을 따라가거나 마우스 휠로 톱질해요.
+            </span>
+          </span>
+        </button>
+        <button className="method-card" onClick={() => (sfx.click(), setMethod("kkeun"))}>
+          <span className="text-4xl">🔪</span>
+          <span className="flex flex-col text-left">
+            <b className="text-lg">끊음질</b>
+            <span className="text-sm opacity-80">
+              가늘게 켠 자개 실을 칼로 톡톡 끊어요. 표시가 칼날 밑에 올 때 탭!
+            </span>
+          </span>
+        </button>
+        <button className="method-card" onClick={() => (sfx.click(), setMethod("auto"))}>
+          <span className="text-4xl">⚙️</span>
+          <span className="flex flex-col text-left">
+            <b className="text-lg">기계 가공</b>
+            <span className="text-sm opacity-80">빠르고 안전하지만 손맛이 없어 품질은 보통이에요.</span>
+          </span>
+        </button>
+      </div>
+    );
+
+  if (method === "jul") return <JulStep design={design} motif={motif} onDone={onDone} />;
+  if (method === "kkeun") return <KkeunStep design={design} onDone={onDone} />;
+  return <AutoStep onDone={onDone} />;
+}
+
+/** 갈아서 펴 놓은 조개껍데기 원판: 불규칙한 외곽, 성장선, 자개 결 */
+function ShellSheet({ pearl }: { pearl: Design["pearl"] }) {
+  const outline =
+    "M40 70 C52 30 120 16 170 20 C230 24 280 52 284 120 C288 190 262 262 190 280 C130 294 60 282 30 230 C10 190 22 110 40 70 Z";
+  return (
+    <g>
+      <defs>
+        <NacreDefs id="shell-nacre" pearl={pearl} />
+        <NacreTexture id="shell-tex" pearl={pearl} />
+        <filter id="shell-shadow" x="-20%" y="-20%" width="140%" height="150%">
+          <feGaussianBlur stdDeviation="6" />
+        </filter>
+        <radialGradient id="shell-vignette" cx="0.45" cy="0.4" r="0.7">
+          <stop offset="0.6" stopColor="#000" stopOpacity="0" />
+          <stop offset="1" stopColor="#3a2a22" stopOpacity="0.35" />
+        </radialGradient>
+        <clipPath id="shell-clip">
+          <path d={outline} />
+        </clipPath>
+      </defs>
+      <path d={outline} transform="translate(3 8)" fill="#120a06" opacity="0.5" filter="url(#shell-shadow)" />
+      <path d={outline} fill="url(#shell-nacre)" filter="url(#shell-tex)" />
+      <g clipPath="url(#shell-clip)" fill="none" stroke="#fff" strokeOpacity="0.35">
+        {[60, 95, 130, 165, 200, 235].map((r) => (
+          <ellipse key={r} cx="30" cy="300" rx={r * 1.3} ry={r} strokeWidth="0.8" />
+        ))}
+        <rect width="300" height="300" fill="url(#shell-vignette)" stroke="none" />
+      </g>
+      <path d={outline} fill="none" stroke="#efe6da" strokeWidth="2.5" />
+      <path d={outline} fill="none" stroke="#8c7a6c" strokeOpacity="0.5" strokeWidth="0.8" transform="translate(1 1.5)" />
+    </g>
+  );
+}
+
+function samplePath(d: string, scale: number, cx: number, cy: number, step = 3) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.style.position = "absolute";
+  svg.style.visibility = "hidden";
+  const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  p.setAttribute("d", d);
+  svg.appendChild(p);
+  document.body.appendChild(svg);
+  const len = p.getTotalLength();
+  const pts: { x: number; y: number }[] = [];
+  const n = Math.max(20, Math.round((len * scale) / step));
+  for (let i = 0; i <= n; i++) {
+    const pt = p.getPointAtLength((i / n) * len);
+    pts.push({ x: cx + pt.x * scale, y: cy + pt.y * scale });
+  }
+  svg.remove();
+  return pts;
+}
+
+function JulStep({ design, motif, onDone }: { design: Design; motif: MotifId; onDone: (s: number) => void }) {
+  const m = MOTIFS[motif];
+  const SCALE = 5;
+  const [pts] = useState(() => samplePath(m.cutPath ?? m.path, SCALE, 150, 150));
+  const [idx, setIdx] = useState(0);
+  const [stress, setStress] = useState(0);
+  const [breaks, setBreaks] = useState(0);
+  const [saw, setSaw] = useState<{ x: number; y: number } | null>(null);
+  const [warn, setWarn] = useState<string | null>(null);
+  const [shake, setShake] = useState(false);
+  const svgRef = useRef<SVGSVGElement>(null);
+  const st = useRef({ idx: 0, stress: 0, err: 0, errN: 0, off: 0, lastT: 0, last: null as null | { x: number; y: number }, down: false, done: false, breaks: 0 });
+  const inventory = useSave((s) => s.inventory);
+  const pearlMat = PEARLS[design.pearl].material;
+
+  useEffect(() => {
+    startLoop("saw");
+    loopLevel(0);
+    return () => stopLoop();
+  }, []);
+
+  const finish = () => {
+    const s = st.current;
+    if (s.done) return;
+    s.done = true;
+    loopLevel(0);
+    const avgErr = s.errN ? s.err / s.errN : 0;
+    const score = 100 - avgErr * 3.2 - s.breaks * 18 - Math.min(20, s.off * 0.15);
+    sfx.success();
+    onDone(Math.round(Math.max(10, Math.min(100, score))));
+  };
+
+  const crack = () => {
+    const s = st.current;
+    s.breaks++;
+    s.idx = 0;
+    s.stress = 0;
+    setBreaks(s.breaks);
+    setIdx(0);
+    setStress(0);
+    sfx.crack();
+    setShake(true);
+    setTimeout(() => setShake(false), 400);
+    const inv = useSave.getState().inventory;
+    if (inv[pearlMat] > 0) {
+      useSave.setState({ inventory: { ...inv, [pearlMat]: inv[pearlMat] - 1 } });
+      setWarn("💥 자개가 부러졌어요! 새 자개 1조각으로 다시 시작해요.");
+    } else {
+      setWarn("💥 자개가 부러졌어요! 남은 자개가 없어 금 간 채로 이어가요…");
+    }
+    setTimeout(() => setWarn(null), 2000);
+    if (s.breaks >= 3) finish();
+  };
+
+  const advance = (to: number, err: number, speed: number) => {
+    const s = st.current;
+    if (s.done) return;
+    s.err += err;
+    s.errN++;
+    s.stress = Math.max(0, s.stress * 0.96 + Math.max(0, speed - 0.35) * 0.18);
+    setStress(s.stress);
+    loopLevel(Math.min(1, speed * 1.5));
+    if (s.stress > 1) {
+      crack();
+      return;
+    }
+    if (to > s.idx) {
+      if (Math.floor(to / 8) > Math.floor(s.idx / 8)) sfx.cut();
+      s.idx = to;
+      setIdx(to);
+    }
+    if (s.idx >= pts.length - 2) finish();
+  };
+
+  const toLocal = (e: { clientX: number; clientY: number }) => {
+    const r = svgRef.current!.getBoundingClientRect();
+    return { x: ((e.clientX - r.left) / r.width) * 300, y: ((e.clientY - r.top) / r.height) * 300 };
+  };
+
+  const onMove = (e: React.PointerEvent) => {
+    const p = toLocal(e);
+    setSaw(p);
+    const s = st.current;
+    if (!s.down || s.done || pts.length === 0) return;
+    const now = performance.now();
+    const dt = Math.max(1, now - s.lastT);
+    const moved = s.last ? Math.hypot(p.x - s.last.x, p.y - s.last.y) : 0;
+    s.last = p;
+    s.lastT = now;
+    const speed = moved / dt;
+    let best = -1;
+    let bestD = Infinity;
+    for (let k = s.idx; k < Math.min(pts.length, s.idx + 10); k++) {
+      const d = Math.hypot(pts[k].x - p.x, pts[k].y - p.y);
+      if (d < bestD) {
+        bestD = d;
+        best = k;
+      }
+    }
+    if (bestD < 16) {
+      advance(best, bestD, speed);
+      setWarn((w) => (w?.startsWith("✋") ? null : w));
+    } else {
+      s.off++;
+      loopLevel(0);
+      if (s.off % 25 === 0) setWarn("✋ 밑그림 선을 따라가 주세요!");
+    }
+  };
+
+  const onWheel = (e: React.WheelEvent) => {
+    const s = st.current;
+    if (s.done || pts.length === 0) return;
+    const now = performance.now();
+    const dt = Math.max(8, now - s.lastT);
+    s.lastT = now;
+    const amount = Math.min(4, Math.abs(e.deltaY) / 40);
+    const speed = (amount * 3) / dt;
+    advance(Math.min(pts.length - 1, s.idx + Math.max(1, Math.round(amount))), 2.2, speed * 0.6);
+    setSaw(pts[Math.min(pts.length - 1, st.current.idx)]);
+  };
+
+  const cut = pts.slice(0, idx + 1);
+  const next = pts[Math.min(pts.length - 1, idx + 1)];
+
+  return (
+    <div className="flex flex-col gap-3">
+      <StepHeader title="줄음질 — 실톱으로 오려내기" emoji="🪚">
+        <b>{m.name}</b> 문양이구나. 반짝이는 점에서 시작해 점선을 따라 천천히 톱질하렴. 급하게 하면 자개가{" "}
+        <b>뚝</b> 부러진단다!
+      </StepHeader>
+      <div className={`workbench relative ${shake ? "shake" : ""}`}>
+        <svg
+          ref={svgRef}
+          viewBox="0 0 300 300"
+          className="aspect-square w-full"
+          style={{ touchAction: "none" }}
+          onPointerDown={(e) => {
+            e.currentTarget.setPointerCapture(e.pointerId);
+            st.current.down = true;
+            st.current.last = toLocal(e);
+            st.current.lastT = performance.now();
+          }}
+          onPointerMove={onMove}
+          onPointerUp={() => {
+            st.current.down = false;
+            loopLevel(0);
+          }}
+          onPointerCancel={() => (st.current.down = false)}
+          onPointerLeave={() => setSaw(null)}
+          onWheel={onWheel}
+        >
+          <ShellSheet pearl={design.pearl} />
+          <path
+            d={m.cutPath ?? m.path}
+            transform={`translate(150 150) scale(${SCALE})`}
+            fill="none"
+            stroke="#4a3c38"
+            strokeWidth={1.3 / SCALE}
+            strokeDasharray={`${4 / SCALE} ${3 / SCALE}`}
+            opacity="0.75"
+          />
+          {cut.length > 1 && (
+            <polyline
+              points={cut.map((p) => `${p.x},${p.y}`).join(" ")}
+              fill="none"
+              stroke="#2e2422"
+              strokeOpacity="0.8"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          )}
+          {next && (
+            <circle cx={next.x} cy={next.y} r="7" fill="#d9b25f" stroke="#fff" strokeWidth="1.5" className="pulse" />
+          )}
+          {breaks > 0 && (
+            <path d="M60 80 L90 110 L80 130 L110 160" stroke="#8a7a72" strokeWidth="1.5" fill="none" opacity={Math.min(0.8, breaks * 0.3)} />
+          )}
+          {saw && (
+            <g transform={`translate(${saw.x - TOOL_TIP.saw[0] * 0.9} ${saw.y - TOOL_TIP.saw[1] * 0.9}) scale(0.9)`} className="pointer-events-none">
+              <ToolGraphic tool="saw" />
+            </g>
+          )}
+        </svg>
+        {warn && <div className="event-toast pop-in">{warn}</div>}
+      </div>
+      <div className="panel flex flex-col gap-2 py-3">
+        <Meter
+          value={pts.length ? idx / (pts.length - 1) : 0}
+          color="var(--pink)"
+          label={
+            <>
+              <span>오려낸 정도</span>
+              <span>{pts.length ? Math.round((idx / (pts.length - 1)) * 100) : 0}%</span>
+            </>
+          }
+        />
+        <Meter
+          value={Math.min(1, stress)}
+          zone={[0, 0.6]}
+          color={stress > 0.7 ? "var(--red)" : stress > 0.4 ? "var(--orange)" : "var(--mint-deep)"}
+          label={
+            <>
+              <span>자개에 가해지는 힘</span>
+              <span>
+                부러짐 {breaks}/3 · 남은 자개 {inventory[pearlMat]}
+              </span>
+            </>
+          }
+        />
+      </div>
+    </div>
+  );
+}
+
+const MARKS = 8;
+const KNIFE = 150;
+
+function makeMarks() {
+  const arr: number[] = [];
+  let x = 340;
+  for (let i = 0; i < MARKS; i++) {
+    x += 70 + Math.random() * 70;
+    arr.push(x);
+  }
+  return arr;
+}
+
+function KkeunStep({ design, onDone }: { design: Design; onDone: (s: number) => void }) {
+  const [marks] = useState(makeMarks);
+  const [offset, setOffset] = useState(0);
+  const [results, setResults] = useState<(number | null | undefined)[]>(Array(MARKS).fill(undefined));
+  const [flash, setFlash] = useState<string | null>(null);
+  const [chop, setChop] = useState(false);
+  const st = useRef({ offset: 0, results: Array(MARKS).fill(undefined) as (number | null | undefined)[], wasted: 0, done: false });
+
+  useEffect(() => {
+    let raf = 0;
+    let last = performance.now();
+    const loop = (now: number) => {
+      const dt = Math.min(50, now - last);
+      last = now;
+      const s = st.current;
+      const doneCount = s.results.filter((r) => r !== undefined).length;
+      s.offset += dt * (0.09 + doneCount * 0.012);
+      for (let i = 0; i < MARKS; i++) {
+        if (s.results[i] === undefined && marks[i] - s.offset < KNIFE - 22) {
+          s.results[i] = null;
+          setResults([...s.results]);
+          setFlash("놓쳤어요!");
+          sfx.fail();
+          setTimeout(() => setFlash(null), 500);
+        }
+      }
+      setOffset(s.offset);
+      if (!s.done && s.results.every((r) => r !== undefined)) {
+        s.done = true;
+        const vals = s.results.map((r) => (r == null ? 0 : r));
+        const score = vals.reduce((a, b) => a + b, 0) / MARKS - s.wasted * 4;
+        setTimeout(() => {
+          sfx.success();
+          onDone(Math.round(Math.max(5, Math.min(100, score))));
+        }, 500);
+        return;
+      }
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [marks, onDone]);
+
+  const tap = () => {
+    const s = st.current;
+    if (s.done) return;
+    setChop(true);
+    setTimeout(() => setChop(false), 120);
+    let best = -1;
+    let bestD = Infinity;
+    for (let i = 0; i < MARKS; i++) {
+      if (s.results[i] !== undefined) continue;
+      const d = Math.abs(marks[i] - s.offset - KNIFE);
+      if (d < bestD) {
+        bestD = d;
+        best = i;
+      }
+    }
+    if (best >= 0 && bestD < 22) {
+      const score = Math.max(0, 100 - bestD * 5);
+      s.results[best] = score;
+      setResults([...s.results]);
+      setFlash(bestD < 4 ? "완벽해요! ✨" : bestD < 10 ? "좋아요!" : "조금 빗나갔어요");
+      if (bestD < 4) sfx.shimmer();
+      sfx.cut();
+    } else {
+      s.wasted++;
+      setFlash("헛손질!");
+      sfx.crack();
+    }
+    setTimeout(() => setFlash(null), 450);
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <StepHeader title="끊음질 — 자개 실 끊기" emoji="🔪">
+        가늘게 켠 자개 실이 지나간단다. <b>노란 표시가 칼날 아래에 왔을 때</b> 화면을 톡! 눌러 끊어 보렴.
+      </StepHeader>
+      <div
+        className="workbench relative cursor-pointer select-none"
+        style={{ touchAction: "manipulation" }}
+        onPointerDown={tap}
+      >
+        <svg viewBox="0 0 300 200" className="w-full">
+          <defs>
+            <NacreDefs id="kk-nacre" pearl={design.pearl} />
+            <NacreTexture id="kk-tex" pearl={design.pearl} />
+          </defs>
+          <rect x="0" y="118" width="300" height="62" fill="#5c3f2c" rx="6" />
+          <rect x="0" y="118" width="300" height="3" fill="#8a6748" />
+          <g transform={`translate(${-offset} 0)`}>
+            <rect x="300" y="100" width={marks[MARKS - 1] + 100} height="18" rx="2" fill="url(#kk-nacre)" filter="url(#kk-tex)" />
+            <rect x="300" y="100" width={marks[MARKS - 1] + 100} height="2" fill="#fff" opacity="0.5" />
+            {marks.map((mx, i) => (
+              <g key={i}>
+                <rect
+                  x={mx - 2}
+                  y="92"
+                  width="4"
+                  height="30"
+                  rx="2"
+                  fill={results[i] === undefined ? "#d9b25f" : results[i] === null ? "#a8433b" : "#5b8a74"}
+                />
+                {results[i] != null && (
+                  <text x={mx} y="88" fontSize="11" textAnchor="middle" fill="#f3eadb">
+                    {Math.round(results[i] as number)}
+                  </text>
+                )}
+              </g>
+            ))}
+          </g>
+          <g transform={`translate(${KNIFE} ${chop ? 22 : 0})`} style={{ transition: "transform 80ms" }}>
+            <path d="M-10 20 L10 20 L6 84 L0 94 L-6 84 Z" fill="#dfe6ee" stroke="#6b7a8a" strokeWidth="2" />
+            <rect x="-12" y="4" width="24" height="18" rx="5" fill="#6b4a33" />
+          </g>
+          <line x1={KNIFE} y1="94" x2={KNIFE} y2="124" stroke="#d9b25f" strokeDasharray="2 2" opacity="0.6" />
+        </svg>
+        {flash && <div className="event-toast pop-in">{flash}</div>}
+      </div>
+      <div className="panel py-3 text-center text-[var(--brown)]">
+        끊은 조각 {results.filter((r) => r != null).length} / {MARKS}
+      </div>
+      <Btn variant="pink" size="lg" sound={false} onClick={tap}>
+        🔪 톡! 끊기
+      </Btn>
+    </div>
+  );
+}
+
+function AutoStep({ onDone }: { onDone: (s: number) => void }) {
+  const [p, setP] = useState(0);
+  useEffect(() => {
+    startLoop("saw");
+    loopLevel(0.4);
+    const id = setInterval(() => {
+      setP((v) => {
+        const n = v + 4;
+        if (n >= 100) {
+          clearInterval(id);
+          stopLoop();
+          setTimeout(() => onDone(66), 200);
+        }
+        return n;
+      });
+    }, 60);
+    return () => {
+      clearInterval(id);
+      stopLoop();
+    };
+  }, [onDone]);
+  return (
+    <div className="flex flex-col gap-3">
+      <StepHeader title="기계 가공" emoji="⚙️">
+        기계는 빠르지만, 장인의 손끝 같은 섬세함은 없단다.
+      </StepHeader>
+      <div className="workbench flex aspect-square items-center justify-center text-7xl">
+        <span className="spin">⚙️</span>
+      </div>
+      <Meter value={p / 100} color="var(--blue)" label={<><span>가공 중…</span><span>{p}%</span></>} />
+    </div>
+  );
+}
