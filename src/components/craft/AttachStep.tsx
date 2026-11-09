@@ -1,9 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Artwork, { NacreDefs, NacrePiece, nacreFill, pieceLight, pieceTransform } from "@/components/Artwork";
+import Artwork, {
+  MotifMasks,
+  NacreDefs,
+  NacrePiece,
+  motifMask,
+  nacreFill,
+  pieceLight,
+  pieceTransform,
+} from "@/components/Artwork";
 import { Btn, Meter } from "@/components/ui";
-import { MOTIFS } from "@/lib/data";
+import { MOTIFS, motifParts } from "@/lib/data";
 import type { Design, PlacedPiece } from "@/lib/game";
 import { sfx } from "@/lib/sound";
 import { StepHeader } from "./common";
@@ -117,15 +125,26 @@ export default function AttachStep({
             >
               <defs>
                 <NacreDefs id="drag-nacre" pearl={design.pearl} />
+                <MotifMasks id="drag-cut" motifs={[piece.motif]} />
               </defs>
-              <path
-                d={MOTIFS[piece.motif].path}
+              <g
                 transform={pieceTransform({ ...piece, x: drag.x + 2, y: drag.y + 5 })}
+                mask={motifMask("drag-cut", piece.motif)}
                 fill="#000"
                 opacity="0.35"
-              />
+              >
+                {motifParts(piece.motif).map((d, i) => (
+                  <path key={i} d={d} />
+                ))}
+              </g>
               <g transform={pieceTransform({ ...piece, x: drag.x, y: drag.y })}>
-                <NacrePiece motif={piece.motif} fill={nacreFill("drag-nacre", piece.id)} light={pieceLight(piece)} s={piece.s} />
+                <NacrePiece
+                  motif={piece.motif}
+                  fill={nacreFill("drag-nacre", piece.id)}
+                  mask={motifMask("drag-cut", piece.motif)}
+                  light={pieceLight(piece)}
+                  s={piece.s}
+                />
               </g>
             </svg>
           )}
@@ -145,9 +164,15 @@ export default function AttachStep({
               <svg viewBox="-30 -30 60 60" className="h-full w-full">
                 <defs>
                   <NacreDefs id="tray-nacre" pearl={design.pearl} />
+                  <MotifMasks id="tray-cut" motifs={[piece.motif]} />
                 </defs>
                 <g transform={`rotate(${piece.r})`}>
-                  <NacrePiece motif={piece.motif} fill={nacreFill("tray-nacre", piece.id)} light={pieceLight(piece)} />
+                  <NacrePiece
+                    motif={piece.motif}
+                    fill={nacreFill("tray-nacre", piece.id)}
+                    mask={motifMask("tray-cut", piece.motif)}
+                    light={pieceLight(piece)}
+                  />
                 </g>
               </svg>
             )}

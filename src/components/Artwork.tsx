@@ -1,7 +1,7 @@
 "use client";
 
 import { useId } from "react";
-import { LACQUERS, MOTIFS, PEARLS, SHAPES, type MotifId } from "@/lib/data";
+import { LACQUERS, MOTIFS, PEARLS, SHAPES, motifParts, type MotifId } from "@/lib/data";
 import type { Design, PlacedPiece } from "@/lib/game";
 import { NACRE_TILE, useNacreTexture } from "@/lib/nacre";
 
@@ -124,49 +124,78 @@ export function SheenGradient({ id, animate = true, size = 300 }: { id: string; 
   );
 }
 
-/** 오려낸 자개 한 조각: 두께 그림자 · 판자개 결 · 선각 · 빛 받는 면 · 테두리 광 */
+/** 문양별로 선각·점을 뚫어 내는 마스크. 마스크 좌표는 문양 좌표 그대로라 조각 배치와 무관합니다 */
+export function MotifMasks({ id, motifs }: { id: string; motifs: MotifId[] }) {
+  return (
+    <>
+      {[...new Set(motifs)].map((k) => {
+        const m = MOTIFS[k];
+        if (!m.detail && !m.holes) return null;
+        return (
+          <mask key={k} id={`${id}-${k}`} maskUnits="userSpaceOnUse" x="-45" y="-45" width="90" height="90">
+            <rect x="-45" y="-45" width="90" height="90" fill="#fff" />
+            {m.holes && <path d={m.holes} fill="#000" />}
+            {m.detail && (
+              <path
+                d={m.detail}
+                fill="none"
+                stroke="#000"
+                strokeWidth={m.detailWidth ?? 0.6}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            )}
+          </mask>
+        );
+      })}
+    </>
+  );
+}
+
+export function motifMask(id: string, motif: MotifId) {
+  const m = MOTIFS[motif];
+  return m.detail || m.holes ? `url(#${id}-${motif})` : undefined;
+}
+
+/** 오려낸 자개: 조각마다 테두리 · 판자개 결 · 빛 받는 면 · 테두리 광, 선각은 뚫려 옻칠이 비칩니다 */
 export function NacrePiece({
   motif,
   fill,
+  mask,
   light = 0,
   s = 1,
+  dull = 0,
   onPointerDown,
   style,
 }: {
   motif: MotifId;
   fill: string;
+  mask?: string;
   light?: number;
   s?: number;
+  dull?: number;
   onPointerDown?: (e: React.PointerEvent) => void;
   style?: React.CSSProperties;
 }) {
-  const m = MOTIFS[motif];
   return (
-    <>
-      <path d={m.path} fill="none" stroke="#000" strokeOpacity="0.5" strokeWidth={1.6 / s} />
-      <path d={m.path} fill={fill} onPointerDown={onPointerDown} style={style} />
-      {light !== 0 && (
-        <path
-          d={m.path}
-          fill={light > 0 ? "#fffaf0" : "#120b08"}
-          opacity={Math.abs(light) * (light > 0 ? 0.14 : 0.2)}
-          pointerEvents="none"
-        />
-      )}
-      {m.detail && (
-        <path
-          d={m.detail}
-          fill="none"
-          stroke="#1c120d"
-          strokeOpacity="0.42"
-          strokeWidth="0.55"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          pointerEvents="none"
-        />
-      )}
-      <path d={m.path} fill="none" stroke="#fff" strokeOpacity="0.5" strokeWidth={0.5 / s} pointerEvents="none" />
-    </>
+    <g mask={mask}>
+      {motifParts(motif).map((d, i) => (
+        <g key={i}>
+          <path d={d} fill="none" stroke="#000" strokeOpacity="0.5" strokeWidth={1.2 / s} pointerEvents="none" />
+          <path d={d} fill={fill} onPointerDown={onPointerDown} style={style} />
+          {light !== 0 && (
+            <path
+              d={d}
+              fill={light > 0 ? "#fffaf0" : "#120b08"}
+              opacity={Math.abs(light) * (light > 0 ? 0.14 : 0.2)}
+              pointerEvents="none"
+            />
+          )}
+          {dull > 0 && <path d={d} fill="#a9a199" opacity={Math.min(0.75, dull)} pointerEvents="none" />}
+          <path d={d} fill="none" stroke="#fff" strokeOpacity="0.45" strokeWidth={0.4 / s} pointerEvents="none" />
+        </g>
+      ))}
+    </g>
   );
 }
 
@@ -194,6 +223,7 @@ export default function Artwork({
     nacre: `n${uid}`,
     sheen: `sh${uid}`,
     pieceMask: `pm${uid}`,
+    cuts: `ct${uid}`,
     lac: `l${uid}`,
     lacEdge: `le${uid}`,
     clip: `c${uid}`,
@@ -214,11 +244,18 @@ export default function Artwork({
         <NacreDefs id={ids.nacre} pearl={design.pearl} />
         <SheenGradient id={ids.sheen} animate={shimmer} />
         {showPieces && list.length > 0 && (
-          <mask id={ids.pieceMask} maskUnits="userSpaceOnUse" x="0" y="0" width="300" height="300">
-            {list.map((p) => (
-              <path key={p.id} d={MOTIFS[p.motif].path} transform={pieceTransform(p)} fill="#fff" />
-            ))}
-          </mask>
+          <>
+            <MotifMasks id={ids.cuts} motifs={list.map((p) => p.motif)} />
+            <mask id={ids.pieceMask} maskUnits="userSpaceOnUse" x="0" y="0" width="300" height="300">
+              {list.map((p) => (
+                <g key={p.id} transform={pieceTransform(p)} mask={motifMask(ids.cuts, p.motif)} fill="#fff">
+                  {motifParts(p.motif).map((d, i) => (
+                    <path key={i} d={d} />
+                  ))}
+                </g>
+              ))}
+            </mask>
+          </>
         )}
         <radialGradient id={ids.lac} cx="0.38" cy="0.32" r="0.85">
           <stop offset="0" stopColor={lac.light} />
@@ -307,35 +344,44 @@ export default function Artwork({
 
         {showPieces &&
           list.map((p) => (
-            <path
+            <g
               key={`d${p.id}`}
-              d={MOTIFS[p.motif].path}
               transform={pieceTransform({ ...p, x: p.x + 0.7, y: p.y + 1.3 })}
+              mask={motifMask(ids.cuts, p.motif)}
               fill="#080403"
               opacity="0.55"
               pointerEvents="none"
-            />
+            >
+              {motifParts(p.motif).map((d, i) => (
+                <path key={i} d={d} />
+              ))}
+            </g>
           ))}
         {showPieces &&
-          list.map((p) => {
-            const m = MOTIFS[p.motif];
-            return (
-              <g key={p.id} transform={pieceTransform(p)}>
-                <NacrePiece
-                  motif={p.motif}
-                  fill={nacreFill(ids.nacre, p.id)}
-                  light={pieceLight(p)}
-                  s={p.s}
-                  onPointerDown={onPiecePointerDown ? (e) => onPiecePointerDown(e, p) : undefined}
-                  style={onPiecePointerDown ? { cursor: "grab" } : undefined}
+          list.map((p) => (
+            <g key={p.id} transform={pieceTransform(p)}>
+              <NacrePiece
+                motif={p.motif}
+                fill={nacreFill(ids.nacre, p.id)}
+                mask={motifMask(ids.cuts, p.motif)}
+                light={pieceLight(p)}
+                s={p.s}
+                dull={dull}
+                onPointerDown={onPiecePointerDown ? (e) => onPiecePointerDown(e, p) : undefined}
+                style={onPiecePointerDown ? { cursor: "grab" } : undefined}
+              />
+              {selectedId === p.id && (
+                <path
+                  d={MOTIFS[p.motif].cutPath ?? MOTIFS[p.motif].path}
+                  fill="none"
+                  stroke="#e2c27a"
+                  strokeWidth={2 / p.s}
+                  strokeLinejoin="round"
+                  className="pointer-events-none"
                 />
-                {dull > 0 && <path d={m.path} fill="#a9a199" opacity={Math.min(0.75, dull)} pointerEvents="none" />}
-                {selectedId === p.id && (
-                  <path d={m.path} fill="none" stroke="#e2c27a" strokeWidth={2.4 / p.s} className="pointer-events-none" />
-                )}
-              </g>
-            );
-          })}
+              )}
+            </g>
+          ))}
         {showPieces && list.length > 0 && (
           <rect
             width="300"

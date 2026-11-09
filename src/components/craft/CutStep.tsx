@@ -106,7 +106,7 @@ function samplePath(d: string, scale: number, cx: number, cy: number, step = 3) 
 
 function JulStep({ design, motif, onDone }: { design: Design; motif: MotifId; onDone: (s: number) => void }) {
   const m = MOTIFS[motif];
-  const SCALE = 5;
+  const SCALE = 4.5;
   const [pts] = useState(() => samplePath(m.cutPath ?? m.path, SCALE, 150, 150));
   const [idx, setIdx] = useState(0);
   const [stress, setStress] = useState(0);

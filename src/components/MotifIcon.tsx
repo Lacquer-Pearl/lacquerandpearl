@@ -1,7 +1,7 @@
 "use client";
 
 import { useId } from "react";
-import { NacreDefs, NacrePiece, SheenGradient } from "./Artwork";
+import { MotifMasks, NacreDefs, NacrePiece, SheenGradient, motifMask } from "./Artwork";
 import type { MotifId, PearlId } from "@/lib/data";
 
 export default function MotifIcon({
@@ -15,17 +15,18 @@ export default function MotifIcon({
 }) {
   const id = `mi${useId().replace(/:/g, "")}`;
   return (
-    <svg viewBox="-30 -30 60 60" className={className}>
+    <svg viewBox="-32 -32 64 64" className={className}>
       <defs>
         <NacreDefs id={id} pearl={pearl} />
+        <MotifMasks id={`${id}-c`} motifs={[motif]} />
         <radialGradient id={`${id}-bg`} cx="0.38" cy="0.32" r="0.8">
           <stop offset="0" stopColor="#3a2c2a" />
           <stop offset="1" stopColor="#120b0a" />
         </radialGradient>
       </defs>
-      <circle r="29" fill={`url(#${id}-bg)`} />
-      <g transform="scale(0.95)">
-        <NacrePiece motif={motif} fill={`url(#${id})`} light={0.3} />
+      <circle r="31.5" fill={`url(#${id}-bg)`} />
+      <g transform="scale(0.94)">
+        <NacrePiece motif={motif} fill={`url(#${id})`} mask={motifMask(`${id}-c`, motif)} light={0.3} />
       </g>
     </svg>
   );
