@@ -95,6 +95,10 @@ function samplePath(d: string, scale: number, cx: number, cy: number, step = 3) 
   document.body.appendChild(svg);
   const len = p.getTotalLength();
   const pts: { x: number; y: number }[] = [];
+  if (len <= 0) {
+    svg.remove();
+    return pts;
+  }
   const n = Math.max(20, Math.round((len * scale) / step));
   for (let i = 0; i <= n; i++) {
     const pt = p.getPointAtLength((i / n) * len);
@@ -104,12 +108,42 @@ function samplePath(d: string, scale: number, cx: number, cy: number, step = 3) 
   return pts;
 }
 
+/** 여러 획을 이어 붙일 때, 획과 획 사이에는 polyline을 끊기 위한 경계 인덱스 */
+function sampleCutGuide(ds: string[], scale: number, cx: number, cy: number, step = 4) {
+  const pts: { x: number; y: number }[] = [];
+  /** 이 인덱스 점 다음에 선을 이어 그리지 않음 (획의 끝) */
+  const gapAfter = new Set<number>();
+  for (const d of ds) {
+    if (!d) continue;
+    const seg = samplePath(d, scale, cx, cy, step);
+    if (seg.length < 2) continue;
+    if (pts.length) gapAfter.add(pts.length - 1);
+    pts.push(...seg);
+  }
+  return { pts, gapAfter };
+}
+
+function cutPolylines(pts: { x: number; y: number }[], upTo: number, gapAfter: Set<number>) {
+  const parts: { x: number; y: number }[][] = [];
+  let cur: { x: number; y: number }[] = [];
+  const end = Math.min(upTo, pts.length - 1);
+  for (let i = 0; i <= end; i++) {
+    cur.push(pts[i]);
+    if (gapAfter.has(i) && i < end) {
+      if (cur.length > 1) parts.push(cur);
+      cur = [];
+    }
+  }
+  if (cur.length > 1) parts.push(cur);
+  return parts;
+}
+
 function JulStep({ design, motif, onDone }: { design: Design; motif: MotifId; onDone: (s: number) => void }) {
   const m = MOTIFS[motif];
   const SCALE = 4.5;
-  const [pts] = useState(() => {
+  const [{ pts, gapAfter }] = useState(() => {
     const ds = m.strokes?.length ? m.strokes.map((s) => s.d) : [m.cutPath || m.path];
-    return ds.flatMap((d) => (d ? samplePath(d, SCALE, 150, 150, 4) : []));
+    return sampleCutGuide(ds, SCALE, 150, 150, 4);
   });
   const [idx, setIdx] = useState(0);
   const [stress, setStress] = useState(0);
@@ -229,7 +263,7 @@ function JulStep({ design, motif, onDone }: { design: Design; motif: MotifId; on
     setSaw(pts[Math.min(pts.length - 1, st.current.idx)]);
   };
 
-  const cut = pts.slice(0, idx + 1);
+  const cutParts = cutPolylines(pts, idx, gapAfter);
   const next = pts[Math.min(pts.length - 1, idx + 1)];
 
   return (
@@ -285,9 +319,10 @@ function JulStep({ design, motif, onDone }: { design: Design; motif: MotifId; on
               />
             </>
           )}
-          {cut.length > 1 && (
+          {cutParts.map((part, i) => (
             <polyline
-              points={cut.map((p) => `${p.x},${p.y}`).join(" ")}
+              key={i}
+              points={part.map((p) => `${p.x},${p.y}`).join(" ")}
               fill="none"
               stroke="#2e2422"
               strokeOpacity="0.8"
@@ -295,7 +330,7 @@ function JulStep({ design, motif, onDone }: { design: Design; motif: MotifId; on
               strokeLinecap="round"
               strokeLinejoin="round"
             />
-          )}
+          ))}
           {next && (
             <circle cx={next.x} cy={next.y} r="7" fill="#d9b25f" stroke="#fff" strokeWidth="1.5" className="pulse" />
           )}
