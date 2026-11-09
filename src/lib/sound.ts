@@ -6,7 +6,7 @@ type LoopKind = "brush" | "sand" | "saw" | "iron" | "peel";
 type MusicMode = "mp3" | "synth";
 
 /** public/ 정적 경로 — Turbopack mp3 import 대신 URL로 재생 */
-const ARIRANG_MP3 = "/audio/arirang.mp3";
+const MUSIC_TRACKS = ["/audio/arirang.mp3", "/audio/minjokaria.mp3"] as const;
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -281,14 +281,17 @@ function startSynthMusic() {
   }, 420);
 }
 
-function startMp3Music() {
+function startMp3Music(src: string) {
   if (typeof window === "undefined") return;
   if (!musicEl) {
-    musicEl = new Audio(ARIRANG_MP3);
+    musicEl = new Audio();
     musicEl.loop = true;
     musicEl.preload = "auto";
   }
   musicMode = "mp3";
+  if (musicEl.src !== new URL(src, window.location.origin).href) {
+    musicEl.src = src;
+  }
   musicEl.volume = muted ? 0 : 0.45;
   musicEl.currentTime = 0;
   void musicEl.play().catch(() => {
@@ -300,8 +303,9 @@ export function startMusic() {
   musicWanted = true;
   ac();
   if (musicPlaying()) return;
-  // arirang.mp3 또는 합성 기본 BGM을 랜덤 선택
-  if (Math.random() < 0.5) startMp3Music();
+  // mp3 트랙들 + 합성 기본 BGM 중 랜덤
+  const pick = Math.floor(Math.random() * (MUSIC_TRACKS.length + 1));
+  if (pick < MUSIC_TRACKS.length) startMp3Music(MUSIC_TRACKS[pick]);
   else startSynthMusic();
 }
 
