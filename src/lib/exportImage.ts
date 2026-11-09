@@ -1,5 +1,7 @@
 "use client";
 
+import { inlineNacreImages } from "./nacre";
+
 /** 작품 SVG를 PNG로 변환해 공유(지원 시) 또는 다운로드합니다. */
 export async function saveArtworkImage(svg: SVGSVGElement, title: string, subtitle: string) {
   const clone = svg.cloneNode(true) as SVGSVGElement;
@@ -7,6 +9,7 @@ export async function saveArtworkImage(svg: SVGSVGElement, title: string, subtit
   clone.setAttribute("width", "720");
   clone.setAttribute("height", "720");
   clone.querySelectorAll("animateTransform").forEach((n) => n.remove());
+  inlineNacreImages(clone);
   const xml = new XMLSerializer().serializeToString(clone);
   const url = URL.createObjectURL(new Blob([xml], { type: "image/svg+xml;charset=utf-8" }));
   const img = await loadImage(url);
@@ -19,23 +22,32 @@ export async function saveArtworkImage(svg: SVGSVGElement, title: string, subtit
   canvas.height = H;
   const ctx = canvas.getContext("2d")!;
   const bg = ctx.createLinearGradient(0, 0, 0, H);
-  bg.addColorStop(0, "#f6efe3");
-  bg.addColorStop(1, "#eae3d6");
+  bg.addColorStop(0, "#3b2619");
+  bg.addColorStop(1, "#1d120b");
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
-  ctx.strokeStyle = "#5a4030";
-  ctx.lineWidth = 10;
+  const glow = ctx.createRadialGradient(W / 2, 470, 60, W / 2, 470, 520);
+  glow.addColorStop(0, "rgba(232, 196, 140, 0.22)");
+  glow.addColorStop(1, "rgba(232, 196, 140, 0)");
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = "#b8945a";
+  ctx.lineWidth = 4;
   roundRect(ctx, 30, 30, W - 60, H - 60, 48);
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(184, 148, 90, 0.4)";
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, 44, 44, W - 88, H - 88, 38);
   ctx.stroke();
   ctx.drawImage(img, 90, 110, 720, 720);
 
   const font = getComputedStyle(document.body).fontFamily;
-  ctx.fillStyle = "#3f2e24";
+  ctx.fillStyle = "#f1e2c4";
   ctx.textAlign = "center";
   ctx.font = `56px ${font}`;
   ctx.fillText(title, W / 2, 920);
   ctx.font = `34px ${font}`;
-  ctx.fillStyle = "#8b6f5a";
+  ctx.fillStyle = "#cdb48a";
   ctx.fillText(subtitle, W / 2, 975);
   ctx.font = `30px ${font}`;
   ctx.fillText("Lacquer & Pearl · 나전칠기 장인", W / 2, 1035);

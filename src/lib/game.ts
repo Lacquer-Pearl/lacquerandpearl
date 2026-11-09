@@ -116,9 +116,12 @@ export function generateCommission(reputation: number): Commission {
     motifs[t.id] = n;
     total += n;
   }
-  const pearl: PearlId | undefined = Math.random() < 0.15 + tier * 0.08 ? "abalone" : undefined;
+  const premium: PearlId[] = ["abalone", "black", "paua"].slice(0, 1 + Math.min(2, tier)) as PearlId[];
+  const pearl: PearlId | undefined = Math.random() < 0.15 + tier * 0.08 ? pick(premium) : undefined;
   const reward = Math.round(
-    (SHAPES[shape].basePrice + total * 18 + typeCount * 15) * (1 + tier * 0.25) * (pearl ? 1.5 : 1),
+    (SHAPES[shape].basePrice + total * 18 + typeCount * 15) *
+      (1 + tier * 0.25) *
+      (pearl ? 1 + (PEARLS[pearl].bonus - 1) * 1.4 : 1),
   );
   return { id: uid(), customer, line: pick(c.lines), shape, lacquer, pearl, motifs, reward };
 }

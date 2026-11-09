@@ -26,7 +26,7 @@ export default function TitleScreen() {
         <SoundToggle />
       </div>
       <div className="flex flex-1 flex-col items-center justify-center gap-5 px-5 pb-8">
-        <div className="float relative w-full max-w-[440px] mix-blend-multiply">
+        <div className="float logo-plaque w-full max-w-[440px]">
           <Image src="/logo.png" alt="Lacquer & Pearl — 나전칠기 : 전통 공예 장인" width={1024} height={558} priority className="h-auto w-full" />
         </div>
         <div className="flex gap-2">
@@ -51,7 +51,7 @@ export default function TitleScreen() {
               🛒 재료 상점
             </Btn>
           </div>
-          <button className="text-sm text-[var(--brown)] underline opacity-70" onClick={() => setSettings(true)}>
+          <button className="on-dark-link text-sm underline" onClick={() => setSettings(true)}>
             ⚙️ 설정 · 도움말
           </button>
         </div>

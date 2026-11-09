@@ -14,6 +14,8 @@ const START_INVENTORY: Inventory = {
   glue: 2,
   pearlWhite: 12,
   pearlAbalone: 3,
+  pearlBlack: 2,
+  pearlPaua: 2,
 };
 
 interface SaveState {
@@ -134,6 +136,10 @@ export const useSave = create<SaveState>()(
       name: "lacquer-pearl-save",
       version: 1,
       skipHydration: true,
+      merge: (persisted, current) => {
+        const p = persisted as Partial<SaveState> | undefined;
+        return { ...current, ...p, inventory: { ...START_INVENTORY, ...p?.inventory } };
+      },
       partialize: (s) => ({
         money: s.money,
         reputation: s.reputation,

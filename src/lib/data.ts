@@ -12,8 +12,16 @@ export type MotifId =
   | "diamond"
   | "turtle"
   | "crane";
-export type PearlId = "white" | "abalone";
-export type MaterialId = "wood" | "hemp" | "lacquer" | "glue" | "pearlWhite" | "pearlAbalone";
+export type PearlId = "white" | "abalone" | "black" | "paua";
+export type MaterialId =
+  | "wood"
+  | "hemp"
+  | "lacquer"
+  | "glue"
+  | "pearlWhite"
+  | "pearlAbalone"
+  | "pearlBlack"
+  | "pearlPaua";
 
 export interface ShapeDef {
   id: ShapeId;
@@ -81,15 +89,6 @@ export const LACQUERS: Record<LacquerId, LacquerDef> = {
   blue: { id: "blue", name: "청칠", color: "#1b2c47", light: "#3b5676", deep: "#0a1222" },
 };
 
-function petals(n: number, ring: number, r: number) {
-  let d = "";
-  for (let i = 0; i < n; i++) {
-    const a = (i / n) * Math.PI * 2 - Math.PI / 2;
-    d += circle(+(Math.cos(a) * ring).toFixed(2), +(Math.sin(a) * ring).toFixed(2), r) + " ";
-  }
-  return d.trim();
-}
-
 function hexagon(r: number) {
   const pts = Array.from({ length: 6 }, (_, i) => {
     const a = (i / 6) * Math.PI * 2;
@@ -105,6 +104,41 @@ export interface MotifDef {
   path: string;
   /** 자르기 미니게임용 단일 외곽선 (없으면 path 사용) */
   cutPath?: string;
+  /** 자개 위에 새겨 옻으로 메운 선각 */
+  detail?: string;
+}
+
+/** 꽃잎 다섯 장이 이어진 한 줄 외곽선 */
+function plumOutline() {
+  const pts: string[] = [];
+  for (let i = 0; i <= 120; i++) {
+    const t = (i / 120) * Math.PI * 2;
+    const r = 12 + 7.5 * Math.pow(Math.abs(Math.cos((5 * t) / 2)), 0.6);
+    pts.push(`${(Math.cos(t - Math.PI / 2) * r).toFixed(2)} ${(Math.sin(t - Math.PI / 2) * r).toFixed(2)}`);
+  }
+  return `M${pts.join(" L")} Z`;
+}
+
+function plumDetail() {
+  let d = circle(0, 0, 3.2);
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
+    const b = a + Math.PI / 5;
+    const p = (r: number, t: number) => `${(Math.cos(t) * r).toFixed(2)} ${(Math.sin(t) * r).toFixed(2)}`;
+    d += ` M${p(3.6, a)} L${p(8, a)} ${circle(+(Math.cos(a) * 8.9).toFixed(2), +(Math.sin(a) * 8.9).toFixed(2), 0.8)}`;
+    d += ` M${p(5.5, b)} L${p(11, b)}`;
+  }
+  return d;
+}
+
+function turtleDetail() {
+  const inner = hexagon(10);
+  let d = inner;
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    d += ` M${(Math.cos(a) * 10).toFixed(2)} ${(Math.sin(a) * 10).toFixed(2)} L${(Math.cos(a) * 15.5).toFixed(2)} ${(Math.sin(a) * 15.5).toFixed(2)}`;
+  }
+  return `${d} ${hexagon(4)}`;
 }
 
 export const MOTIFS: Record<MotifId, MotifDef> = {
@@ -112,16 +146,8 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
     id: "plum",
     name: "매화",
     meaning: "고결함",
-    path: petals(5, 10, 9),
-    cutPath: (() => {
-      const pts: string[] = [];
-      for (let i = 0; i <= 100; i++) {
-        const t = (i / 100) * Math.PI * 2;
-        const r = 13 + 7 * Math.abs(Math.cos((5 * t) / 2));
-        pts.push(`${(Math.cos(t - Math.PI / 2) * r).toFixed(2)} ${(Math.sin(t - Math.PI / 2) * r).toFixed(2)}`);
-      }
-      return `M${pts.join(" L")} Z`;
-    })(),
+    path: plumOutline(),
+    detail: plumDetail(),
   },
   butterfly: {
     id: "butterfly",
@@ -133,36 +159,51 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
     cutPath:
       "M0 -2 C-4 -16 -24 -24 -22 -8 C-21 -1 -12 1 -6 2 C-14 8 -18 22 -16 10 C-12 20 -2 12 0 4 " +
       "C2 12 12 20 16 10 C18 22 14 8 6 2 C12 1 21 -1 22 -8 C24 -24 4 -16 0 -2 Z",
+    detail:
+      "M-1.5 -1 C-6 -6 -12 -11 -18 -13 M-1.5 -0.5 C-8 -3 -14 -4.5 -20 -6 M-6 -5 C-9 -2.6 -13 -1.6 -16 -1.2 " +
+      "M1.5 -1 C6 -6 12 -11 18 -13 M1.5 -0.5 C8 -3 14 -4.5 20 -6 M6 -5 C9 -2.6 13 -1.6 16 -1.2 " +
+      "M-1 2 C-4 6 -8 9.5 -12 12 M-1 2 C-5 4 -9 5 -13 5.5 M1 2 C4 6 8 9.5 12 12 M1 2 C5 4 9 5 13 5.5 " +
+      "M-17 -9 C-15.5 -8 -14 -8.6 -13.6 -10 M17 -9 C15.5 -8 14 -8.6 13.6 -10",
   },
   cloud: {
     id: "cloud",
     name: "구름",
     meaning: "장수",
     path: "M-22 8 C-30 8 -30 -4 -20 -4 C-20 -16 -4 -16 -3 -6 C1 -16 16 -14 13 -2 C24 -5 27 8 17 8 Z",
+    detail:
+      "M-21 5 C-25 4.5 -24.5 -0.5 -20.5 -0.6 C-18 -0.6 -17.5 2.4 -19.6 2.6 " +
+      "M-15 -3 C-15.5 -10 -6.5 -11 -6.4 -5.6 C-6.4 -3.4 -9.6 -3.2 -9.8 -5.2 " +
+      "M2 -4.8 C3 -11 12 -10.6 10.6 -4.6 C10 -2.6 7.2 -3 7.4 -5 M-18 5.4 C-8 3.6 6 3.6 18 5.4",
   },
   moon: {
     id: "moon",
     name: "초승달",
     meaning: "소망",
     path: "M0 -20 A20 20 0 0 0 0 20 A24 24 0 0 1 0 -20 Z",
+    detail: "M-5.6 -18 Q-25 0 -5.6 18 M-14 -6 l2.2 0.6 M-15.6 3 l2 -0.4 M-12.4 10.4 l1.6 1",
   },
   leaf: {
     id: "leaf",
     name: "댓잎",
     meaning: "절개",
     path: "M-24 2 C-12 -10 10 -10 24 -2 C10 8 -12 10 -24 2 Z",
+    detail:
+      "M-22 1.8 C-8 -0.6 8 -2.2 22 -2 M-14 0.6 L-8.4 -4.6 M-5 -0.4 L0.6 -5.6 M4 -1.2 L9.6 -5.2 M11.6 -1.7 L16 -4 " +
+      "M-11.4 0.3 L-5.8 4.6 M-2.4 -0.6 L3.4 4 M6.4 -1.5 L11.6 2.2",
   },
   diamond: {
     id: "diamond",
     name: "마름모",
     meaning: "조화",
     path: "M0 -20 L14 0 L0 20 L-14 0 Z",
+    detail: "M0 -13 L9 0 L0 13 L-9 0 Z M0 -6 L4.2 0 L0 6 L-4.2 0 Z M0 -20 L0 -13 M14 0 L9 0 M0 20 L0 13 M-14 0 L-9 0",
   },
   turtle: {
     id: "turtle",
     name: "거북등",
     meaning: "무병장수",
     path: hexagon(17),
+    detail: turtleDetail(),
   },
   crane: {
     id: "crane",
@@ -170,6 +211,10 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
     meaning: "신선",
     path:
       "M-26 -4 C-16 -18 -5 -16 -1 -5 C3 -16 15 -18 26 -4 C15 -8 7 -4 3 3 L5 19 L0 13 L-5 19 L-3 3 C-7 -4 -15 -8 -26 -4 Z",
+    detail:
+      "M-21 -5.4 L-17.6 -10.6 M-15.4 -6.4 L-12.6 -12.6 M-10 -5.4 L-8 -12.4 M-5.4 -2.6 L-4.2 -9.6 " +
+      "M21 -5.4 L17.6 -10.6 M15.4 -6.4 L12.6 -12.6 M10 -5.4 L8 -12.4 M5.4 -2.6 L4.2 -9.6 " +
+      "M0 -2 L0 12 M-2 9 L0 13 L2 9",
   },
 };
 
@@ -181,6 +226,7 @@ export interface PearlDef {
   id: PearlId;
   name: string;
   material: MaterialId;
+  /** 텍스처가 준비되기 전 대체 색 */
   stops: string[];
   bonus: number;
 }
@@ -190,17 +236,33 @@ export const PEARLS: Record<PearlId, PearlDef> = {
     id: "white",
     name: "진주패 (백패)",
     material: "pearlWhite",
-    stops: ["#fbf9f4", "#eedbe3", "#d6e6ee", "#f4ead2", "#e0dbef", "#d8ece4"],
+    stops: ["#e8e4dc", "#dccfd1", "#cfd8d8", "#e3dac8", "#d6d1dd"],
     bonus: 1,
   },
   abalone: {
     id: "abalone",
     name: "전복패",
     material: "pearlAbalone",
-    stops: ["#9fd8d2", "#d9a8cf", "#94b6e6", "#b9e0a8", "#ecd19a", "#b7a3e3"],
+    stops: ["#86b3ad", "#b597b0", "#8b9fc4", "#9fbd92", "#c8b88e"],
     bonus: 1.35,
   },
+  black: {
+    id: "black",
+    name: "흑진주패",
+    material: "pearlBlack",
+    stops: ["#4e4843", "#7d6a72", "#4f6f6c", "#6b6560", "#3a3532"],
+    bonus: 1.55,
+  },
+  paua: {
+    id: "paua",
+    name: "뉴질랜드 판자개",
+    material: "pearlPaua",
+    stops: ["#2f6170", "#40518a", "#2f7564", "#6a5c96", "#7d8a4c"],
+    bonus: 1.75,
+  },
 };
+
+export const PEARL_LIST = Object.values(PEARLS);
 
 export interface MaterialDef {
   id: MaterialId;
@@ -218,6 +280,22 @@ export const MATERIALS: Record<MaterialId, MaterialDef> = {
   glue: { id: "glue", name: "아교", emoji: "🍯", price: 10, pack: 1, desc: "자개를 붙이는 천연 접착제" },
   pearlWhite: { id: "pearlWhite", name: "진주패 자개", emoji: "🤍", price: 25, pack: 5, desc: "은은한 백색 광택 (5조각)" },
   pearlAbalone: { id: "pearlAbalone", name: "전복패 자개", emoji: "🌈", price: 50, pack: 5, desc: "무지갯빛 광택, 작품 가치 ↑ (5조각)" },
+  pearlBlack: {
+    id: "pearlBlack",
+    name: "흑진주패 자개",
+    emoji: "🖤",
+    price: 75,
+    pack: 5,
+    desc: "은회색 바탕에 분홍·청록 광채가 번지는 귀한 자개 (5조각)",
+  },
+  pearlPaua: {
+    id: "pearlPaua",
+    name: "뉴질랜드 판자개",
+    emoji: "🦚",
+    price: 95,
+    pack: 5,
+    desc: "파우아 전복의 짙은 청록·보랏빛 물결무늬, 최고급 (5조각)",
+  },
 };
 
 export const MATERIAL_LIST = Object.values(MATERIALS);

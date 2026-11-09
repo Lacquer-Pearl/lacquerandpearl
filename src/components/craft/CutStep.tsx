@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { NacreDefs, NacreTexture } from "@/components/Artwork";
+import { NacreDefs, SheenGradient } from "@/components/Artwork";
 import { TOOL_TIP, ToolGraphic } from "@/components/Tools";
 import { Btn, Meter } from "@/components/ui";
 import { MOTIFS, PEARLS, type MotifId } from "@/lib/data";
@@ -59,36 +59,28 @@ export default function CutStep({ design, onDone }: { design: Design; onDone: (s
   return <AutoStep onDone={onDone} />;
 }
 
-/** 갈아서 펴 놓은 조개껍데기 원판: 불규칙한 외곽, 성장선, 자개 결 */
+/** 얇게 켠 조각을 이어 붙인 판자개 원판 */
 function ShellSheet({ pearl }: { pearl: Design["pearl"] }) {
-  const outline =
-    "M40 70 C52 30 120 16 170 20 C230 24 280 52 284 120 C288 190 262 262 190 280 C130 294 60 282 30 230 C10 190 22 110 40 70 Z";
+  const outline = "M18 26 H282 Q288 26 288 32 V268 Q288 274 282 274 H18 Q12 274 12 268 V32 Q12 26 18 26 Z";
   return (
     <g>
       <defs>
-        <NacreDefs id="shell-nacre" pearl={pearl} />
-        <NacreTexture id="shell-tex" pearl={pearl} />
+        <NacreDefs id="shell-nacre" pearl={pearl} scale={3.1} />
+        <SheenGradient id="shell-sheen" />
         <filter id="shell-shadow" x="-20%" y="-20%" width="140%" height="150%">
           <feGaussianBlur stdDeviation="6" />
         </filter>
-        <radialGradient id="shell-vignette" cx="0.45" cy="0.4" r="0.7">
-          <stop offset="0.6" stopColor="#000" stopOpacity="0" />
-          <stop offset="1" stopColor="#3a2a22" stopOpacity="0.35" />
+        <radialGradient id="shell-vignette" cx="0.42" cy="0.36" r="0.75">
+          <stop offset="0.55" stopColor="#000" stopOpacity="0" />
+          <stop offset="1" stopColor="#1a100a" stopOpacity="0.35" />
         </radialGradient>
-        <clipPath id="shell-clip">
-          <path d={outline} />
-        </clipPath>
       </defs>
-      <path d={outline} transform="translate(3 8)" fill="#120a06" opacity="0.5" filter="url(#shell-shadow)" />
-      <path d={outline} fill="url(#shell-nacre)" filter="url(#shell-tex)" />
-      <g clipPath="url(#shell-clip)" fill="none" stroke="#fff" strokeOpacity="0.35">
-        {[60, 95, 130, 165, 200, 235].map((r) => (
-          <ellipse key={r} cx="30" cy="300" rx={r * 1.3} ry={r} strokeWidth="0.8" />
-        ))}
-        <rect width="300" height="300" fill="url(#shell-vignette)" stroke="none" />
-      </g>
-      <path d={outline} fill="none" stroke="#efe6da" strokeWidth="2.5" />
-      <path d={outline} fill="none" stroke="#8c7a6c" strokeOpacity="0.5" strokeWidth="0.8" transform="translate(1 1.5)" />
+      <path d={outline} transform="translate(3 8)" fill="#0a0503" opacity="0.6" filter="url(#shell-shadow)" />
+      <path d={outline} transform="translate(0 2.5)" fill="#5c5249" />
+      <path d={outline} fill="url(#shell-nacre)" />
+      <path d={outline} fill="url(#shell-sheen)" />
+      <path d={outline} fill="url(#shell-vignette)" />
+      <path d={outline} fill="none" stroke="#fff" strokeOpacity="0.45" strokeWidth="1" />
     </g>
   );
 }
@@ -268,6 +260,14 @@ function JulStep({ design, motif, onDone }: { design: Design; motif: MotifId; on
             d={m.cutPath ?? m.path}
             transform={`translate(150 150) scale(${SCALE})`}
             fill="none"
+            stroke="#fffaf0"
+            strokeWidth={2.6 / SCALE}
+            opacity="0.45"
+          />
+          <path
+            d={m.cutPath ?? m.path}
+            transform={`translate(150 150) scale(${SCALE})`}
+            fill="none"
             stroke="#4a3c38"
             strokeWidth={1.3 / SCALE}
             strokeDasharray={`${4 / SCALE} ${3 / SCALE}`}
@@ -425,14 +425,14 @@ function KkeunStep({ design, onDone }: { design: Design; onDone: (s: number) => 
       >
         <svg viewBox="0 0 300 200" className="w-full">
           <defs>
-            <NacreDefs id="kk-nacre" pearl={design.pearl} />
-            <NacreTexture id="kk-tex" pearl={design.pearl} />
+            <NacreDefs id="kk-nacre" pearl={design.pearl} scale={0.8} />
           </defs>
           <rect x="0" y="118" width="300" height="62" fill="#5c3f2c" rx="6" />
           <rect x="0" y="118" width="300" height="3" fill="#8a6748" />
           <g transform={`translate(${-offset} 0)`}>
-            <rect x="300" y="100" width={marks[MARKS - 1] + 100} height="18" rx="2" fill="url(#kk-nacre)" filter="url(#kk-tex)" />
-            <rect x="300" y="100" width={marks[MARKS - 1] + 100} height="2" fill="#fff" opacity="0.5" />
+            <rect x="300" y="101" width={marks[MARKS - 1] + 100} height="18" rx="1" fill="#2a2420" />
+            <rect x="300" y="100" width={marks[MARKS - 1] + 100} height="17" rx="1" fill="url(#kk-nacre)" />
+            <rect x="300" y="100" width={marks[MARKS - 1] + 100} height="1.5" fill="#fff" opacity="0.5" />
             {marks.map((mx, i) => (
               <g key={i}>
                 <rect
@@ -498,7 +498,9 @@ function AutoStep({ onDone }: { onDone: (s: number) => void }) {
       <div className="workbench flex aspect-square items-center justify-center text-7xl">
         <span className="spin">⚙️</span>
       </div>
-      <Meter value={p / 100} color="var(--blue)" label={<><span>가공 중…</span><span>{p}%</span></>} />
+      <div className="panel py-3">
+        <Meter value={p / 100} color="var(--blue)" label={<><span>가공 중…</span><span>{p}%</span></>} />
+      </div>
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import Artwork from "@/components/Artwork";
 import { Btn } from "@/components/ui";
-import MotifIcon from "@/components/MotifIcon";
+import MotifIcon, { NacreSwatch } from "@/components/MotifIcon";
 import {
   CRAFT_COST,
   LACQUERS,
@@ -12,6 +12,7 @@ import {
   MOTIFS,
   MOTIF_LIST,
   PEARLS,
+  PEARL_LIST,
   SHAPE_LIST,
   type MaterialId,
   type MotifId,
@@ -85,7 +86,7 @@ export default function DesignStep({
           </span>
           {commission.pearl && (
             <span className={`chip ${design.pearl === commission.pearl ? "chip-ok" : ""}`}>
-              🌈 {PEARLS[commission.pearl].name}
+              <NacreSwatch pearl={commission.pearl} className="swatch" /> {PEARLS[commission.pearl].name}
             </span>
           )}
           {(Object.entries(commission.motifs) as [MotifId, number][]).map(([m, n]) => (
@@ -234,7 +235,7 @@ export default function DesignStep({
         <div>
           <div className="label">자개 종류</div>
           <div className="grid grid-cols-2 gap-2">
-            {Object.values(PEARLS).map((p) => (
+            {PEARL_LIST.map((p) => (
               <button
                 key={p.id}
                 className={`opt-btn row ${design.pearl === p.id ? "on" : ""}`}
@@ -243,7 +244,7 @@ export default function DesignStep({
                   setDesign({ ...design, pearl: p.id });
                 }}
               >
-                <span className="swatch lg" style={{ background: `linear-gradient(135deg, ${p.stops.join(",")})` }} />
+                <NacreSwatch pearl={p.id} className="swatch lg shrink-0" />
                 <span className="text-left">
                   {p.name}
                   <br />

@@ -114,7 +114,7 @@ export function TopBar({ onBack, title }: { onBack?: () => void; title?: string 
           </button>
         )}
         {title ? (
-          <span className="truncate text-lg text-[var(--brown)]">{title}</span>
+          <span className="topbar-title truncate text-lg">{title}</span>
         ) : (
           <span className="chip">🏅 {workshopTitle(rep)}</span>
         )}

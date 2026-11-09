@@ -19,6 +19,11 @@
   --red: #a8433b;
   --blue: #557a9e;
   --orange: #c48345;
+  /* 고동색 배경 위 글자 */
+  --on-dark: #f1e3c8;
+  --on-dark-soft: #c8af88;
+  --umber: #2b1b12;
+  --umber-deep: #1b100a;
 
   --hanji: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.03 0.6' numOctaves='3' seed='4'/%3E%3CfeColorMatrix values='0 0 0 0 0.45 0 0 0 0 0.36 0 0 0 0 0.26 0 0 0 0.6 -0.33'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
   --walnut: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='420'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.004 0.09' numOctaves='4' seed='9'/%3E%3CfeColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.05 0 0 0 0 0.02 2.2 0 0 0 -0.85'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
@@ -40,7 +45,10 @@ body {
 }
 
 body {
-  background: var(--hanji), linear-gradient(160deg, #ece3d4, #e2d6c4);
+  background:
+    var(--walnut),
+    radial-gradient(ellipse at 50% 0%, #4a2f1f 0%, #2a1a11 55%, #170d07 100%);
+  background-color: var(--umber-deep);
 }
 
 b {
@@ -54,12 +62,15 @@ b {
   min-height: 100dvh;
   width: 100%;
   max-width: 520px;
-  background: var(--hanji), linear-gradient(180deg, #fbf7f0 0%, #f4ece0 100%);
+  background:
+    var(--walnut),
+    radial-gradient(ellipse 90% 45% at 50% 0%, rgba(214, 164, 104, 0.16), transparent 70%),
+    linear-gradient(180deg, #3c2619 0%, #2b1a10 55%, #21140c 100%);
   box-shadow:
-    0 0 0 1px #d8c8b2,
-    0 0 0 5px #efe5d6,
-    0 0 0 6px #cdb9a0,
-    0 18px 50px rgba(63, 46, 36, 0.22);
+    0 0 0 1px #120a05,
+    0 0 0 4px #3a2518,
+    0 0 0 5px rgba(196, 156, 96, 0.45),
+    0 24px 60px rgba(0, 0, 0, 0.6);
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
 }
@@ -73,8 +84,9 @@ b {
 
 .title-screen {
   background:
-    radial-gradient(ellipse at 50% 32%, rgba(255, 255, 255, 0.9) 0, transparent 55%),
-    linear-gradient(180deg, #e6ece6 0%, #f4eee3 50%, #eee1d8 100%);
+    radial-gradient(ellipse 75% 42% at 50% 34%, rgba(230, 180, 112, 0.3) 0, transparent 70%),
+    var(--walnut),
+    linear-gradient(180deg, #3e281a 0%, #2a1a10 55%, #1c110a 100%);
   overflow: hidden;
 }
 .title-screen::before {
@@ -84,9 +96,33 @@ b {
   height: 32%;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 60% 70% at 20% 100%, rgba(120, 140, 128, 0.18), transparent 70%),
-    radial-gradient(ellipse 55% 60% at 80% 100%, rgba(110, 120, 130, 0.16), transparent 70%),
-    radial-gradient(ellipse 70% 45% at 50% 100%, rgba(90, 110, 100, 0.14), transparent 70%);
+    radial-gradient(ellipse 60% 70% at 20% 100%, rgba(10, 5, 2, 0.45), transparent 70%),
+    radial-gradient(ellipse 55% 60% at 80% 100%, rgba(10, 5, 2, 0.4), transparent 70%),
+    radial-gradient(ellipse 70% 45% at 50% 100%, rgba(10, 5, 2, 0.35), transparent 70%);
+}
+
+/* 고동색 바탕에 거는 한지 현판 */
+.logo-plaque {
+  position: relative;
+  isolation: isolate;
+  border-radius: 22px;
+  padding: 6px 10px;
+  background:
+    radial-gradient(ellipse at 50% 40%, #fbf5ea 40%, #ecdfc8 100%);
+  border: 1.5px solid #120a05;
+  box-shadow:
+    inset 0 0 0 4px #f8f0e2,
+    inset 0 0 0 5px rgba(156, 122, 58, 0.55),
+    inset 0 0 28px rgba(120, 84, 40, 0.18),
+    0 0 0 4px #4a3020,
+    0 0 0 5px rgba(196, 156, 96, 0.55),
+    0 14px 30px rgba(0, 0, 0, 0.55);
+}
+.logo-plaque img {
+  mix-blend-mode: multiply;
+}
+.on-dark-link {
+  color: var(--on-dark-soft);
 }
 
 .screen-body {
@@ -105,10 +141,13 @@ b {
   justify-content: space-between;
   gap: 8px;
   padding: 10px 12px;
-  background: rgba(251, 247, 240, 0.94);
+  background: rgba(38, 24, 15, 0.92);
   backdrop-filter: blur(6px);
-  border-bottom: 1px solid var(--line-deep);
-  box-shadow: 0 1px 0 #fff, 0 3px 0 -1px #e9dfd0;
+  border-bottom: 1px solid rgba(196, 156, 96, 0.4);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.5), 0 6px 14px rgba(0, 0, 0, 0.3);
+}
+.topbar-title {
+  color: var(--on-dark);
 }
 
 .chip {
@@ -246,12 +285,14 @@ b {
 
 .panel {
   border-radius: 18px;
-  background: var(--paper);
-  border: 1.5px solid var(--line-deep);
+  background: var(--hanji), linear-gradient(180deg, #f8f1e4, #efe4d1);
+  border: 1.5px solid #8a6c4c;
+  color: var(--brown);
   box-shadow:
-    0 3px 0 #e3d6c4,
-    inset 0 0 0 3px #fffdf9,
-    inset 0 0 0 4px #efe5d6;
+    0 3px 0 #140b06,
+    0 10px 22px rgba(0, 0, 0, 0.35),
+    inset 0 0 0 3px #fbf6ec,
+    inset 0 0 0 4px #e6d7bf;
   padding: 12px 14px;
 }
 
@@ -269,7 +310,13 @@ b {
   font-weight: 700;
   font-size: 22px;
   letter-spacing: -0.02em;
+  color: var(--on-dark);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+.modal .step-title,
+.panel .step-title {
   color: var(--brown);
+  text-shadow: none;
 }
 
 .label {
@@ -313,10 +360,10 @@ b {
   background:
     radial-gradient(ellipse at 30% 20%, rgba(255, 255, 255, 0.14), transparent 50%),
     repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.025) 0 2px, transparent 2px 5px),
-    radial-gradient(ellipse at 50% 55%, #3d3a4a 0%, #26242f 70%, #1b1a22 100%);
-  border: 1.5px solid #15141a;
+    radial-gradient(ellipse at 50% 55%, #3d2c26 0%, #241915 70%, #160e0b 100%);
+  border: 1.5px solid #0e0806;
   box-shadow:
-    0 5px 0 #15141a,
+    0 5px 0 #0e0806,
     inset 0 0 0 1px rgba(214, 180, 110, 0.35),
     inset 0 0 0 6px rgba(0, 0, 0, 0.15),
     inset 0 0 0 7px rgba(214, 180, 110, 0.25);
@@ -462,11 +509,11 @@ b {
   height: 30px;
   width: 30px;
   border-radius: 999px;
-  background: #efe6d8;
-  border: 1px solid var(--line-deep);
+  background: rgba(255, 236, 205, 0.1);
+  border: 1px solid rgba(196, 156, 96, 0.35);
   font-size: 14px;
   filter: grayscale(1);
-  opacity: 0.55;
+  opacity: 0.6;
 }
 .step-dot.done {
   filter: none;
@@ -635,8 +682,12 @@ b {
 .shelf {
   border-radius: 18px;
   padding: 10px;
-  background: #efe5d6;
-  border: 1.5px solid var(--line-deep);
+  background: var(--walnut), linear-gradient(180deg, #4a2f1f, #33200f);
+  border: 1.5px solid #120a05;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 220, 170, 0.15),
+    inset 0 0 30px rgba(0, 0, 0, 0.45),
+    0 4px 0 #120a05;
 }
 .art-card {
   position: relative;
@@ -678,6 +729,17 @@ b {
   background: #f3ebdd;
   border: 1px solid var(--line-deep);
   font-size: 24px;
+}
+.mat-icon.nacre {
+  border: 1px solid #5a4636;
+  box-shadow:
+    0 2px 0 rgba(0, 0, 0, 0.35),
+    0 0 0 2px #f8f1e4,
+    0 0 0 3px #b99a70;
+}
+.swatch {
+  vertical-align: middle;
+  overflow: hidden;
 }
 .iap-card {
   border-radius: 12px;

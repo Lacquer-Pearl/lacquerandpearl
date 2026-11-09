@@ -55,7 +55,9 @@ export default function Game() {
   if (!ready)
     return (
       <div className="app-frame flex items-center justify-center">
-        <Image src="/logo.png" alt="Lacquer & Pearl" width={1024} height={558} priority className="float w-3/4 max-w-[360px] mix-blend-multiply" />
+        <div className="float logo-plaque w-3/4 max-w-[360px]">
+          <Image src="/logo.png" alt="Lacquer & Pearl" width={1024} height={558} priority className="h-auto w-full" />
+        </div>
       </div>
     );
 

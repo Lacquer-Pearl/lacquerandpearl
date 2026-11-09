@@ -2,9 +2,12 @@
 
 import { useState } from "react";
 import { Btn, Coin, TopBar } from "@/components/ui";
-import { MATERIAL_LIST } from "@/lib/data";
+import { NacreSwatch } from "@/components/MotifIcon";
+import { MATERIAL_LIST, PEARL_LIST, type MaterialId } from "@/lib/data";
 import { sfx } from "@/lib/sound";
 import { useSave, useUI } from "@/lib/store";
+
+const pearlOf = (m: MaterialId) => PEARL_LIST.find((p) => p.material === m)?.id;
 
 export default function ShopScreen() {
   const back = useUI((s) => s.back);
@@ -26,7 +29,11 @@ export default function ShopScreen() {
         </div>
         {MATERIAL_LIST.map((m) => (
           <div key={m.id} className="panel flex items-center gap-3 py-3">
-            <div className="mat-icon">{m.emoji}</div>
+            {pearlOf(m.id) ? (
+              <NacreSwatch pearl={pearlOf(m.id)!} round={false} className="mat-icon nacre" />
+            ) : (
+              <div className="mat-icon">{m.emoji}</div>
+            )}
             <div className="min-w-0 flex-1">
               <div className="flex items-baseline gap-2">
                 <b className="text-[var(--brown)]">{m.name}</b>

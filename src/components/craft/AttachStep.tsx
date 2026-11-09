@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Artwork, { NacreDefs, pieceTransform } from "@/components/Artwork";
+import Artwork, { NacreDefs, NacrePiece, nacreFill, pieceLight, pieceTransform } from "@/components/Artwork";
 import { Btn, Meter } from "@/components/ui";
 import { MOTIFS } from "@/lib/data";
 import type { Design, PlacedPiece } from "@/lib/game";
@@ -118,8 +118,14 @@ export default function AttachStep({
               <defs>
                 <NacreDefs id="drag-nacre" pearl={design.pearl} />
               </defs>
-              <g transform={pieceTransform({ ...piece, x: drag.x, y: drag.y })} opacity="0.92">
-                <path d={MOTIFS[piece.motif].path} fill="url(#drag-nacre)" stroke="#fff" strokeWidth={0.8 / piece.s} />
+              <path
+                d={MOTIFS[piece.motif].path}
+                transform={pieceTransform({ ...piece, x: drag.x + 2, y: drag.y + 5 })}
+                fill="#000"
+                opacity="0.35"
+              />
+              <g transform={pieceTransform({ ...piece, x: drag.x, y: drag.y })}>
+                <NacrePiece motif={piece.motif} fill={nacreFill("drag-nacre", piece.id)} light={pieceLight(piece)} s={piece.s} />
               </g>
             </svg>
           )}
@@ -140,13 +146,9 @@ export default function AttachStep({
                 <defs>
                   <NacreDefs id="tray-nacre" pearl={design.pearl} />
                 </defs>
-                <path
-                  d={MOTIFS[piece.motif].path}
-                  transform={`rotate(${piece.r})`}
-                  fill="url(#tray-nacre)"
-                  stroke="#d9c7b3"
-                  strokeWidth="0.8"
-                />
+                <g transform={`rotate(${piece.r})`}>
+                  <NacrePiece motif={piece.motif} fill={nacreFill("tray-nacre", piece.id)} light={pieceLight(piece)} />
+                </g>
               </svg>
             )}
           </div>

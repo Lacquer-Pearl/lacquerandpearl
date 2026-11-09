@@ -1,8 +1,8 @@
 "use client";
 
 import { useId } from "react";
-import { NacreDefs } from "./Artwork";
-import { MOTIFS, type MotifId, type PearlId } from "@/lib/data";
+import { NacreDefs, NacrePiece, SheenGradient } from "./Artwork";
+import type { MotifId, PearlId } from "@/lib/data";
 
 export default function MotifIcon({
   motif,
@@ -17,10 +17,36 @@ export default function MotifIcon({
   return (
     <svg viewBox="-30 -30 60 60" className={className}>
       <defs>
-        <NacreDefs id={id} pearl={pearl} shimmer={false} />
+        <NacreDefs id={id} pearl={pearl} />
+        <radialGradient id={`${id}-bg`} cx="0.38" cy="0.32" r="0.8">
+          <stop offset="0" stopColor="#3a2c2a" />
+          <stop offset="1" stopColor="#120b0a" />
+        </radialGradient>
       </defs>
-      <circle r="29" fill="#2b2124" />
-      <path d={MOTIFS[motif].path} fill={`url(#${id})`} transform="scale(0.95)" />
+      <circle r="29" fill={`url(#${id}-bg)`} />
+      <g transform="scale(0.95)">
+        <NacrePiece motif={motif} fill={`url(#${id})`} light={0.3} />
+      </g>
+    </svg>
+  );
+}
+
+/** 판자개 원판 견본 (자개 종류 선택·상점용) */
+export function NacreSwatch({ pearl, className, round = true }: { pearl: PearlId; className?: string; round?: boolean }) {
+  const id = `ns${useId().replace(/:/g, "")}`;
+  return (
+    <svg viewBox="0 0 48 48" className={className} aria-hidden>
+      <defs>
+        <NacreDefs id={id} pearl={pearl} scale={0.85} />
+        <SheenGradient id={`${id}-sh`} size={48} />
+        <clipPath id={`${id}-c`}>
+          {round ? <circle cx="24" cy="24" r="24" /> : <rect width="48" height="48" rx="7" />}
+        </clipPath>
+      </defs>
+      <g clipPath={`url(#${id}-c)`}>
+        <rect width="48" height="48" fill={`url(#${id})`} />
+        <rect width="48" height="48" fill={`url(#${id}-sh)`} />
+      </g>
     </svg>
   );
 }

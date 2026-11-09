@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Artwork from "@/components/Artwork";
 import Avatar from "@/components/Avatar";
-import MotifIcon from "@/components/MotifIcon";
+import MotifIcon, { NacreSwatch } from "@/components/MotifIcon";
 import { Btn, Coin, TopBar } from "@/components/ui";
 import { CUSTOMERS, LACQUERS, MOTIFS, PEARLS, SHAPES, type MotifId } from "@/lib/data";
 import { generateCommission } from "@/lib/game";
@@ -50,7 +50,11 @@ export default function BoardScreen() {
                     <span className="swatch" style={{ background: LACQUERS[c.lacquer].color }} />
                     {LACQUERS[c.lacquer].name}
                   </span>
-                  {c.pearl && <span className="chip">🌈 {PEARLS[c.pearl].name}</span>}
+                  {c.pearl && (
+                    <span className="chip">
+                      <NacreSwatch pearl={c.pearl} className="swatch" /> {PEARLS[c.pearl].name}
+                    </span>
+                  )}
                   {(Object.entries(c.motifs) as [MotifId, number][]).map(([m, n]) => (
                     <span key={m} className="chip">
                       <MotifIcon motif={m} className="h-5 w-5" /> {MOTIFS[m].name} ×{n}
