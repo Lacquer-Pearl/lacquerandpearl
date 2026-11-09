@@ -24,6 +24,7 @@ import {
   pearlShare,
   piecePearl,
   snapToPattern,
+  turnPiece,
   uid,
   type Commission,
   type Design,
@@ -173,10 +174,10 @@ export default function DesignStep({
               {MOTIFS[sel.motif].name}
             </span>
             <div className="flex gap-1">
-              <Btn size="sm" variant="cream" onClick={() => patch(sel.id, (p) => ({ ...p, r: p.r - 15 }))}>
+              <Btn size="sm" variant="cream" onClick={() => patch(sel.id, (p) => ({ ...p, r: turnPiece(p.r, -1) }))}>
                 ↺
               </Btn>
-              <Btn size="sm" variant="cream" onClick={() => patch(sel.id, (p) => ({ ...p, r: p.r + 15 }))}>
+              <Btn size="sm" variant="cream" onClick={() => patch(sel.id, (p) => ({ ...p, r: turnPiece(p.r, 1) }))}>
                 ↻
               </Btn>
               <Btn size="sm" variant="cream" onClick={() => patch(sel.id, (p) => ({ ...p, s: Math.max(0.5, +(p.s - 0.15).toFixed(2)) }))}>

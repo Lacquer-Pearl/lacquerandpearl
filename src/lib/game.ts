@@ -105,8 +105,14 @@ export function newPiece(motif: MotifId, pearl: PearlId): PlacedPiece {
     x: 150 + (Math.random() - 0.5) * 140,
     y: 150 + (Math.random() - 0.5) * 120,
     s: pattern ? 1 : 1.3,
-    r: pattern ? 0 : Math.round((Math.random() - 0.5) * 30),
+    r: 0,
   };
+}
+
+/** 0도를 기준으로 15도씩 돌린 각도 (0, 15, …, 345) */
+export function turnPiece(r: number, dir: -1 | 1) {
+  const step = 15;
+  return (((Math.round(r / step) * step + dir * step) % 360) + 360) % 360;
 }
 
 /** 자개 종류별로 드는 조각 수 */

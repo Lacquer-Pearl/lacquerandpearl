@@ -11,7 +11,10 @@ const H_ZONE: [number, number] = [70, 85];
 const T_ZONE: [number, number] = [20, 30];
 const TICK = 100;
 
+type Phase = "open" | "closing" | "inside";
+
 export default function DryStep({ design, onDone }: { design: Design; onDone: (score: number) => void }) {
+  const [phase, setPhase] = useState<Phase>("open");
   const [running, setRunning] = useState(false);
   const [h, setH] = useState(52);
   const [t, setT] = useState(15);
@@ -34,7 +37,7 @@ export default function DryStep({ design, onDone }: { design: Design; onDone: (s
           setEvent("🌬️ 바람이 들어와 습도가 떨어졌어요!");
         } else {
           s.t += 5;
-          setEvent("☀️ 햇볕이 들어 온도가 올라갔어요!");
+          setEvent("☀️ 온도가 갑자기 올랐어요!");
         }
         sfx.fail();
         setTimeout(() => setEvent(null), 1800);
@@ -69,64 +72,96 @@ export default function DryStep({ design, onDone }: { design: Design; onDone: (s
     sfx.bubble();
   };
 
+  const closeDoors = () => {
+    if (phase !== "open") return;
+    setPhase("closing");
+    sfx.click();
+    window.setTimeout(() => {
+      setPhase("inside");
+      setRunning(true);
+      sfx.place();
+    }, 1100);
+  };
+
   const inH = h >= H_ZONE[0] && h <= H_ZONE[1];
   const inT = t >= T_ZONE[0] && t <= T_ZONE[1];
+  const inside = phase === "inside";
 
   return (
     <div className="flex flex-col gap-3">
       <StepHeader title="옻장에서 건조하기" emoji="🌡️">
-        옻칠은 신기하게도 <b>습하고 따뜻한 곳</b>에서 굳는단다. 습도 <b>70~85%</b>, 온도 <b>20~30℃</b>를
-        유지하면 빨리, 단단하게 마른단다.
+        {phase === "open" ? (
+          <>문이 열린 옻장에 작품을 넣었단다. <b>문을 닫으면</b> 안쪽에서 습도와 온도를 맞출 수 있단다.</>
+        ) : phase === "closing" ? (
+          <>문을 닫고 있어요. 작품이 옻장 안으로 들어간단다…</>
+        ) : (
+          <>
+            옻장 <b>안에서</b> 작품을 보며 맞춰 보렴. 습도 <b>70~85%</b>, 온도 <b>20~30℃</b>.
+          </>
+        )}
       </StepHeader>
       <div className="workbench relative">
-        <div className="cabinet">
-          <div className="cabinet-inner">
-            <Artwork design={design} showPieces={false} className="h-full w-full" shadow={false} gloss={0.2} />
-            {inH && running && <div className="steam">💨</div>}
+        <div className={`cabinet ${phase}${inside && inT ? " warm" : ""}`}>
+          <div className="cabinet-chamber">
+            <Artwork design={design} showPieces={false} className="h-full w-full" shadow={false} gloss={inside ? 0.35 : 0.2} />
+            {inside && inH && running && <div className="steam">💨</div>}
+            {inside && inH && running && <div className="cabinet-mist" />}
           </div>
-          <div className="cabinet-doors" />
+          <div className="cabinet-door left" aria-hidden>
+            <span className="cabinet-handle" />
+          </div>
+          <div className="cabinet-door right" aria-hidden>
+            <span className="cabinet-handle" />
+          </div>
         </div>
         {event && <div className="event-toast pop-in">{event}</div>}
       </div>
-      <div className="panel flex flex-col gap-3 py-3">
-        <Meter
-          value={(h - 20) / 80}
-          zone={[(H_ZONE[0] - 20) / 80, (H_ZONE[1] - 20) / 80]}
-          color={inH ? "var(--mint-deep)" : "var(--blue)"}
-          label={
-            <>
-              <span>💧 습도</span>
-              <span>{Math.round(h)}%</span>
-            </>
-          }
-        />
-        <Meter
-          value={(t - 5) / 35}
-          zone={[(T_ZONE[0] - 5) / 35, (T_ZONE[1] - 5) / 35]}
-          color={inT ? "var(--mint-deep)" : "var(--orange)"}
-          label={
-            <>
-              <span>🌡️ 온도</span>
-              <span>{t.toFixed(1)}℃</span>
-            </>
-          }
-        />
-        <Meter
-          value={progress / 100}
-          color="var(--gold)"
-          label={
-            <>
-              <span>건조 진행</span>
-              <span>{Math.min(100, Math.round(progress))}%</span>
-            </>
-          }
-        />
-      </div>
-      {!running && progress === 0 ? (
-        <Btn variant="mint" size="lg" onClick={() => setRunning(true)}>
-          옻장 문 닫고 건조 시작!
-        </Btn>
+      {inside ? (
+        <div className="panel flex flex-col gap-3 py-3">
+          <Meter
+            value={(h - 20) / 80}
+            zone={[(H_ZONE[0] - 20) / 80, (H_ZONE[1] - 20) / 80]}
+            color={inH ? "var(--mint-deep)" : "var(--blue)"}
+            label={
+              <>
+                <span>💧 습도</span>
+                <span>{Math.round(h)}%</span>
+              </>
+            }
+          />
+          <Meter
+            value={(t - 5) / 35}
+            zone={[(T_ZONE[0] - 5) / 35, (T_ZONE[1] - 5) / 35]}
+            color={inT ? "var(--mint-deep)" : "var(--orange)"}
+            label={
+              <>
+                <span>🌡️ 온도</span>
+                <span>{t.toFixed(1)}℃</span>
+              </>
+            }
+          />
+          <Meter
+            value={progress / 100}
+            color="var(--gold)"
+            label={
+              <>
+                <span>건조 진행</span>
+                <span>{Math.min(100, Math.round(progress))}%</span>
+              </>
+            }
+          />
+        </div>
       ) : (
+        <div className="panel py-3 text-center text-sm text-[var(--brown)]">
+          {phase === "closing" ? "문이 닫히고 있습니다…" : "문을 닫으면 옻장 안에서 건조가 시작됩니다."}
+        </div>
+      )}
+      {phase === "open" && (
+        <Btn variant="mint" size="lg" onClick={closeDoors}>
+          옻장 문 닫고 안으로 넣기
+        </Btn>
+      )}
+      {inside && (
         <div className="grid grid-cols-4 gap-2">
           <Btn size="sm" variant="lavender" sound={false} onClick={() => nudge(6, 0)} disabled={!running}>
             💧<br />
