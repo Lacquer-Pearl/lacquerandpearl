@@ -26,7 +26,7 @@ export default function MotifIcon({
       </defs>
       <circle r="31.5" fill={`url(#${id}-bg)`} />
       <g transform={`scale(${MOTIFS[motif].kind === "pattern" ? 1.15 : 0.9})`}>
-        <NacrePiece motif={motif} fill={`url(#${id})`} mask={motifMask(`${id}-c`, motif)} light={0.3} />
+        <NacrePiece motif={motif} fill={`url(#${id})`} mask={motifMask(`${id}-c`, motif)} light={0.12} />
       </g>
     </svg>
   );

@@ -179,7 +179,7 @@ export function MotifSilhouette({ motif, color }: { motif: MotifId; color: strin
   );
 }
 
-/** 오려낸 자개: 조각마다 테두리 · 판자개 결 · 빛 받는 면 · 테두리 광, 선각은 뚫려 옻칠이 비칩니다 */
+/** 오려낸 자개: 옻칠과 같은 면에 박힌 이음새 · 판자개 결 · 선각은 뚫려 옻칠이 비칩니다 */
 export function NacrePiece({
   motif,
   fill,
@@ -200,7 +200,8 @@ export function NacrePiece({
   style?: React.CSSProperties;
 }) {
   const tint = light > 0 ? "#fffaf0" : "#120b08";
-  const tintOpacity = Math.abs(light) * (light > 0 ? 0.14 : 0.2);
+  const tintOpacity = Math.abs(light) * (light > 0 ? 0.07 : 0.1);
+  const joint = 0.38 / s;
   return (
     <g mask={mask}>
       {onPointerDown && (
@@ -208,20 +209,18 @@ export function NacrePiece({
       )}
       {MOTIFS[motif].strokes?.map((st, i) => (
         <g key={`s${i}`} fill="none" strokeLinecap="round" strokeLinejoin="round" pointerEvents="none">
-          <path d={st.d} stroke="#000" strokeOpacity="0.55" strokeWidth={st.w + 1 / s} />
-          <path d={st.d} stroke="#fff" strokeOpacity="0.5" strokeWidth={st.w + 0.35 / s} />
-          <path d={st.d} stroke={fill} strokeWidth={Math.max(0.2, st.w - 0.3 / s)} />
+          <path d={st.d} stroke="#0a0608" strokeOpacity="0.5" strokeWidth={st.w + 0.4 / s} />
+          <path d={st.d} stroke={fill} strokeWidth={st.w} />
           {light !== 0 && <path d={st.d} stroke={tint} strokeOpacity={tintOpacity} strokeWidth={st.w} />}
           {dull > 0 && <path d={st.d} stroke="#a9a199" strokeOpacity={Math.min(0.75, dull)} strokeWidth={st.w} />}
         </g>
       ))}
       {motifParts(motif).map((d, i) => (
         <g key={i}>
-          <path d={d} fill="none" stroke="#000" strokeOpacity="0.5" strokeWidth={1.2 / s} pointerEvents="none" />
           <path d={d} fill={fill} onPointerDown={onPointerDown} style={style} />
           {light !== 0 && <path d={d} fill={tint} opacity={tintOpacity} pointerEvents="none" />}
           {dull > 0 && <path d={d} fill="#a9a199" opacity={Math.min(0.75, dull)} pointerEvents="none" />}
-          <path d={d} fill="none" stroke="#fff" strokeOpacity="0.45" strokeWidth={0.4 / s} pointerEvents="none" />
+          <path d={d} fill="none" stroke="#0a0608" strokeOpacity="0.38" strokeWidth={joint} pointerEvents="none" />
         </g>
       ))}
     </g>
@@ -374,18 +373,6 @@ export default function Artwork({
 
         {showPieces &&
           list.map((p) => (
-            <g
-              key={`d${p.id}`}
-              transform={pieceTransform({ ...p, x: p.x + 0.7, y: p.y + 1.3 })}
-              mask={motifMask(ids.cuts, p.motif)}
-              opacity="0.55"
-              pointerEvents="none"
-            >
-              <MotifSilhouette motif={p.motif} color="#080403" />
-            </g>
-          ))}
-        {showPieces &&
-          list.map((p) => (
             <g key={p.id} transform={pieceTransform(p)}>
               <NacrePiece
                 motif={p.motif}
@@ -415,7 +402,7 @@ export default function Artwork({
             height="300"
             fill={`url(#${ids.sheen})`}
             mask={`url(#${ids.pieceMask})`}
-            opacity={1 - Math.min(0.8, dull)}
+            opacity={0.42 * (1 - Math.min(0.8, dull))}
             pointerEvents="none"
           />
         )}
