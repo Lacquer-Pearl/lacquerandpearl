@@ -82,7 +82,16 @@ export const LACQUERS: Record<LacquerId, LacquerDef> = {
   blue: { id: "blue", name: "청칠", color: "#1b2c47", light: "#3b5676", deep: "#0a1222" },
 };
 
-export { MOTIFS, MOTIF_LIST, motifParts, type MotifDef } from "./motifs";
+export {
+  MOTIFS,
+  MOTIF_LIST,
+  SHAPE_MOTIFS,
+  PATTERN_MOTIFS,
+  motifOutline,
+  motifParts,
+  type MotifDef,
+  type MotifKind,
+} from "./motifs";
 export const SHAPE_LIST = Object.values(SHAPES);
 export const LACQUER_LIST = Object.values(LACQUERS);
 

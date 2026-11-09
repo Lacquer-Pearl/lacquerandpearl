@@ -1,8 +1,9 @@
 import {
   CUSTOMERS,
   LACQUER_LIST,
-  MOTIF_LIST,
+  MOTIFS,
   PEARLS,
+  SHAPE_MOTIFS,
   SHAPES,
   SHAPE_LIST,
   type LacquerId,
@@ -20,11 +21,14 @@ export interface PlacedPiece {
   s: number;
   /** 회전 (도) */
   r: number;
+  /** 자개 종류 (없으면 예전 작품처럼 design.pearl) */
+  pearl?: PearlId;
 }
 
 export interface Design {
   shape: ShapeId;
   lacquer: LacquerId;
+  /** 새로 놓는 조각의 자개 종류 */
   pearl: PearlId;
   pieces: PlacedPiece[];
 }
@@ -90,15 +94,89 @@ export const uid = () => Math.random().toString(36).slice(2, 10);
 
 const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
 
-export function newPiece(motif: MotifId): PlacedPiece {
+export const piecePearl = (p: PlacedPiece, design: Pick<Design, "pearl">) => p.pearl ?? design.pearl;
+
+export function newPiece(motif: MotifId, pearl: PearlId): PlacedPiece {
+  const pattern = MOTIFS[motif].kind === "pattern";
   return {
     id: uid(),
     motif,
+    pearl,
     x: 150 + (Math.random() - 0.5) * 140,
     y: 150 + (Math.random() - 0.5) * 120,
-    s: 1.3,
-    r: Math.round((Math.random() - 0.5) * 30),
+    s: pattern ? 1 : 1.3,
+    r: pattern ? 0 : Math.round((Math.random() - 0.5) * 30),
   };
+}
+
+/** 자개 종류별로 드는 조각 수 */
+export function pearlCost(design: Pick<Design, "pearl" | "pieces">) {
+  const sum: Partial<Record<PearlId, number>> = {};
+  for (const p of design.pieces) {
+    const k = piecePearl(p, design);
+    sum[k] = (sum[k] ?? 0) + (MOTIFS[p.motif].cost ?? 1);
+  }
+  const out: Partial<Record<PearlId, number>> = {};
+  for (const [k, v] of Object.entries(sum) as [PearlId, number][]) out[k] = Math.ceil(v);
+  return out;
+}
+
+/** 줄음질 등에서 대표로 쓰는 자개: 가장 많이 쓴 종류 */
+export function mainPearl(design: Pick<Design, "pearl" | "pieces">): PearlId {
+  const counts: Partial<Record<PearlId, number>> = {};
+  for (const p of design.pieces) {
+    const k = piecePearl(p, design);
+    counts[k] = (counts[k] ?? 0) + 1;
+  }
+  return (Object.entries(counts) as [PearlId, number][]).sort((a, b) => b[1] - a[1])[0]?.[0] ?? design.pearl;
+}
+
+/** 패턴 단위를 이웃 조각의 격자에 맞춤. 맞출 이웃이 없거나 너무 멀면 그대로 */
+export function snapToPattern(piece: PlacedPiece, others: PlacedPiece[]): PlacedPiece {
+  const tile = MOTIFS[piece.motif].tile;
+  if (!tile) return piece;
+  let best: PlacedPiece | undefined;
+  let bestD = Infinity;
+  for (const o of others) {
+    if (o.id === piece.id || o.motif !== piece.motif || Math.abs(o.s - piece.s) > 0.01) continue;
+    if ((((o.r - piece.r) % 360) + 360) % 360 > 0.5) continue;
+    const d = Math.hypot(o.x - piece.x, o.y - piece.y);
+    if (d < bestD) {
+      bestD = d;
+      best = o;
+    }
+  }
+  if (!best) return piece;
+  const { a, b } = tile;
+  const th = (-best.r * Math.PI) / 180;
+  const vx = ((piece.x - best.x) * Math.cos(th) - (piece.y - best.y) * Math.sin(th)) / best.s;
+  const vy = ((piece.x - best.x) * Math.sin(th) + (piece.y - best.y) * Math.cos(th)) / best.s;
+  const det = a[0] * b[1] - a[1] * b[0];
+  const i = Math.round((vx * b[1] - vy * b[0]) / det);
+  const j = Math.round((a[0] * vy - a[1] * vx) / det);
+  const pos = latticePos(best, i, j);
+  const reach = Math.hypot(a[0], a[1]) * best.s * 0.6;
+  if ((i === 0 && j === 0) || Math.hypot(pos.x - piece.x, pos.y - piece.y) > reach) return piece;
+  return { ...piece, ...pos };
+}
+
+function latticePos(o: PlacedPiece, i: number, j: number) {
+  const { a, b } = MOTIFS[o.motif].tile!;
+  const lx = (i * a[0] + j * b[0]) * o.s;
+  const ly = (i * a[1] + j * b[1]) * o.s;
+  const th = (o.r * Math.PI) / 180;
+  return { x: o.x + lx * Math.cos(th) - ly * Math.sin(th), y: o.y + lx * Math.sin(th) + ly * Math.cos(th) };
+}
+
+/** 패턴 조각 옆 빈자리에 이어 붙일 위치 (빈자리가 없으면 undefined) */
+export function nextPatternSlot(o: PlacedPiece, pieces: PlacedPiece[]) {
+  const dirs: [number, number][] = [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]];
+  for (const [i, j] of dirs) {
+    const pos = latticePos(o, i, j);
+    if (pos.x < 8 || pos.x > 292 || pos.y < 8 || pos.y > 292) continue;
+    if (pieces.some((p) => p.motif === o.motif && Math.hypot(p.x - pos.x, p.y - pos.y) < 2)) continue;
+    return pos;
+  }
 }
 
 export function generateCommission(reputation: number): Commission {
@@ -108,7 +186,7 @@ export function generateCommission(reputation: number): Commission {
   const shape = pick(SHAPE_LIST).id;
   const lacquer = pick(LACQUER_LIST).id;
   const typeCount = Math.min(3, 1 + Math.floor(Math.random() * (1 + tier * 0.7)) + (Math.random() < 0.35 ? 1 : 0));
-  const types = [...MOTIF_LIST].sort(() => Math.random() - 0.5).slice(0, typeCount);
+  const types = [...SHAPE_MOTIFS].sort(() => Math.random() - 0.5).slice(0, typeCount);
   const motifs: Partial<Record<MotifId, number>> = {};
   let total = 0;
   for (const t of types) {
@@ -164,10 +242,16 @@ export function scoreDesign(design: Design, commission?: Commission) {
   }
   const motifMatch = union === 0 ? 0 : inter / union;
   const colorMatch = design.lacquer === commission.lacquer ? 1 : 0;
-  const pearlMatch = !commission.pearl || commission.pearl === design.pearl ? 1 : 0.3;
+  const pearlMatch = !commission.pearl ? 1 : 0.3 + 0.7 * pearlShare(design, commission.pearl);
   return Math.round(
     motifMatch * 55 + colorMatch * 20 + pearlMatch * 10 + balanceScore(design.pieces) * 15,
   );
+}
+
+/** 주문한 자개로 붙인 조각의 비율 */
+export function pearlShare(design: Design, pearl: PearlId) {
+  if (design.pieces.length === 0) return 0;
+  return design.pieces.filter((p) => piecePearl(p, design) === pearl).length / design.pieces.length;
 }
 
 export function scoreCraft(scores: StepScores) {
@@ -198,7 +282,10 @@ export const GRADE_INFO: Record<Grade, { label: string; color: string; rep: numb
 
 export function artworkValue(design: Design, total: number) {
   const base = SHAPES[design.shape].basePrice + design.pieces.length * 12;
-  return Math.round(base * PEARLS[design.pearl].bonus * (0.3 + (total / 100) * 1.1));
+  const bonus = design.pieces.length
+    ? design.pieces.reduce((a, p) => a + PEARLS[piecePearl(p, design)].bonus, 0) / design.pieces.length
+    : PEARLS[design.pearl].bonus;
+  return Math.round(base * bonus * (0.3 + (total / 100) * 1.1));
 }
 
 export function reactionFor(grade: Grade, isCommission: boolean) {
@@ -216,7 +303,7 @@ export function reactionFor(grade: Grade, isCommission: boolean) {
 export function titleFor(design: Design) {
   const counts = countMotifs(design.pieces);
   const top = (Object.entries(counts) as [MotifId, number][]).sort((a, b) => b[1] - a[1])[0];
-  const motifName = top ? MOTIF_LIST.find((m) => m.id === top[0])!.name : "무문";
+  const motifName = top ? MOTIFS[top[0]].name : "무문";
   const lac = LACQUER_LIST.find((l) => l.id === design.lacquer)!.name;
   return `${lac} ${motifName}문 ${SHAPES[design.shape].name}`;
 }

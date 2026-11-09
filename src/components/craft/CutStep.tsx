@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { NacreDefs, SheenGradient } from "@/components/Artwork";
+import { MotifSilhouette, NacreDefs, SheenGradient } from "@/components/Artwork";
 import { TOOL_TIP, ToolGraphic } from "@/components/Tools";
 import { Btn, Meter } from "@/components/ui";
-import { MOTIFS, PEARLS, type MotifId } from "@/lib/data";
-import { countMotifs, type Design } from "@/lib/game";
+import { MOTIFS, PEARLS, motifOutline, type MotifId } from "@/lib/data";
+import { countMotifs, mainPearl, type Design } from "@/lib/game";
 import { loopLevel, sfx, startLoop, stopLoop } from "@/lib/sound";
 import { useSave } from "@/lib/store";
 import { StepHeader } from "./common";
@@ -107,7 +107,10 @@ function samplePath(d: string, scale: number, cx: number, cy: number, step = 3) 
 function JulStep({ design, motif, onDone }: { design: Design; motif: MotifId; onDone: (s: number) => void }) {
   const m = MOTIFS[motif];
   const SCALE = 4.5;
-  const [pts] = useState(() => samplePath(m.cutPath ?? m.path, SCALE, 150, 150));
+  const [pts] = useState(() => {
+    const ds = m.strokes?.length ? m.strokes.map((s) => s.d) : [m.cutPath || m.path];
+    return ds.flatMap((d) => (d ? samplePath(d, SCALE, 150, 150, 4) : []));
+  });
   const [idx, setIdx] = useState(0);
   const [stress, setStress] = useState(0);
   const [breaks, setBreaks] = useState(0);
@@ -117,7 +120,8 @@ function JulStep({ design, motif, onDone }: { design: Design; motif: MotifId; on
   const svgRef = useRef<SVGSVGElement>(null);
   const st = useRef({ idx: 0, stress: 0, err: 0, errN: 0, off: 0, lastT: 0, last: null as null | { x: number; y: number }, down: false, done: false, breaks: 0 });
   const inventory = useSave((s) => s.inventory);
-  const pearlMat = PEARLS[design.pearl].material;
+  const pearl = mainPearl(design);
+  const pearlMat = PEARLS[pearl].material;
 
   useEffect(() => {
     startLoop("saw");
@@ -255,24 +259,32 @@ function JulStep({ design, motif, onDone }: { design: Design; motif: MotifId; on
           onPointerLeave={() => setSaw(null)}
           onWheel={onWheel}
         >
-          <ShellSheet pearl={design.pearl} />
-          <path
-            d={m.cutPath ?? m.path}
-            transform={`translate(150 150) scale(${SCALE})`}
-            fill="none"
-            stroke="#fffaf0"
-            strokeWidth={2.6 / SCALE}
-            opacity="0.45"
-          />
-          <path
-            d={m.cutPath ?? m.path}
-            transform={`translate(150 150) scale(${SCALE})`}
-            fill="none"
-            stroke="#4a3c38"
-            strokeWidth={1.3 / SCALE}
-            strokeDasharray={`${4 / SCALE} ${3 / SCALE}`}
-            opacity="0.75"
-          />
+          <ShellSheet pearl={pearl} />
+          {m.strokes?.length ? (
+            <g transform={`translate(150 150) scale(${SCALE})`} opacity="0.85">
+              <MotifSilhouette motif={motif} color="#4a3c38" />
+            </g>
+          ) : (
+            <>
+              <path
+                d={motifOutline(motif)}
+                transform={`translate(150 150) scale(${SCALE})`}
+                fill="none"
+                stroke="#fffaf0"
+                strokeWidth={2.6 / SCALE}
+                opacity="0.45"
+              />
+              <path
+                d={motifOutline(motif)}
+                transform={`translate(150 150) scale(${SCALE})`}
+                fill="none"
+                stroke="#4a3c38"
+                strokeWidth={1.3 / SCALE}
+                strokeDasharray={`${4 / SCALE} ${3 / SCALE}`}
+                opacity="0.75"
+              />
+            </>
+          )}
           {cut.length > 1 && (
             <polyline
               points={cut.map((p) => `${p.x},${p.y}`).join(" ")}
@@ -425,7 +437,7 @@ function KkeunStep({ design, onDone }: { design: Design; onDone: (s: number) => 
       >
         <svg viewBox="0 0 300 200" className="w-full">
           <defs>
-            <NacreDefs id="kk-nacre" pearl={design.pearl} scale={0.8} />
+            <NacreDefs id="kk-nacre" pearl={mainPearl(design)} scale={0.8} />
           </defs>
           <rect x="0" y="118" width="300" height="62" fill="#5c3f2c" rx="6" />
           <rect x="0" y="118" width="300" height="3" fill="#8a6748" />

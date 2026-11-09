@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Artwork, {
   MotifMasks,
+  MotifSilhouette,
   NacreDefs,
   NacrePiece,
   motifMask,
@@ -11,8 +12,8 @@ import Artwork, {
   pieceTransform,
 } from "@/components/Artwork";
 import { Btn, Meter } from "@/components/ui";
-import { MOTIFS, motifParts } from "@/lib/data";
-import type { Design, PlacedPiece } from "@/lib/game";
+import { MOTIFS } from "@/lib/data";
+import { piecePearl, type Design, type PlacedPiece } from "@/lib/game";
 import { sfx } from "@/lib/sound";
 import { StepHeader } from "./common";
 
@@ -124,18 +125,15 @@ export default function AttachStep({
               className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
             >
               <defs>
-                <NacreDefs id="drag-nacre" pearl={design.pearl} />
+                <NacreDefs id="drag-nacre" pearl={piecePearl(piece, design)} />
                 <MotifMasks id="drag-cut" motifs={[piece.motif]} />
               </defs>
               <g
                 transform={pieceTransform({ ...piece, x: drag.x + 2, y: drag.y + 5 })}
                 mask={motifMask("drag-cut", piece.motif)}
-                fill="#000"
                 opacity="0.35"
               >
-                {motifParts(piece.motif).map((d, i) => (
-                  <path key={i} d={d} />
-                ))}
+                <MotifSilhouette motif={piece.motif} color="#000" />
               </g>
               <g transform={pieceTransform({ ...piece, x: drag.x, y: drag.y })}>
                 <NacrePiece
@@ -163,7 +161,7 @@ export default function AttachStep({
             {piece && (
               <svg viewBox="-30 -30 60 60" className="h-full w-full">
                 <defs>
-                  <NacreDefs id="tray-nacre" pearl={design.pearl} />
+                  <NacreDefs id="tray-nacre" pearl={piecePearl(piece, design)} />
                   <MotifMasks id="tray-cut" motifs={[piece.motif]} />
                 </defs>
                 <g transform={`rotate(${piece.r})`}>

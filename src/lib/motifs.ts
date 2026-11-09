@@ -2,23 +2,53 @@
 // path의 하위 경로(M…Z) 하나하나가 따로 오려 붙인 자개 조각이고,
 // detail(선)·holes(면)은 자개를 뚫어 아래 옻칠이 비쳐 보이는 부분입니다.
 
+import {
+  asanohaHex,
+  cloudLine,
+  grapeLeaf,
+  grapes,
+  kikuScroll,
+  mountain,
+  rock,
+  vine,
+  wave,
+  type Pt,
+  type Stroke,
+} from "./motifArt";
+
 export type MotifId =
   | "plum"
   | "butterfly"
   | "cloud"
+  | "cloudLine"
   | "peony"
   | "crane"
   | "crane2"
   | "diamond"
   | "moon"
+  | "orb"
+  | "mountain"
+  | "rock"
+  | "wave"
+  | "vine"
+  | "grapeLeaf"
+  | "grapes"
+  | "kiku"
   | "leaf"
   | "turtle";
 
+/** shape: 하나로 완결된 모양, pattern: 이웃과 이어 붙여 면을 채우는 반복 단위 */
+export type MotifKind = "shape" | "pattern";
+
 export interface MotifDef {
   id: MotifId;
+  kind: MotifKind;
   name: string;
   meaning: string;
+  /** 면으로 오린 조각들 (하위 경로마다 한 조각, 없으면 빈 문자열) */
   path: string;
+  /** 가늘게 켠 자개 띠로 붙이는 선 */
+  strokes?: Stroke[];
   /** 자르기 미니게임용 단일 외곽선 (없으면 path 사용) */
   cutPath?: string;
   /** 선 모양으로 뚫린 부분 */
@@ -26,6 +56,10 @@ export interface MotifDef {
   detailWidth?: number;
   /** 면 모양으로 뚫린 부분 */
   holes?: string;
+  /** 패턴 단위가 맞물리는 격자 (문양 좌표, 배율·회전 전) */
+  tile?: { a: Pt; b: Pt };
+  /** 조각 하나에 드는 자개 (기본 1) */
+  cost?: number;
 }
 
 const f = (n: number) => +n.toFixed(2);
@@ -80,49 +114,6 @@ function plumCuts() {
     detail += ` M${pt(10.9, b)} C${pt(9.8, b + 0.03)} ${pt(8.8, b + 0.13)} ${pt(8.1, b + 0.27)}`;
   }
   return { detail, holes };
-}
-
-/* ───────── 끊음질 삼잎(마) 무늬: 마름모 안을 가는 자개 실로 채운 기하 문양 ───────── */
-
-function asanoha() {
-  const n = 3;
-  const L = 8.6;
-  const inset = 0.42;
-  const s3 = Math.sqrt(3);
-  const cx = n * L * 0.75;
-  const cy = (n * L * s3) / 4;
-  const rot = Math.PI / 3;
-  const P = (i: number, j: number): [number, number] => {
-    const x = i * L + (j * L) / 2 - cx;
-    const y = (j * L * s3) / 2 - cy;
-    return [x * Math.cos(rot) - y * Math.sin(rot), x * Math.sin(rot) + y * Math.cos(rot)];
-  };
-  const tri = (a: number[], b: number[], c: number[]) => {
-    const la = Math.hypot(b[0] - c[0], b[1] - c[1]);
-    const lb = Math.hypot(a[0] - c[0], a[1] - c[1]);
-    const lc = Math.hypot(a[0] - b[0], a[1] - b[1]);
-    const per = la + lb + lc;
-    const ix = (la * a[0] + lb * b[0] + lc * c[0]) / per;
-    const iy = (la * a[1] + lb * b[1] + lc * c[1]) / per;
-    const area = Math.abs((b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1])) / 2;
-    const k = 1 - inset / ((2 * area) / per);
-    const q = (p: number[]) => `${f(ix + (p[0] - ix) * k)} ${f(iy + (p[1] - iy) * k)}`;
-    return `M${q(a)} L${q(b)} L${q(c)} Z`;
-  };
-  let holes = "";
-  for (let i = 0; i < n; i++)
-    for (let j = 0; j < n; j++) {
-      for (const t of [
-        [P(i, j), P(i + 1, j), P(i, j + 1)],
-        [P(i + 1, j), P(i + 1, j + 1), P(i, j + 1)],
-      ]) {
-        const g = [(t[0][0] + t[1][0] + t[2][0]) / 3, (t[0][1] + t[1][1] + t[2][1]) / 3];
-        holes += tri(t[0], t[1], g) + tri(t[1], t[2], g) + tri(t[2], t[0], g);
-      }
-    }
-  const grow = 1.045;
-  const c = [P(0, 0), P(n, 0), P(n, n), P(0, n)].map(([x, y]) => `${f(x * grow)} ${f(y * grow)}`);
-  return { path: `M${c.join(" L")} Z`, holes };
 }
 
 /* ───────── 나비: 앞날개·뒷날개·몸통·더듬이를 따로 오려 붙임 ───────── */
@@ -193,7 +184,6 @@ const CRANE2_CUTS =
 
 /* ───────── 모란: 끝이 말린 꽃잎을 한 장씩 오려 둥근 씨방 둘레에 붙인 모란과 잎 ───────── */
 
-type Pt = [number, number];
 
 /** 꽃잎·잎 하나: 국소 좌표(+x 방향으로 뻗음)의 베지어를 (ox, oy)에서 a만큼 돌려 배치 */
 function frond(ox: number, oy: number, deg: number, len: number, w: number, curl: number, leaf = false) {
@@ -276,29 +266,38 @@ function spiral(cx: number, cy: number, r0: number, r1: number, turns: number, a
 }
 
 const CLOUD =
-  "M-30.5 0.6 C-29 3.4 -26 4.8 -22.6 3.1 " +
-  "A6 6 0 0 1 -14.95 -4.64 " +
-  "C-14 -4.8 -13.4 -4.9 -12.83 -4.91 " +
-  "A11 11 0 0 1 8.63 -5.85 " +
-  "C8 -4.4 7.4 -3.4 6.95 -2.57 " +
-  "A7.5 7.5 0 0 1 21.39 1.3 " +
-  "C24.4 0.6 27.6 -1 30.5 -3.6 C30 1.6 26.6 6.4 21 7.4 " +
-  "C17 9.6 12.4 8 8.6 9.2 C3 10.8 -4 10.8 -9.4 9.2 C-14 8 -19 10.2 -23.4 8.4 C-27.4 6.8 -30.2 4.2 -30.5 0.6 Z";
+  "M-32 7.2 C-28.6 6.6 -25.4 4.8 -22.4 3.2 " +
+  "A6 6 0 0 1 -14.8 -4.5 " +
+  "C-14 -4.7 -13.4 -4.85 -12.7 -4.9 " +
+  "A11 11 0 0 1 8.7 -5.7 " +
+  "C8.1 -4.2 7.5 -3.2 7 -2.4 " +
+  "A7.5 7.5 0 0 1 21.2 2.2 " +
+  "C24.6 3.6 28.2 5 32 6.6 C29.4 8.2 25.6 8.4 21 8.2 " +
+  "C17 9.8 12.4 8.4 8.6 9.4 C3 10.8 -4 10.8 -9.4 9.4 C-14 8.2 -19 10.2 -23.6 8.8 C-27.4 8.2 -30.2 7.8 -32 7.2 Z";
 const CLOUD_CUTS = [
-  spiral(-2, -2.6, 8.2, 1.4, 1.3, 95, -1),
-  spiral(-17, 1.6, 4.4, 0.9, 1.15, 80, 1),
-  spiral(14, 0.8, 5.4, 1, 1.2, 100, -1),
-  spiral(25.4, 3, 2.4, 0.5, 0.95, 150, 1),
-  spiral(-26.2, 4.2, 2.2, 0.5, 0.95, 20, -1),
+  spiral(-2, -2.4, 8, 1.4, 1.3, 95, -1),
+  spiral(-16.6, 1.8, 4.2, 0.9, 1.15, 80, 1),
+  spiral(13.6, 1.2, 5.2, 1, 1.2, 100, -1),
+  spiral(24.6, 5.4, 2, 0.5, 0.9, 200, 1),
+  spiral(-25.4, 6.4, 1.9, 0.5, 0.9, 10, -1),
 ].join(" ");
 
 const pe = peony();
 const plum = plumCuts();
-const geo = asanoha();
+const geo = asanohaHex();
+const kiku = kikuScroll();
+const cloud2 = cloudLine();
+const mtn = mountain();
+const rk = rock();
+const wv = wave();
+const vn = vine();
+const gl = grapeLeaf();
+const gr = grapes();
 
 export const MOTIFS: Record<MotifId, MotifDef> = {
   plum: {
     id: "plum",
+    kind: "shape",
     name: "매화",
     meaning: "고결함",
     path: plumOutline(),
@@ -308,6 +307,7 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
   },
   butterfly: {
     id: "butterfly",
+    kind: "shape",
     name: "나비",
     meaning: "기쁨",
     path: `${both(BF_FORE, BF_HIND, BF_ANT)} M-1.25 -5.4 C-1.4 -7.6 1.4 -7.6 1.25 -5.4 L1.1 10.6 C0.9 13.4 -0.9 13.4 -1.1 10.6 Z ${circle(0, -8.6, 1.5)}`,
@@ -321,6 +321,7 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
   },
   cloud: {
     id: "cloud",
+    kind: "shape",
     name: "구름",
     meaning: "장수",
     path: CLOUD,
@@ -329,6 +330,7 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
   },
   peony: {
     id: "peony",
+    kind: "shape",
     name: "모란",
     meaning: "부귀",
     path: pe.path,
@@ -338,6 +340,7 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
   },
   crane: {
     id: "crane",
+    kind: "shape",
     name: "학",
     meaning: "신선",
     path: CRANE1,
@@ -350,6 +353,7 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
   },
   crane2: {
     id: "crane2",
+    kind: "shape",
     name: "비상하는 학",
     meaning: "길상",
     path: CRANE2,
@@ -362,21 +366,94 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
   },
   diamond: {
     id: "diamond",
+    kind: "pattern",
     name: "끊음질 삼잎",
     meaning: "조화",
     path: geo.path,
     holes: geo.holes,
+    tile: geo.tile,
+    cost: 0.5,
+  },
+  kiku: {
+    id: "kiku",
+    kind: "pattern",
+    name: "국화 넝쿨",
+    meaning: "장수",
+    ...kiku,
+    detailWidth: 0.5,
+  },
+  orb: {
+    id: "orb",
+    kind: "shape",
+    name: "해·달",
+    meaning: "광명",
+    path: circle(0, 0, 20),
+  },
+  cloudLine: {
+    id: "cloudLine",
+    kind: "shape",
+    name: "선 구름",
+    meaning: "길상",
+    path: "",
+    ...cloud2,
+  },
+  mountain: {
+    id: "mountain",
+    kind: "shape",
+    name: "산",
+    meaning: "굳건함",
+    path: "",
+    ...mtn,
+  },
+  rock: {
+    id: "rock",
+    kind: "shape",
+    name: "바위",
+    meaning: "불변",
+    path: "",
+    ...rk,
+  },
+  wave: {
+    id: "wave",
+    kind: "shape",
+    name: "물결",
+    meaning: "평안",
+    path: "",
+    ...wv,
+  },
+  vine: {
+    id: "vine",
+    kind: "shape",
+    name: "포도넝쿨",
+    meaning: "번성",
+    path: "",
+    ...vn,
+  },
+  grapeLeaf: {
+    id: "grapeLeaf",
+    kind: "shape",
+    name: "포도잎",
+    meaning: "풍요",
+    ...gl,
+    detailWidth: 0.5,
+  },
+  grapes: {
+    id: "grapes",
+    kind: "shape",
+    name: "포도송이",
+    meaning: "다산",
+    ...gr,
   },
   moon: {
     id: "moon",
+    kind: "shape",
     name: "초승달",
     meaning: "소망",
     path: "M0 -20 A20 20 0 0 0 0 20 A24 24 0 0 1 0 -20 Z",
-    detail: "M-5.6 -18 Q-25 0 -5.6 18",
-    detailWidth: 0.5,
   },
   leaf: {
     id: "leaf",
+    kind: "shape",
     name: "댓잎",
     meaning: "절개",
     path: "M-24 2 C-12 -10 10 -10 24 -2 C10 8 -12 10 -24 2 Z",
@@ -386,9 +463,12 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
   },
   turtle: {
     id: "turtle",
+    kind: "pattern",
     name: "거북등",
     meaning: "무병장수",
     path: hexagon(17),
+    tile: { a: [25.5, 14.72], b: [0, 29.44] },
+    cost: 0.5,
     detail: (() => {
       let d = hexagon(10);
       for (let i = 0; i < 6; i++) {
@@ -400,10 +480,33 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
   },
 };
 
-/** 문양 고르기에 보이는 목록 (댓잎·거북등은 예전 작품 표시용으로만 남김) */
+/** 문양 고르기에 보이는 목록 (모란·댓잎·거북등은 예전 작품 표시용으로만 남김) */
 export const MOTIF_LIST: MotifDef[] = (
-  ["plum", "peony", "butterfly", "cloud", "crane", "crane2", "diamond", "moon"] as MotifId[]
+  [
+    "crane",
+    "crane2",
+    "butterfly",
+    "plum",
+    "grapes",
+    "grapeLeaf",
+    "vine",
+    "cloud",
+    "cloudLine",
+    "mountain",
+    "rock",
+    "wave",
+    "orb",
+    "moon",
+    "diamond",
+    "kiku",
+  ] as MotifId[]
 ).map((id) => MOTIFS[id]);
+
+export const SHAPE_MOTIFS = MOTIF_LIST.filter((m) => m.kind === "shape");
+export const PATTERN_MOTIFS = MOTIF_LIST.filter((m) => m.kind === "pattern");
+
+/** 밑그림·선택 표시·자르기에 쓰는 바깥 윤곽 */
+export const motifOutline = (id: MotifId) => MOTIFS[id].cutPath ?? MOTIFS[id].path;
 
 const partsCache = new Map<MotifId, string[]>();
 

@@ -1,8 +1,8 @@
 "use client";
 
 import { useId } from "react";
-import { LACQUERS, MOTIFS, PEARLS, SHAPES, motifParts, type MotifId } from "@/lib/data";
-import type { Design, PlacedPiece } from "@/lib/game";
+import { LACQUERS, MOTIFS, PEARLS, SHAPES, motifOutline, motifParts, type MotifId } from "@/lib/data";
+import { piecePearl, type Design, type PlacedPiece } from "@/lib/game";
 import { NACRE_TILE, useNacreTexture } from "@/lib/nacre";
 
 export type Surface = "wood" | "hemp" | "lacquer";
@@ -132,8 +132,8 @@ export function MotifMasks({ id, motifs }: { id: string; motifs: MotifId[] }) {
         const m = MOTIFS[k];
         if (!m.detail && !m.holes) return null;
         return (
-          <mask key={k} id={`${id}-${k}`} maskUnits="userSpaceOnUse" x="-45" y="-45" width="90" height="90">
-            <rect x="-45" y="-45" width="90" height="90" fill="#fff" />
+          <mask key={k} id={`${id}-${k}`} maskUnits="userSpaceOnUse" x="-50" y="-50" width="100" height="100">
+            <rect x="-50" y="-50" width="100" height="100" fill="#fff" />
             {m.holes && <path d={m.holes} fill="#000" />}
             {m.detail && (
               <path
@@ -157,6 +157,28 @@ export function motifMask(id: string, motif: MotifId) {
   return m.detail || m.holes ? `url(#${id}-${motif})` : undefined;
 }
 
+/** 문양 전체를 한 색으로 (그림자·마스크용) */
+export function MotifSilhouette({ motif, color }: { motif: MotifId; color: string }) {
+  return (
+    <>
+      {motifParts(motif).map((d, i) => (
+        <path key={i} d={d} fill={color} />
+      ))}
+      {MOTIFS[motif].strokes?.map((st, i) => (
+        <path
+          key={`s${i}`}
+          d={st.d}
+          fill="none"
+          stroke={color}
+          strokeWidth={st.w}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      ))}
+    </>
+  );
+}
+
 /** 오려낸 자개: 조각마다 테두리 · 판자개 결 · 빛 받는 면 · 테두리 광, 선각은 뚫려 옻칠이 비칩니다 */
 export function NacrePiece({
   motif,
@@ -177,20 +199,27 @@ export function NacrePiece({
   onPointerDown?: (e: React.PointerEvent) => void;
   style?: React.CSSProperties;
 }) {
+  const tint = light > 0 ? "#fffaf0" : "#120b08";
+  const tintOpacity = Math.abs(light) * (light > 0 ? 0.14 : 0.2);
   return (
     <g mask={mask}>
+      {onPointerDown && (
+        <path d={motifOutline(motif)} fill="transparent" onPointerDown={onPointerDown} style={style} />
+      )}
+      {MOTIFS[motif].strokes?.map((st, i) => (
+        <g key={`s${i}`} fill="none" strokeLinecap="round" strokeLinejoin="round" pointerEvents="none">
+          <path d={st.d} stroke="#000" strokeOpacity="0.55" strokeWidth={st.w + 1 / s} />
+          <path d={st.d} stroke="#fff" strokeOpacity="0.5" strokeWidth={st.w + 0.35 / s} />
+          <path d={st.d} stroke={fill} strokeWidth={Math.max(0.2, st.w - 0.3 / s)} />
+          {light !== 0 && <path d={st.d} stroke={tint} strokeOpacity={tintOpacity} strokeWidth={st.w} />}
+          {dull > 0 && <path d={st.d} stroke="#a9a199" strokeOpacity={Math.min(0.75, dull)} strokeWidth={st.w} />}
+        </g>
+      ))}
       {motifParts(motif).map((d, i) => (
         <g key={i}>
           <path d={d} fill="none" stroke="#000" strokeOpacity="0.5" strokeWidth={1.2 / s} pointerEvents="none" />
           <path d={d} fill={fill} onPointerDown={onPointerDown} style={style} />
-          {light !== 0 && (
-            <path
-              d={d}
-              fill={light > 0 ? "#fffaf0" : "#120b08"}
-              opacity={Math.abs(light) * (light > 0 ? 0.14 : 0.2)}
-              pointerEvents="none"
-            />
-          )}
+          {light !== 0 && <path d={d} fill={tint} opacity={tintOpacity} pointerEvents="none" />}
           {dull > 0 && <path d={d} fill="#a9a199" opacity={Math.min(0.75, dull)} pointerEvents="none" />}
           <path d={d} fill="none" stroke="#fff" strokeOpacity="0.45" strokeWidth={0.4 / s} pointerEvents="none" />
         </g>
@@ -237,21 +266,22 @@ export default function Artwork({
     rim: `r${uid}`,
   };
   const isLac = surface === "lacquer";
+  const pearls = [...new Set(showPieces ? list.map((p) => piecePearl(p, design)) : [])];
 
   return (
     <svg ref={svgRef} viewBox="0 0 300 300" className={className} style={{ touchAction: "none" }}>
       <defs>
-        <NacreDefs id={ids.nacre} pearl={design.pearl} />
+        {pearls.map((pl) => (
+          <NacreDefs key={pl} id={`${ids.nacre}-${pl}`} pearl={pl} />
+        ))}
         <SheenGradient id={ids.sheen} animate={shimmer} />
         {showPieces && list.length > 0 && (
           <>
             <MotifMasks id={ids.cuts} motifs={list.map((p) => p.motif)} />
             <mask id={ids.pieceMask} maskUnits="userSpaceOnUse" x="0" y="0" width="300" height="300">
               {list.map((p) => (
-                <g key={p.id} transform={pieceTransform(p)} mask={motifMask(ids.cuts, p.motif)} fill="#fff">
-                  {motifParts(p.motif).map((d, i) => (
-                    <path key={i} d={d} />
-                  ))}
+                <g key={p.id} transform={pieceTransform(p)} mask={motifMask(ids.cuts, p.motif)}>
+                  <MotifSilhouette motif={p.motif} color="#fff" />
                 </g>
               ))}
             </mask>
@@ -331,9 +361,9 @@ export default function Artwork({
 
         {ghosts?.map((p) => (
           <g key={`g${p.id}`} transform={pieceTransform(p)} pointerEvents="none">
-            <path d={MOTIFS[p.motif].path} fill="rgba(255,255,255,0.1)" stroke="rgba(20,10,5,0.5)" strokeWidth={3 / p.s} />
+            <path d={motifOutline(p.motif)} fill="rgba(255,255,255,0.1)" stroke="rgba(20,10,5,0.5)" strokeWidth={3 / p.s} />
             <path
-              d={MOTIFS[p.motif].path}
+              d={motifOutline(p.motif)}
               fill="none"
               stroke="#f7efe0"
               strokeWidth={1.4 / p.s}
@@ -348,13 +378,10 @@ export default function Artwork({
               key={`d${p.id}`}
               transform={pieceTransform({ ...p, x: p.x + 0.7, y: p.y + 1.3 })}
               mask={motifMask(ids.cuts, p.motif)}
-              fill="#080403"
               opacity="0.55"
               pointerEvents="none"
             >
-              {motifParts(p.motif).map((d, i) => (
-                <path key={i} d={d} />
-              ))}
+              <MotifSilhouette motif={p.motif} color="#080403" />
             </g>
           ))}
         {showPieces &&
@@ -362,7 +389,7 @@ export default function Artwork({
             <g key={p.id} transform={pieceTransform(p)}>
               <NacrePiece
                 motif={p.motif}
-                fill={nacreFill(ids.nacre, p.id)}
+                fill={nacreFill(`${ids.nacre}-${piecePearl(p, design)}`, p.id)}
                 mask={motifMask(ids.cuts, p.motif)}
                 light={pieceLight(p)}
                 s={p.s}
@@ -372,7 +399,7 @@ export default function Artwork({
               />
               {selectedId === p.id && (
                 <path
-                  d={MOTIFS[p.motif].cutPath ?? MOTIFS[p.motif].path}
+                  d={motifOutline(p.motif)}
                   fill="none"
                   stroke="#e2c27a"
                   strokeWidth={2 / p.s}

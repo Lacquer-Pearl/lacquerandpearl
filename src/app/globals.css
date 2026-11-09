@@ -444,6 +444,18 @@ b {
   border: 2px solid #fffdf8;
   box-shadow: 0 0 0 1.5px var(--line-deep), inset 0 -3px 6px rgba(0, 0, 0, 0.25);
 }
+.pearl-pick {
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  padding: 2px;
+  border: 1.5px solid transparent;
+  background: transparent;
+}
+.pearl-pick.on {
+  border-color: var(--gold-deep);
+  background: #faf1dd;
+}
 
 .mat {
   border-radius: 10px;

@@ -2,8 +2,8 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { CRAFT_COST, MATERIALS, PEARLS, type MaterialId } from "./data";
-import { generateCommission, type Artwork, type Commission, type Design } from "./game";
+import { CRAFT_COST, MATERIALS, MOTIF_LIST, PEARLS, type MaterialId, type MotifId, type PearlId } from "./data";
+import { generateCommission, pearlCost, type Artwork, type Commission, type Design } from "./game";
 
 export type Inventory = Record<MaterialId, number>;
 
@@ -42,10 +42,13 @@ interface SaveState {
   resetSave: () => void;
 }
 
-function costFor(design: Pick<Design, "pearl" | "pieces">) {
+/** 제작에 드는 재료 (자개는 조각마다 고른 종류별로) */
+export function costFor(design: Pick<Design, "pearl" | "pieces">) {
   const cost: Partial<Record<MaterialId, number>> = { ...CRAFT_COST };
-  const pm = PEARLS[design.pearl].material;
-  cost[pm] = (cost[pm] ?? 0) + design.pieces.length;
+  for (const [pl, n] of Object.entries(pearlCost(design)) as [PearlId, number][]) {
+    const pm = PEARLS[pl].material;
+    cost[pm] = (cost[pm] ?? 0) + n;
+  }
   return cost;
 }
 
@@ -138,7 +141,15 @@ export const useSave = create<SaveState>()(
       skipHydration: true,
       merge: (persisted, current) => {
         const p = persisted as Partial<SaveState> | undefined;
-        return { ...current, ...p, inventory: { ...START_INVENTORY, ...p?.inventory } };
+        const listed = new Set(MOTIF_LIST.map((m) => m.id));
+        return {
+          ...current,
+          ...p,
+          inventory: { ...START_INVENTORY, ...p?.inventory },
+          commissions: (p?.commissions ?? current.commissions).filter((c) =>
+            Object.keys(c.motifs).every((m) => listed.has(m as MotifId)),
+          ),
+        };
       },
       partialize: (s) => ({
         money: s.money,

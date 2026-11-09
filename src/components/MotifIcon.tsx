@@ -2,7 +2,7 @@
 
 import { useId } from "react";
 import { MotifMasks, NacreDefs, NacrePiece, SheenGradient, motifMask } from "./Artwork";
-import type { MotifId, PearlId } from "@/lib/data";
+import { MOTIFS, type MotifId, type PearlId } from "@/lib/data";
 
 export default function MotifIcon({
   motif,
@@ -25,7 +25,7 @@ export default function MotifIcon({
         </radialGradient>
       </defs>
       <circle r="31.5" fill={`url(#${id}-bg)`} />
-      <g transform="scale(0.94)">
+      <g transform={`scale(${MOTIFS[motif].kind === "pattern" ? 1.15 : 0.9})`}>
         <NacrePiece motif={motif} fill={`url(#${id})`} mask={motifMask(`${id}-c`, motif)} light={0.3} />
       </g>
     </svg>

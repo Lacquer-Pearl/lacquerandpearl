@@ -1,28 +1,39 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Artwork from "@/components/Artwork";
 import { Btn } from "@/components/ui";
 import MotifIcon, { NacreSwatch } from "@/components/MotifIcon";
 import {
-  CRAFT_COST,
   LACQUERS,
   LACQUER_LIST,
   MATERIALS,
   MOTIFS,
-  MOTIF_LIST,
+  PATTERN_MOTIFS,
   PEARLS,
   PEARL_LIST,
   SHAPE_LIST,
+  SHAPE_MOTIFS,
   type MaterialId,
   type MotifId,
 } from "@/lib/data";
-import { countMotifs, newPiece, uid, type Commission, type Design, type PlacedPiece } from "@/lib/game";
+import {
+  countMotifs,
+  newPiece,
+  nextPatternSlot,
+  pearlShare,
+  piecePearl,
+  snapToPattern,
+  uid,
+  type Commission,
+  type Design,
+  type PlacedPiece,
+} from "@/lib/game";
 import { sfx } from "@/lib/sound";
-import { useSave, useUI } from "@/lib/store";
+import { costFor, useSave, useUI } from "@/lib/store";
 import { StepHeader } from "./common";
 
-const MAX_PIECES = 16;
+const MAX_PIECES = 32;
 
 export default function DesignStep({
   design,
@@ -38,23 +49,38 @@ export default function DesignStep({
   const [selected, setSelected] = useState<string | undefined>();
   const svgRef = useRef<SVGSVGElement>(null);
   const drag = useRef<{ id: string; dx: number; dy: number } | null>(null);
+  const piecesRef = useRef(design.pieces);
+  useEffect(() => {
+    piecesRef.current = design.pieces;
+  }, [design.pieces]);
   const inventory = useSave((s) => s.inventory);
   const missingFor = useSave((s) => s.missingFor);
   const go = useUI((s) => s.go);
 
   const counts = countMotifs(design.pieces);
   const missing = missingFor(design);
-  const pearlMat = PEARLS[design.pearl].material;
   const sel = design.pieces.find((p) => p.id === selected);
+  const cost = costFor(design);
 
-  const update = (pieces: PlacedPiece[]) => setDesign({ ...design, pieces });
+  const update = (pieces: PlacedPiece[]) => {
+    piecesRef.current = pieces;
+    setDesign({ ...design, pieces });
+  };
   const patch = (id: string, f: (p: PlacedPiece) => PlacedPiece) =>
     update(design.pieces.map((p) => (p.id === id ? f(p) : p)));
 
   const addMotif = (m: MotifId) => {
     if (design.pieces.length >= MAX_PIECES) return;
     sfx.pop();
-    const p = newPiece(m);
+    let p = newPiece(m, design.pearl);
+    const origin =
+      sel && sel.motif === m && MOTIFS[m].tile
+        ? sel
+        : [...design.pieces].reverse().find((x) => x.motif === m && MOTIFS[m].tile);
+    if (origin) {
+      const slot = nextPatternSlot(origin, design.pieces);
+      if (slot) p = { ...p, ...slot, r: origin.r, s: origin.s, pearl: origin.pearl ?? design.pearl };
+    }
     update([...design.pieces, p]);
     setSelected(p.id);
   };
@@ -64,7 +90,14 @@ export default function DesignStep({
     return { x: ((e.clientX - r.left) / r.width) * 300, y: ((e.clientY - r.top) / r.height) * 300 };
   };
 
-  const cost: Partial<Record<MaterialId, number>> = { ...CRAFT_COST, [pearlMat]: design.pieces.length };
+  const endDrag = () => {
+    const d = drag.current;
+    drag.current = null;
+    if (!d) return;
+    const pieces = piecesRef.current;
+    const next = pieces.map((p) => (p.id === d.id ? snapToPattern(p, pieces) : p));
+    update(next);
+  };
 
   return (
     <div className="flex flex-col gap-3">
@@ -72,7 +105,7 @@ export default function DesignStep({
         {commission ? (
           <>손님의 주문서를 잘 보고 문양을 배치해 보렴. 요구한 문양과 개수를 맞추면 손님이 기뻐하실 게다.</>
         ) : (
-          <>마음 가는 대로 꾸며 보렴. 문양을 눌러 추가하고, 끌어서 옮길 수 있단다.</>
+          <>마음 가는 대로 꾸며 보렴. 문양을 눌러 추가하고, 끌어서 옮길 수 있단다. 자개 종류는 조각마다 고를 수 있단다.</>
         )}
       </StepHeader>
 
@@ -85,7 +118,7 @@ export default function DesignStep({
             {LACQUERS[commission.lacquer].name}
           </span>
           {commission.pearl && (
-            <span className={`chip ${design.pearl === commission.pearl ? "chip-ok" : ""}`}>
+            <span className={`chip ${pearlShare(design, commission.pearl) >= 0.5 ? "chip-ok" : ""}`}>
               <NacreSwatch pearl={commission.pearl} className="swatch" /> {PEARLS[commission.pearl].name}
             </span>
           )}
@@ -113,8 +146,8 @@ export default function DesignStep({
               y: Math.max(10, Math.min(290, p.y - d.dy)),
             }));
           }}
-          onPointerUp={() => (drag.current = null)}
-          onPointerCancel={() => (drag.current = null)}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
           onPointerDown={() => setSelected(undefined)}
         >
           <Artwork
@@ -133,55 +166,94 @@ export default function DesignStep({
       </div>
 
       {sel ? (
-        <div className="panel flex items-center justify-between gap-1 py-2">
-          <span className="flex items-center gap-1 text-sm text-[var(--brown)]">
-            <MotifIcon motif={sel.motif} className="h-6 w-6" />
-            {MOTIFS[sel.motif].name}
-          </span>
-          <div className="flex gap-1">
-            <Btn size="sm" variant="cream" onClick={() => patch(sel.id, (p) => ({ ...p, r: p.r - 15 }))}>
-              ↺
-            </Btn>
-            <Btn size="sm" variant="cream" onClick={() => patch(sel.id, (p) => ({ ...p, r: p.r + 15 }))}>
-              ↻
-            </Btn>
-            <Btn size="sm" variant="cream" onClick={() => patch(sel.id, (p) => ({ ...p, s: Math.max(0.5, +(p.s - 0.15).toFixed(2)) }))}>
-              －
-            </Btn>
-            <Btn size="sm" variant="cream" onClick={() => patch(sel.id, (p) => ({ ...p, s: Math.min(2, +(p.s + 0.15).toFixed(2)) }))}>
-              ＋
-            </Btn>
-            <Btn
-              size="sm"
-              variant="lavender"
-              disabled={design.pieces.length >= MAX_PIECES}
-              onClick={() => {
-                const c = { ...sel, id: uid(), x: Math.min(285, sel.x + 22), y: Math.min(285, sel.y + 14) };
-                update([...design.pieces, c]);
-                setSelected(c.id);
-              }}
-            >
-              복제
-            </Btn>
-            <Btn
-              size="sm"
-              variant="pink"
-              onClick={() => {
-                update(design.pieces.filter((p) => p.id !== sel.id));
-                setSelected(undefined);
-              }}
-            >
-              🗑
-            </Btn>
+        <div className="panel flex flex-col gap-2 py-2">
+          <div className="flex items-center justify-between gap-1">
+            <span className="flex items-center gap-1 text-sm text-[var(--brown)]">
+              <MotifIcon motif={sel.motif} pearl={piecePearl(sel, design)} className="h-6 w-6" />
+              {MOTIFS[sel.motif].name}
+            </span>
+            <div className="flex gap-1">
+              <Btn size="sm" variant="cream" onClick={() => patch(sel.id, (p) => ({ ...p, r: p.r - 15 }))}>
+                ↺
+              </Btn>
+              <Btn size="sm" variant="cream" onClick={() => patch(sel.id, (p) => ({ ...p, r: p.r + 15 }))}>
+                ↻
+              </Btn>
+              <Btn size="sm" variant="cream" onClick={() => patch(sel.id, (p) => ({ ...p, s: Math.max(0.5, +(p.s - 0.15).toFixed(2)) }))}>
+                －
+              </Btn>
+              <Btn size="sm" variant="cream" onClick={() => patch(sel.id, (p) => ({ ...p, s: Math.min(2, +(p.s + 0.15).toFixed(2)) }))}>
+                ＋
+              </Btn>
+              <Btn
+                size="sm"
+                variant="lavender"
+                disabled={design.pieces.length >= MAX_PIECES}
+                onClick={() => {
+                  let c: PlacedPiece = {
+                    ...sel,
+                    id: uid(),
+                    x: Math.min(285, sel.x + 22),
+                    y: Math.min(285, sel.y + 14),
+                  };
+                  if (MOTIFS[sel.motif].tile) {
+                    const slot = nextPatternSlot(sel, design.pieces);
+                    if (slot) c = { ...c, ...slot };
+                  }
+                  update([...design.pieces, c]);
+                  setSelected(c.id);
+                }}
+              >
+                {MOTIFS[sel.motif].tile ? "이어 붙이기" : "복제"}
+              </Btn>
+              <Btn
+                size="sm"
+                variant="pink"
+                onClick={() => {
+                  update(design.pieces.filter((p) => p.id !== sel.id));
+                  setSelected(undefined);
+                }}
+              >
+                🗑
+              </Btn>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-[var(--brown-light)]">이 조각의 자개</span>
+            {PEARL_LIST.map((p) => (
+              <button
+                key={p.id}
+                className={`pearl-pick ${piecePearl(sel, design) === p.id ? "on" : ""}`}
+                title={p.name}
+                onClick={() => {
+                  sfx.click();
+                  patch(sel.id, (pc) => ({ ...pc, pearl: p.id }));
+                }}
+              >
+                <NacreSwatch pearl={p.id} className="swatch" />
+              </button>
+            ))}
           </div>
         </div>
       ) : null}
 
       <div className="panel flex flex-col gap-3 py-3">
         <div>
-          <div className="label">자개 문양 ({design.pieces.length}/{MAX_PIECES})</div>
+          <div className="label">모양 문양 ({design.pieces.length}/{MAX_PIECES})</div>
           <div className="grid grid-cols-4 gap-2">
-            {MOTIF_LIST.map((m) => (
+            {SHAPE_MOTIFS.map((m) => (
+              <button key={m.id} className="motif-btn" onClick={() => addMotif(m.id)} title={m.meaning}>
+                <MotifIcon motif={m.id} pearl={design.pearl} className="h-9 w-9" />
+                <span>{m.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div className="label">패턴 문양 · 이웃에 이어 붙여 면을 채워요</div>
+          <div className="grid grid-cols-4 gap-2">
+            {PATTERN_MOTIFS.map((m) => (
               <button key={m.id} className="motif-btn" onClick={() => addMotif(m.id)} title={m.meaning}>
                 <MotifIcon motif={m.id} pearl={design.pearl} className="h-9 w-9" />
                 <span>{m.name}</span>
@@ -233,7 +305,7 @@ export default function DesignStep({
         </div>
 
         <div>
-          <div className="label">자개 종류</div>
+          <div className="label">새로 놓을 자개</div>
           <div className="grid grid-cols-2 gap-2">
             {PEARL_LIST.map((p) => (
               <button
