@@ -60,8 +60,8 @@ function paintDefs(design: Design, lang: Locale): Record<"lacquer" | "iron" | "f
         overStyle: "drip",
         sound: "brush",
         tool: "brush",
-        // 한 번 적신 붓이 마를 때까지의 총량. 0.9775는 0.955의 약 2배
-        inkDecay: 0.9775,
+        // 한 번 적신 붓이 마를 때까지의 총량. 0.9887 ≈ √0.9775 → 이전 대비 약 2배
+        inkDecay: 0.9887,
       },
       goodLabel: t(lang, "lacquer.good"),
       overLabel: t(lang, "lacquer.over"),
