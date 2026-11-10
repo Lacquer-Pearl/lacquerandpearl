@@ -5,7 +5,33 @@ import { useState } from "react";
 import { Btn, Coin, Modal, Sparkles, SoundToggle } from "@/components/ui";
 import { MasterTip } from "@/components/craft/common";
 import { rankTitle, t, tNode, type Locale } from "@/lib/i18n";
+import { sfx } from "@/lib/sound";
 import { useSave, useUI } from "@/lib/store";
+
+function TitleMenuBtn({
+  children,
+  size = "lg",
+  onClick,
+  className = "",
+}: {
+  children: React.ReactNode;
+  size?: "lg" | "md";
+  onClick?: () => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      className={`title-menu-btn title-menu-btn-${size} ${className}`}
+      onClick={() => {
+        sfx.click();
+        onClick?.();
+      }}
+    >
+      <span className="title-menu-btn-label">{children}</span>
+    </button>
+  );
+}
 
 export default function TitleScreen() {
   const go = useUI((s) => s.go);
@@ -21,6 +47,9 @@ export default function TitleScreen() {
   const [settings, setSettings] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
 
+  const signSrc = lang === "en" ? "/images/ui/sign-en.png" : "/images/ui/sign-ko.png";
+  const signSize = lang === "en" ? { width: 770, height: 346 } : { width: 528, height: 233 };
+
   return (
     <div className="screen title-screen">
       <Sparkles count={16} />
@@ -30,10 +59,11 @@ export default function TitleScreen() {
       <div className="flex flex-1 flex-col items-center justify-center gap-5 px-5 pb-8">
         <div className="float logo-plaque w-full max-w-[440px]">
           <Image
-            src="/logo.png"
-            alt="Lacquer & Pearl — 나전칠기 : 전통 공예 장인"
-            width={1024}
-            height={558}
+            key={signSrc}
+            src={signSrc}
+            alt={lang === "en" ? "Lacquer & Pearl — Master the Korean Traditional Craft" : "나전공방 — Master the Korean Traditional Craft"}
+            width={signSize.width}
+            height={signSize.height}
             priority
             className="h-auto w-full"
           />
@@ -46,23 +76,23 @@ export default function TitleScreen() {
           <span className="chip">⭐ {rep}</span>
         </div>
         <div className="grid w-full max-w-[360px] grid-cols-1 gap-3">
-          <Btn variant="pink" size="lg" onClick={() => go("board")}>
+          <TitleMenuBtn size="lg" onClick={() => go("board")}>
             {t(lang, "title.commission")}
-          </Btn>
-          <Btn variant="mint" size="lg" onClick={() => startCraft(undefined)}>
+          </TitleMenuBtn>
+          <TitleMenuBtn size="lg" onClick={() => startCraft(undefined)}>
             {t(lang, "title.freeDesign")}
-          </Btn>
+          </TitleMenuBtn>
           <div className="grid grid-cols-2 gap-3">
-            <Btn variant="lavender" onClick={() => go("gallery")}>
+            <TitleMenuBtn size="md" onClick={() => go("gallery")}>
               {t(lang, "title.workshop")} {galleryCount > 0 && <small>({galleryCount})</small>}
-            </Btn>
-            <Btn variant="gold" onClick={() => go("shop")}>
+            </TitleMenuBtn>
+            <TitleMenuBtn size="md" onClick={() => go("shop")}>
               {t(lang, "title.shop")}
-            </Btn>
+            </TitleMenuBtn>
           </div>
-          <button className="on-dark-link text-sm underline" onClick={() => setSettings(true)}>
+          <TitleMenuBtn size="md" className="title-menu-btn-settings" onClick={() => setSettings(true)}>
             {t(lang, "title.settings")}
-          </button>
+          </TitleMenuBtn>
         </div>
       </div>
 

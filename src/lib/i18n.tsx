@@ -31,7 +31,7 @@ const ko: Dict = {
   "title.settings": "⚙️ 설정 · 도움말",
   "title.welcome": "나전칠기 공방에 온 걸 환영한다!",
   "title.masterTip":
-    "나는 이 공방의 스승이란다. {craft}는 옻칠한 나무 위에 조개껍데기(자개)를 오려 붙여 꾸미는 우리 전통 공예란다.",
+    "제자야, 너의 공방을 연 것을 축하한다. {craft}는 옻칠한 나무 위에 조개껍데기(자개)를 오려 붙여 꾸미는 우리 전통 공예란다. 혼자서 처음부터 다 하기는 쉽지 않을테니, 내가 도와주도록 하마.",
   "title.craftName": "나전칠기",
   "title.help1": "📜 {b} — 손님 주문대로 만들어 엽전과 명성을 얻어요",
   "title.help1b": "의뢰 받기",
@@ -405,7 +405,7 @@ const en: Dict = {
   "title.settings": "⚙️ Settings · Help",
   "title.welcome": "Welcome to the lacquer workshop!",
   "title.masterTip":
-    "I am the master of this workshop. {craft} is our traditional craft of cutting mother-of-pearl and inlaying it on lacquered wood.",
+    "Disciple, congratulations on opening your workshop. {craft} is our traditional craft of cutting mother-of-pearl and inlaying it on lacquered wood. It is not easy to do alone from the start, so I shall help you.",
   "title.craftName": "Najeonchilgi",
   "title.help1": "📜 {b} — craft to order and earn coins & fame",
   "title.help1b": "Commissions",
