@@ -13,6 +13,7 @@ import {
   PEARL_LIST,
   SHAPE_LIST,
   SHAPE_MOTIFS,
+  motifLocalBox,
   type MaterialId,
   type MotifId,
 } from "@/lib/data";
@@ -23,7 +24,6 @@ import {
   pearlShare,
   piecePearl,
   snapToPattern,
-  turnPiece,
   uid,
   type Commission,
   type Design,
@@ -43,6 +43,26 @@ import { costFor, useSave, useUI } from "@/lib/store";
 import { StepHeader } from "./common";
 
 const MAX_PIECES = 32;
+const MIN_S = 0.5;
+const MAX_S = 2.5;
+
+type DragState =
+  | { kind: "move"; id: string; dx: number; dy: number }
+  | { kind: "scale"; id: string; startDist: number; startS: number }
+  | { kind: "rotate"; id: string; startAngle: number; startR: number };
+
+function localToWorld(p: Pick<PlacedPiece, "x" | "y" | "r" | "s">, lx: number, ly: number) {
+  const rad = (p.r * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const x = lx * p.s;
+  const y = ly * p.s;
+  return { x: p.x + x * cos - y * sin, y: p.y + x * sin + y * cos };
+}
+
+function angleAt(cx: number, cy: number, x: number, y: number) {
+  return (Math.atan2(y - cy, x - cx) * 180) / Math.PI;
+}
 
 export default function DesignStep({
   design,
@@ -57,7 +77,7 @@ export default function DesignStep({
 }) {
   const [selected, setSelected] = useState<string | undefined>();
   const svgRef = useRef<SVGSVGElement>(null);
-  const drag = useRef<{ id: string; dx: number; dy: number } | null>(null);
+  const drag = useRef<DragState | null>(null);
   const piecesRef = useRef(design.pieces);
   useEffect(() => {
     piecesRef.current = design.pieces;
@@ -104,9 +124,15 @@ export default function DesignStep({
     const d = drag.current;
     drag.current = null;
     if (!d) return;
+    if (d.kind !== "move") return;
     const pieces = piecesRef.current;
     const next = pieces.map((p) => (p.id === d.id ? snapToPattern(p, pieces) : p));
     update(next);
+  };
+
+  const capture = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    svgRef.current?.setPointerCapture(e.pointerId);
   };
 
   return (
@@ -146,11 +172,27 @@ export default function DesignStep({
             const d = drag.current;
             if (!d) return;
             const p = toLocal(e);
-            patch(d.id, (pc) => ({
-              ...pc,
-              x: Math.max(10, Math.min(290, p.x - d.dx)),
-              y: Math.max(10, Math.min(290, p.y - d.dy)),
-            }));
+            if (d.kind === "move") {
+              patch(d.id, (pc) => ({
+                ...pc,
+                x: Math.max(10, Math.min(290, p.x - d.dx)),
+                y: Math.max(10, Math.min(290, p.y - d.dy)),
+              }));
+              return;
+            }
+            const piece = piecesRef.current.find((pc) => pc.id === d.id);
+            if (!piece) return;
+            if (d.kind === "scale") {
+              const dist = Math.hypot(p.x - piece.x, p.y - piece.y);
+              if (d.startDist < 1) return;
+              const next = Math.max(MIN_S, Math.min(MAX_S, +((d.startS * dist) / d.startDist).toFixed(3)));
+              patch(d.id, (pc) => ({ ...pc, s: next }));
+              return;
+            }
+            const ang = angleAt(piece.x, piece.y, p.x, p.y);
+            let r = d.startR + (ang - d.startAngle);
+            r = ((r % 360) + 360) % 360;
+            patch(d.id, (pc) => ({ ...pc, r: +r.toFixed(1) }));
           }}
           onPointerUp={endDrag}
           onPointerCancel={endDrag}
@@ -160,14 +202,36 @@ export default function DesignStep({
             design={design}
             selectedId={selected}
             onPiecePointerDown={(e, p) => {
-              e.stopPropagation();
-              svgRef.current!.setPointerCapture(e.pointerId);
+              capture(e);
               const l = toLocal(e);
-              drag.current = { id: p.id, dx: l.x - p.x, dy: l.y - p.y };
+              drag.current = { kind: "move", id: p.id, dx: l.x - p.x, dy: l.y - p.y };
               setSelected(p.id);
               sfx.tick();
             }}
           />
+          {sel && (
+            <PieceEditChrome
+              piece={sel}
+              onScaleStart={(e) => {
+                capture(e);
+                const l = toLocal(e);
+                const dist = Math.hypot(l.x - sel.x, l.y - sel.y);
+                drag.current = { kind: "scale", id: sel.id, startDist: Math.max(1, dist), startS: sel.s };
+                sfx.tick();
+              }}
+              onRotateStart={(e) => {
+                capture(e);
+                const l = toLocal(e);
+                drag.current = {
+                  kind: "rotate",
+                  id: sel.id,
+                  startAngle: angleAt(sel.x, sel.y, l.x, l.y),
+                  startR: sel.r,
+                };
+                sfx.tick();
+              }}
+            />
+          )}
         </svg>
       </div>
 
@@ -179,18 +243,6 @@ export default function DesignStep({
               {motifName(lang, sel.motif)}
             </span>
             <div className="flex gap-1">
-              <Btn size="sm" variant="cream" onClick={() => patch(sel.id, (p) => ({ ...p, r: turnPiece(p.r, -1) }))}>
-                ↺
-              </Btn>
-              <Btn size="sm" variant="cream" onClick={() => patch(sel.id, (p) => ({ ...p, r: turnPiece(p.r, 1) }))}>
-                ↻
-              </Btn>
-              <Btn size="sm" variant="cream" onClick={() => patch(sel.id, (p) => ({ ...p, s: Math.max(0.5, +(p.s - 0.15).toFixed(2)) }))}>
-                －
-              </Btn>
-              <Btn size="sm" variant="cream" onClick={() => patch(sel.id, (p) => ({ ...p, s: Math.min(2, +(p.s + 0.15).toFixed(2)) }))}>
-                ＋
-              </Btn>
               <Btn
                 size="sm"
                 variant="lavender"
@@ -362,5 +414,84 @@ export default function DesignStep({
         {design.pieces.length === 0 ? t(lang, "design.needMotif") : t(lang, "design.start")}
       </Btn>
     </div>
+  );
+}
+
+const CORNER_CURSORS = ["nwse-resize", "nesw-resize", "nwse-resize", "nesw-resize"] as const;
+
+function PieceEditChrome({
+  piece,
+  onScaleStart,
+  onRotateStart,
+}: {
+  piece: PlacedPiece;
+  onScaleStart: (e: React.PointerEvent) => void;
+  onRotateStart: (e: React.PointerEvent) => void;
+}) {
+  const box = motifLocalBox(piece.motif);
+  const corners = [
+    [box.x, box.y],
+    [box.x + box.w, box.y],
+    [box.x + box.w, box.y + box.h],
+    [box.x, box.y + box.h],
+  ].map(([lx, ly]) => localToWorld(piece, lx, ly));
+  const topMid = localToWorld(piece, box.x + box.w / 2, box.y);
+  const rot = localToWorld(piece, box.x + box.w / 2, box.y - 20 / Math.max(piece.s, 0.6));
+  const hs = 5.5;
+
+  return (
+    <g className="piece-edit-chrome" style={{ pointerEvents: "auto" }}>
+      <polygon
+        points={corners.map((c) => `${c.x},${c.y}`).join(" ")}
+        fill="none"
+        stroke="#e2c27a"
+        strokeWidth="1.4"
+        strokeDasharray="4 3"
+        className="pointer-events-none"
+      />
+      <line
+        x1={topMid.x}
+        y1={topMid.y}
+        x2={rot.x}
+        y2={rot.y}
+        stroke="#e2c27a"
+        strokeWidth="1.4"
+        className="pointer-events-none"
+      />
+      <circle
+        cx={rot.x}
+        cy={rot.y}
+        r="7"
+        fill="#fffdf8"
+        stroke="#c4a05a"
+        strokeWidth="1.6"
+        style={{ cursor: "grab" }}
+        onPointerDown={onRotateStart}
+      />
+      <path
+        d={`M${rot.x - 3.2} ${rot.y - 1.2} A3.6 3.6 0 1 1 ${rot.x + 2.8} ${rot.y - 2.2} M${rot.x + 1.2} ${rot.y - 3.8} L${rot.x + 3.4} ${rot.y - 1.6} L${rot.x + 0.6} ${rot.y - 1.2}`}
+        fill="none"
+        stroke="#8a6a3a"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="pointer-events-none"
+      />
+      {corners.map((c, i) => (
+        <rect
+          key={i}
+          x={c.x - hs}
+          y={c.y - hs}
+          width={hs * 2}
+          height={hs * 2}
+          rx="1.5"
+          fill="#fffdf8"
+          stroke="#c4a05a"
+          strokeWidth="1.5"
+          style={{ cursor: CORNER_CURSORS[i] }}
+          onPointerDown={onScaleStart}
+        />
+      ))}
+    </g>
   );
 }

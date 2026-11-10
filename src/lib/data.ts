@@ -89,6 +89,7 @@ export {
   PATTERN_MOTIFS,
   motifOutline,
   motifCutFit,
+  motifLocalBox,
   motifParts,
   type MotifDef,
   type MotifKind,

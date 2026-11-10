@@ -522,6 +522,14 @@ export const PATTERN_MOTIFS = MOTIF_LIST.filter((m) => m.kind === "pattern");
 /** 밑그림·선택 표시·자르기에 쓰는 바깥 윤곽 */
 export const motifOutline = (id: MotifId) => MOTIFS[id].cutPath ?? MOTIFS[id].path;
 
+/** 디자인 편집 핸들용 문양 로컬 박스 (문양 중심 기준) */
+export function motifLocalBox(id: MotifId): { x: number; y: number; w: number; h: number } {
+  const m = MOTIFS[id];
+  if (m.stamp) return { x: m.stamp.x, y: m.stamp.y, w: m.stamp.w, h: m.stamp.h };
+  if (m.kind === "pattern") return { x: -18, y: -18, w: 36, h: 36 };
+  return { x: -32, y: -32, w: 64, h: 64 };
+}
+
 /**
  * 자르기 미니게임용 맞춤 배율.
  * 스탬프·패턴 단위는 좌표계가 커서 고정 4.5배로 그리면 판만 커다랗게 보입니다.
