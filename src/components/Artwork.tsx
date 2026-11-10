@@ -167,8 +167,8 @@ export function MotifSilhouette({ motif, color }: { motif: MotifId; color: strin
     return (
       <g>
         <defs>
-          <mask id={mid} maskUnits="userSpaceOnUse" x={stamp.x} y={stamp.y} width={stamp.w} height={stamp.h}>
-            <image href={stamp.src} x={stamp.x} y={stamp.y} width={stamp.w} height={stamp.h} preserveAspectRatio="none" />
+          <mask id={mid} maskUnits="userSpaceOnUse" mask-type="alpha" x={stamp.x} y={stamp.y} width={stamp.w} height={stamp.h}>
+            <image href={stamp.src} x={stamp.x} y={stamp.y} width={stamp.w} height={stamp.h} preserveAspectRatio="xMidYMid meet" />
           </mask>
         </defs>
         <rect x={stamp.x} y={stamp.y} width={stamp.w} height={stamp.h} fill={color} mask={`url(#${mid})`} />
@@ -225,13 +225,20 @@ export function NacrePiece({
     <g mask={mask}>
       {stamp && (
         <defs>
-          <mask id={stampMask} maskUnits="userSpaceOnUse" x={stamp.x} y={stamp.y} width={stamp.w} height={stamp.h}>
-            <image href={stamp.src} x={stamp.x} y={stamp.y} width={stamp.w} height={stamp.h} preserveAspectRatio="none" />
+          <mask id={stampMask} maskUnits="userSpaceOnUse" mask-type="alpha" x={stamp.x} y={stamp.y} width={stamp.w} height={stamp.h}>
+            <image href={stamp.src} x={stamp.x} y={stamp.y} width={stamp.w} height={stamp.h} preserveAspectRatio="xMidYMid meet" />
           </mask>
         </defs>
       )}
       {onPointerDown && (
-        <path d={motifOutline(motif)} fill="transparent" onPointerDown={onPointerDown} style={style} />
+        <path
+          d={motifOutline(motif)}
+          fill="transparent"
+          stroke="transparent"
+          strokeWidth={stamp ? 2.4 / s : 0}
+          onPointerDown={onPointerDown}
+          style={style}
+        />
       )}
       {MOTIFS[motif].strokes?.map((st, i) => (
         <g key={`s${i}`} fill="none" strokeLinecap="round" strokeLinejoin="round" pointerEvents="none">
@@ -242,16 +249,8 @@ export function NacrePiece({
         </g>
       ))}
       {stamp && (
-        <g mask={`url(#${stampMask})`}>
-          <rect
-            x={stamp.x}
-            y={stamp.y}
-            width={stamp.w}
-            height={stamp.h}
-            fill={fill}
-            onPointerDown={onPointerDown}
-            style={style}
-          />
+        <g mask={`url(#${stampMask})`} pointerEvents="none">
+          <rect x={stamp.x} y={stamp.y} width={stamp.w} height={stamp.h} fill={fill} />
           {light !== 0 && (
             <rect x={stamp.x} y={stamp.y} width={stamp.w} height={stamp.h} fill={tint} opacity={tintOpacity} pointerEvents="none" />
           )}

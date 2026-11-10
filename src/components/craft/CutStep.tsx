@@ -191,7 +191,10 @@ function cutGuidePaths(motif: MotifId) {
   const m = MOTIFS[motif];
   if (m.strokes?.length) return m.strokes.map((s) => s.d);
   const outline = motifOutline(motif);
-  return outline ? [outline] : [];
+  if (!outline) return [];
+  // 스탬프는 알파 외곽을 여러 폐곡선으로 저장한다. 사각형 테두리를 따라가지 않게 곡선마다 자른다.
+  if (m.stamp) return outline.split(/(?=M)/).map((s) => s.trim()).filter(Boolean);
+  return [outline];
 }
 
 function JulStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; onDone: (s: number) => void }) {
