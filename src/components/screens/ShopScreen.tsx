@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import UiIcon, { MATERIAL_ICONS } from "@/components/UiIcon";
 import { Btn, Coin, Modal, TopBar } from "@/components/ui";
 import { NacreSwatch } from "@/components/MotifIcon";
 import { MATERIAL_LIST, PEARL_LIST, type MaterialId } from "@/lib/data";
@@ -42,7 +43,7 @@ export default function ShopScreen() {
       <TopBar title={t(lang, "shop.title")} onBack={back} />
       <div className="screen-body">
         <div className="shop-sign">
-          <span className="text-3xl">🏮</span>
+          <UiIcon id="market" className="ui-icon-xl" />
           <div>
             <b className="text-lg">{t(lang, "shop.sign")}</b>
             <div className="text-sm opacity-80">{t(lang, "shop.signSub")}</div>
@@ -55,14 +56,16 @@ export default function ShopScreen() {
             setCouponOpen(true);
           }}
         >
-          {t(lang, "shop.coupon")}
+          <UiIcon id="ticket" className="ui-icon-sm" /> {t(lang, "shop.coupon")}
         </Btn>
         {MATERIAL_LIST.map((m) => (
           <div key={m.id} className="panel flex items-center gap-3 py-3">
             {pearlOf(m.id) ? (
               <NacreSwatch pearl={pearlOf(m.id)!} round={false} className="mat-icon nacre" />
             ) : (
-              <div className="mat-icon">{m.emoji}</div>
+              <div className="mat-icon">
+                <UiIcon id={MATERIAL_ICONS[m.id]} />
+              </div>
             )}
             <div className="min-w-0 flex-1">
               <div className="flex items-baseline gap-2">
@@ -90,20 +93,24 @@ export default function ShopScreen() {
         ))}
 
         <div className="panel flex flex-col gap-2 py-3 opacity-90">
-          <b className="text-[var(--brown)]">{t(lang, "shop.iap")}</b>
+          <b className="text-[var(--brown)]">
+            <UiIcon id="chest" className="ui-icon-sm" /> {t(lang, "shop.iap")}
+          </b>
           <div className="grid grid-cols-3 gap-2 text-center text-sm">
-            {[
-              [t(lang, "shop.iapPack1"), 500, "₩1,200"],
-              [t(lang, "shop.iapPack2"), 1500, "₩3,300"],
-              [t(lang, "shop.iapPack3"), 5000, "₩9,900"],
-            ].map(([n, c, p]) => (
-              <div key={n as string} className="iap-card">
-                <div className="text-2xl">🪙</div>
-                <div>{n}</div>
+            {(
+              [
+                { name: t(lang, "shop.iapPack1"), coins: 500, price: "₩1,200", icon: "coinsStack" as const },
+                { name: t(lang, "shop.iapPack2"), coins: 1500, price: "₩3,300", icon: "coinsBundle" as const },
+                { name: t(lang, "shop.iapPack3"), coins: 5000, price: "₩9,900", icon: "chest" as const },
+              ]
+            ).map((pack) => (
+              <div key={pack.name} className="iap-card">
+                <UiIcon id={pack.icon} className="ui-icon-lg mx-auto" />
+                <div>{pack.name}</div>
                 <div className="text-xs">
-                  <Coin /> {c}
+                  <Coin /> {pack.coins}
                 </div>
-                <div className="mt-1 rounded-full bg-[#e8dccb] px-2 text-xs">{p}</div>
+                <div className="mt-1 rounded-full bg-[#e8dccb] px-2 text-xs">{pack.price}</div>
               </div>
             ))}
           </div>

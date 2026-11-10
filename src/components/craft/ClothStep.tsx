@@ -149,7 +149,7 @@ export default function ClothStep({ design, onDone }: { design: Design; onDone: 
 
   return (
     <div className="flex flex-col gap-3">
-      <StepHeader title={t(lang, "cloth.title")} emoji="🧵">
+      <StepHeader title={t(lang, "cloth.title")} icon="hemp">
         {tNode(lang, "cloth.tip", { b: <b>{t(lang, "cloth.tipB")}</b> })}
       </StepHeader>
       <div className="workbench">

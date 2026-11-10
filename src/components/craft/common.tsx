@@ -1,6 +1,7 @@
 "use client";
 
 import Avatar from "@/components/Avatar";
+import UiIcon, { type UiIconId } from "@/components/UiIcon";
 import type { CustomerDef } from "@/lib/data";
 
 export const MASTER: CustomerDef = {
@@ -30,17 +31,17 @@ export interface StepProps {
 
 export function StepHeader({
   title,
-  emoji,
+  icon,
   children,
 }: {
   title: string;
-  emoji: string;
+  icon: UiIconId;
   children?: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-2">
       <h2 className="step-title">
-        <span className="mr-1">{emoji}</span>
+        <UiIcon id={icon} />
         {title}
       </h2>
       {children && <MasterTip>{children}</MasterTip>}

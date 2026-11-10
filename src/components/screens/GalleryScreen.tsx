@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import Artwork from "@/components/Artwork";
+import UiIcon from "@/components/UiIcon";
 import { Btn, Coin, Modal, TopBar } from "@/components/ui";
 import { GRADE_INFO, topMotif, type Artwork as ArtworkT } from "@/lib/game";
 import {
@@ -37,7 +38,9 @@ export default function GalleryScreen() {
         </div>
         {gallery.length === 0 ? (
           <div className="panel py-10 text-center text-[var(--brown)] whitespace-pre-line">
-            <div className="text-5xl">🪵</div>
+            <div className="flex justify-center py-2">
+              <UiIcon id="wood" className="ui-icon-2xl" />
+            </div>
             {t(lang, "gallery.empty")}
           </div>
         ) : (
@@ -120,7 +123,7 @@ function ArtDetail({ art, onClose }: { art: ArtworkT; onClose: () => void }) {
               setMsg(t(lang, r === "shared" ? "gallery.shared" : "gallery.saved"));
             }}
           >
-            {t(lang, "gallery.share")}
+            <UiIcon id="frame" className="ui-icon-sm" /> {t(lang, "gallery.share")}
           </Btn>
           {!art.sold ? (
             <Btn

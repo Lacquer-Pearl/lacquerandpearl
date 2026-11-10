@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import ReputationModal from "@/components/ReputationModal";
+import UiIcon from "@/components/UiIcon";
 import { Btn, Coin, Modal, Sparkles, SoundToggle } from "@/components/ui";
 import { MasterTip } from "@/components/craft/common";
 import { rankTitle, stepName, t, tNode, type Locale } from "@/lib/i18n";
@@ -98,17 +99,20 @@ export default function TitleScreen() {
               setRepOpen(true);
             }}
           >
-            🏅 {rankTitle(lang, rep)}
+            <UiIcon id="medal" className="ui-icon-sm" /> {rankTitle(lang, rep)}
           </button>
           <span className="chip">
             <Coin /> {money.toLocaleString()}
           </span>
-          <span className="chip">⭐ {rep}</span>
+          <span className="chip">
+            <UiIcon id="star" className="ui-icon-sm" /> {rep}
+          </span>
         </div>
         <div className="grid w-full max-w-[360px] grid-cols-1 gap-3">
           {canResume && craftProgress && (
             <div className="flex flex-col gap-1">
               <TitleMenuBtn size="lg" className="title-menu-btn-resume" onClick={() => resumeCraft()}>
+                <UiIcon id="hanji" />
                 {t(lang, "craft.resume")}
               </TitleMenuBtn>
               <div className="text-center text-xs text-white/85 drop-shadow">
@@ -119,20 +123,25 @@ export default function TitleScreen() {
             </div>
           )}
           <TitleMenuBtn size="lg" onClick={() => go("board")}>
+            <UiIcon id="scroll" />
             {t(lang, "title.commission")}
           </TitleMenuBtn>
           <TitleMenuBtn size="lg" onClick={() => startCraft(undefined)}>
+            <UiIcon id="frame" />
             {t(lang, "title.freeDesign")}
           </TitleMenuBtn>
           <div className="grid grid-cols-2 gap-3">
             <TitleMenuBtn size="md" onClick={() => go("gallery")}>
+              <UiIcon id="cabinet" />
               {t(lang, "title.workshop")} {galleryCount > 0 && <small>({galleryCount})</small>}
             </TitleMenuBtn>
             <TitleMenuBtn size="md" onClick={() => go("shop")}>
+              <UiIcon id="market" />
               {t(lang, "title.shop")}
             </TitleMenuBtn>
           </div>
           <TitleMenuBtn size="md" className="title-menu-btn-settings" onClick={() => setSettings(true)}>
+            <UiIcon id="gear" />
             {t(lang, "title.settings")}
           </TitleMenuBtn>
         </div>

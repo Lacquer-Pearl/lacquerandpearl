@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Artwork from "@/components/Artwork";
 import Avatar, { type Mood } from "@/components/Avatar";
+import UiIcon, { STEP_ICONS } from "@/components/UiIcon";
 import { Btn, Coin, Meter, Sparkles, TopBar } from "@/components/ui";
 import { rankProgress } from "@/lib/data";
-import { GRADE_INFO, STEP_INFO, reputationGain, topMotif, type StepId } from "@/lib/game";
+import { GRADE_INFO, reputationGain, topMotif, type StepId } from "@/lib/game";
 import {
   artworkTitle,
   clientLabel,
@@ -117,7 +118,8 @@ export default function ResultScreen() {
             label={
               <>
                 <span>
-                  ✏️ {t(lang, art.commissionId ? "result.match" : "result.design")}
+                  <UiIcon id="pencil" className="ui-icon-sm" />{" "}
+                  {t(lang, art.commissionId ? "result.match" : "result.design")}
                 </span>
                 <span>{art.designScore}</span>
               </>
@@ -128,7 +130,9 @@ export default function ResultScreen() {
             color="var(--mint-deep)"
             label={
               <>
-                <span>🔨 {t(lang, "result.craft")}</span>
+                <span>
+                  <UiIcon id="whetstone" className="ui-icon-sm" /> {t(lang, "result.craft")}
+                </span>
                 <span>{art.craftScore}</span>
               </>
             }
@@ -136,7 +140,7 @@ export default function ResultScreen() {
           <div className="mt-1 grid grid-cols-3 gap-1.5 text-xs">
             {(Object.entries(art.scores) as [StepId, number][]).map(([k, v]) => (
               <div key={k} className="mat">
-                {STEP_INFO[k].emoji} {stepName(lang, k)} <b>{v}</b>
+                <UiIcon id={STEP_ICONS[k]} className="ui-icon-sm" /> {stepName(lang, k)} <b>{v}</b>
               </div>
             ))}
           </div>
@@ -197,14 +201,14 @@ export default function ResultScreen() {
               setTimeout(() => setSaved(null), 1800);
             }}
           >
-            📸 {saved ?? t(lang, "result.save")}
+            <UiIcon id="frame" className="ui-icon-sm" /> {saved ?? t(lang, "result.save")}
           </Btn>
           <Btn variant="gold" onClick={() => go("gallery")}>
-            {t(lang, "result.toWorkshop")}
+            <UiIcon id="cabinet" className="ui-icon-sm" /> {t(lang, "result.toWorkshop")}
           </Btn>
           {art.commissionId && (
             <Btn variant="pink" onClick={() => go("board")} className="col-span-2" size="lg">
-              {t(lang, "result.next")}
+              <UiIcon id="scroll" className="ui-icon-sm" /> {t(lang, "result.next")}
             </Btn>
           )}
           <Btn
@@ -213,7 +217,7 @@ export default function ResultScreen() {
             className="col-span-2"
             size="lg"
           >
-            {t(lang, "result.home")}
+            <UiIcon id="cabinet" className="ui-icon-sm" /> {t(lang, "result.home")}
           </Btn>
         </div>
       </div>

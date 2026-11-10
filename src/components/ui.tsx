@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { setMuted as setAudioMuted, sfx, startMusic, stopMusic } from "@/lib/sound";
+import UiIcon from "@/components/UiIcon";
 import { rankTitle, t } from "@/lib/i18n";
 import { useSave } from "@/lib/store";
 
@@ -46,12 +47,7 @@ export function Panel({ children, className = "" }: { children: React.ReactNode;
 }
 
 export function Coin({ className = "" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={`inline-block h-[1.1em] w-[1.1em] align-[-0.15em] ${className}`}>
-      <circle cx="12" cy="12" r="10" fill="#d6b46e" stroke="#7a5a3e" strokeWidth="2" />
-      <rect x="9" y="9" width="6" height="6" fill="#f6efe3" stroke="#7a5a3e" strokeWidth="1.5" />
-    </svg>
-  );
+  return <UiIcon id="coin" className={`ui-icon-sm align-[-0.2em] ${className}`} alt="" />;
 }
 
 export function SoundToggle() {
@@ -79,7 +75,7 @@ export function SoundToggle() {
           sfx.click();
         }}
       >
-        {musicOn ? "🎵" : "🎶"}
+        <UiIcon id={musicOn ? "sfx" : "musicOff"} className="ui-icon-md" />
         {!musicOn && <span className="icon-slash" />}
       </button>
       <button
@@ -90,7 +86,8 @@ export function SoundToggle() {
           sfx.click();
         }}
       >
-        {muted ? "🔇" : "🔊"}
+        <UiIcon id="sfx" className="ui-icon-md" />
+        {muted && <span className="icon-slash" />}
       </button>
     </div>
   );
@@ -119,14 +116,18 @@ export function TopBar({ onBack, title }: { onBack?: () => void; title?: string 
         {title ? (
           <span className="topbar-title truncate text-lg">{title}</span>
         ) : (
-          <span className="chip">🏅 {rankTitle(lang, rep)}</span>
+          <span className="chip">
+            <UiIcon id="medal" className="ui-icon-sm" /> {rankTitle(lang, rep)}
+          </span>
         )}
       </div>
       <div className="flex items-center gap-1.5">
         <span className="chip">
           <Coin /> {money.toLocaleString()}
         </span>
-        <span className="chip">⭐ {rep}</span>
+        <span className="chip">
+          <UiIcon id="star" className="ui-icon-sm" /> {rep}
+        </span>
         <SoundToggle />
       </div>
     </div>

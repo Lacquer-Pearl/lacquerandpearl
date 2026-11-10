@@ -1,5 +1,6 @@
 "use client";
 
+import UiIcon from "@/components/UiIcon";
 import { Btn, Meter, Modal } from "@/components/ui";
 import { WORKSHOP_LEVELS, rankProgress } from "@/lib/data";
 import { rankTitle, t, type Locale } from "@/lib/i18n";
@@ -54,7 +55,7 @@ export default function ReputationModal({
               return (
                 <li key={level.rep} className={`rank-row ${state}`}>
                   <span>
-                    {state === "locked" ? "🔒 " : state === "now" ? "🏅 " : ""}
+                    {state === "now" ? <UiIcon id="medal" className="ui-icon-sm" /> : null}{" "}
                     {titleOf(level.rep)}
                   </span>
                   {showNeed && <span className="text-sm">{t(lang, "rep.need", { n: level.rep })}</span>}

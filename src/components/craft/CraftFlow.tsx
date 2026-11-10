@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Artwork from "@/components/Artwork";
+import UiIcon, { STEP_ICONS } from "@/components/UiIcon";
 import { Btn, Modal, TopBar } from "@/components/ui";
 import { LACQUERS, SHAPES } from "@/lib/data";
 import {
@@ -11,7 +12,6 @@ import {
   reputationGain,
   scoreCraft,
   scoreDesign,
-  STEP_INFO,
   topMotif,
   uid,
   type Artwork as ArtworkT,
@@ -39,7 +39,7 @@ function paintDefs(design: Design, lang: Locale): Record<"lacquer" | "iron" | "f
   return {
     lacquer: {
       title: t(lang, "lacquer.title", { name: lacquerName(lang, design.lacquer) }),
-      emoji: "🖌️",
+      icon: STEP_ICONS.lacquer,
       tip: (
         <>
           {tNode(lang, "lacquer.tip", {
@@ -70,7 +70,7 @@ function paintDefs(design: Design, lang: Locale): Record<"lacquer" | "iron" | "f
     },
     iron: {
       title: t(lang, "iron.title"),
-      emoji: "♨️",
+      icon: STEP_ICONS.iron,
       tip: (
         <>
           {tNode(lang, "iron.tip", {
@@ -102,7 +102,7 @@ function paintDefs(design: Design, lang: Locale): Record<"lacquer" | "iron" | "f
     },
     fill: {
       title: t(lang, "fill.title"),
-      emoji: "🫙",
+      icon: STEP_ICONS.fill,
       tip: <>{tNode(lang, "fill.tip", { b: <b>{t(lang, "fill.tipB")}</b> })}</>,
       config: {
         brushRadius: 22,
@@ -124,7 +124,7 @@ function paintDefs(design: Design, lang: Locale): Record<"lacquer" | "iron" | "f
     },
     sand: {
       title: t(lang, "sand.title"),
-      emoji: "✨",
+      icon: STEP_ICONS.sand,
       tip: (
         <>
           {tNode(lang, "sand.tip", {
@@ -305,7 +305,7 @@ export default function CraftFlow() {
       <div className="steps-bar">
         {STEPS.map((s, i) => (
           <div key={s} className={`step-dot ${i < stepIdx ? "done" : i === stepIdx ? "now" : ""}`} title={stepName(lang, s)}>
-            {s === "design" ? "✏️" : STEP_INFO[s].emoji}
+            <UiIcon id={STEP_ICONS[s]} />
           </div>
         ))}
       </div>
@@ -379,7 +379,9 @@ export default function CraftFlow() {
       {confirmExit && (
         <Modal onClose={() => setConfirmExit(false)}>
           <div className="flex flex-col gap-3 text-center">
-            <div className="text-5xl">💾</div>
+            <div className="flex justify-center">
+              <UiIcon id="chest" className="ui-icon-xl" />
+            </div>
             <p className="text-lg text-[var(--brown)]">
               {t(lang, "craft.quitAsk")}
               <br />

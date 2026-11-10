@@ -93,7 +93,7 @@ export default function AttachStep({
 
   return (
     <div className="flex flex-col gap-3 select-none">
-      <StepHeader title={t(lang, "attach.title")} emoji="🍯">
+      <StepHeader title={t(lang, "attach.title")} icon="paste">
         {tNode(lang, "attach.tip", { b: <b>{t(lang, "attach.tipB")}</b> })}
       </StepHeader>
       <div

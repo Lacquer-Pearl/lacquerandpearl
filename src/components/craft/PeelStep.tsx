@@ -67,7 +67,7 @@ export default function PeelStep({ design, onDone }: { design: Design; onDone: (
 
   return (
     <div className="flex flex-col gap-3">
-      <StepHeader title={t(lang, "peel.title")} emoji="📜">
+      <StepHeader title={t(lang, "peel.title")} icon="hanji">
         {tNode(lang, "peel.tip", {
           b1: <b>{t(lang, "peel.tipB1")}</b>,
           b2: <b>{t(lang, "peel.tipB2")}</b>,

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Artwork from "@/components/Artwork";
+import UiIcon, { MATERIAL_ICONS } from "@/components/UiIcon";
 import { Btn, Coin } from "@/components/ui";
 import MotifIcon, { NacreSwatch } from "@/components/MotifIcon";
 import {
@@ -182,7 +183,7 @@ export default function DesignStep({
 
   return (
     <div className="flex flex-col gap-3">
-      <StepHeader title={t(lang, "design.title")} emoji="✏️">
+      <StepHeader title={t(lang, "design.title")} icon="pencil">
         {commission ? <>{t(lang, "design.tipCommission")}</> : <>{t(lang, "design.tipFree")}</>}
       </StepHeader>
 
@@ -522,7 +523,7 @@ export default function DesignStep({
           {(Object.entries(cost) as [MaterialId, number][]).map(([k, n]) => (
             <div key={k} className={`mat flex items-center justify-between gap-2 ${inventory[k] < n ? "lack" : ""}`}>
               <span className="min-w-0 truncate">
-                {MATERIALS[k].emoji} {lang === "ko" ? materialName(lang, k).split(" ")[0] : materialName(lang, k)} {inventory[k]}/{n}
+                <UiIcon id={MATERIAL_ICONS[k]} className="ui-icon-sm" /> {lang === "ko" ? materialName(lang, k).split(" ")[0] : materialName(lang, k)} {inventory[k]}/{n}
               </span>
               <button
                 className="mat-buy"

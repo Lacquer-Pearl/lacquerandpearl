@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import type { UiIconId } from "@/components/UiIcon";
 import { Btn, Meter } from "@/components/ui";
 import type { ShapeId } from "@/lib/data";
 import { t } from "@/lib/i18n";
@@ -11,7 +12,7 @@ import { StepHeader } from "./common";
 
 export interface PaintStepDef {
   title: string;
-  emoji: string;
+  icon: UiIconId;
   tip: React.ReactNode;
   config: PaintConfig;
   goodLabel: string;
@@ -54,7 +55,7 @@ export default function PaintStep({
 
   return (
     <div className="flex flex-col gap-3">
-      <StepHeader title={def.title} emoji={def.emoji}>
+      <StepHeader title={def.title} icon={def.icon}>
         {def.tip}
       </StepHeader>
       <div className="workbench">

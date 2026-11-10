@@ -9,6 +9,7 @@ import { cutJobs, type Design } from "@/lib/game";
 import { motifName, pearlName, t, tNode } from "@/lib/i18n";
 import { loopLevel, sfx, startLoop, stopLoop } from "@/lib/sound";
 import { useSave } from "@/lib/store";
+import UiIcon from "@/components/UiIcon";
 import { StepHeader } from "./common";
 
 type Method = "jul" | "kkeun" | "auto";
@@ -37,7 +38,7 @@ export default function CutStep({ design, onDone }: { design: Design; onDone: (s
   if (!method)
     return (
       <div className="flex flex-col gap-3">
-        <StepHeader title={t(lang, "cut.title")} emoji="🪚">
+        <StepHeader title={t(lang, "cut.title")} icon="fretsaw">
           {tNode(lang, "cut.tip", { b: <b>{t(lang, "cut.tipB")}</b> })}
         </StepHeader>
         {jobs.length > 1 && (
@@ -51,21 +52,21 @@ export default function CutStep({ design, onDone }: { design: Design; onDone: (s
           </div>
         )}
         <button className="method-card" onClick={() => (sfx.click(), setMethod("jul"))}>
-          <span className="text-4xl">🪚</span>
+          <UiIcon id="fretsaw" />
           <span className="flex flex-col text-left">
             <b className="text-lg">{t(lang, "cut.jul")}</b>
             <span className="text-sm opacity-80">{t(lang, "cut.julDesc")}</span>
           </span>
         </button>
         <button className="method-card" onClick={() => (sfx.click(), setMethod("kkeun"))}>
-          <span className="text-4xl">🔪</span>
+          <UiIcon id="knife" />
           <span className="flex flex-col text-left">
             <b className="text-lg">{t(lang, "cut.kkeun")}</b>
             <span className="text-sm opacity-80">{t(lang, "cut.kkeunDesc")}</span>
           </span>
         </button>
         <button className="method-card" onClick={() => (sfx.click(), setMethod("auto"))}>
-          <span className="text-4xl">⚙️</span>
+          <UiIcon id="cutter" />
           <span className="flex flex-col text-left">
             <b className="text-lg">{t(lang, "cut.auto")}</b>
             <span className="text-sm opacity-80">{t(lang, "cut.autoDesc")}</span>
@@ -348,7 +349,7 @@ function JulStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; onD
 
   return (
     <div className="flex flex-col gap-3">
-      <StepHeader title={t(lang, "cut.julTitle")} emoji="🪚">
+      <StepHeader title={t(lang, "cut.julTitle")} icon="fretsaw">
         {tNode(lang, "cut.julTip", {
           name: <b>{motifName(lang, motif)}</b>,
           snap: <b>{t(lang, "cut.snap")}</b>,
@@ -574,7 +575,7 @@ function KkeunStep({ pearl, onDone }: { pearl: PearlId; onDone: (s: number) => v
 
   return (
     <div className="flex flex-col gap-3">
-      <StepHeader title={t(lang, "cut.kkeunTitle")} emoji="🔪">
+      <StepHeader title={t(lang, "cut.kkeunTitle")} icon="knife">
         {tNode(lang, "cut.kkeunTip", { b: <b>{t(lang, "cut.kkeunTipB")}</b> })}
       </StepHeader>
       <div
@@ -652,11 +653,11 @@ function AutoStep({ onDone }: { onDone: (s: number) => void }) {
   }, [onDone]);
   return (
     <div className="flex flex-col gap-3">
-      <StepHeader title={t(lang, "cut.autoTitle")} emoji="⚙️">
+      <StepHeader title={t(lang, "cut.autoTitle")} icon="gear">
         {t(lang, "cut.autoTip")}
       </StepHeader>
       <div className="workbench flex aspect-square items-center justify-center text-7xl">
-        <span className="spin">⚙️</span>
+        <UiIcon id="gear" className="spin ui-icon-2xl" />
       </div>
       <div className="panel py-3">
         <Meter

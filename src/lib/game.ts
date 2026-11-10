@@ -83,16 +83,16 @@ export interface Artwork {
 
 export type Grade = "S" | "A" | "B" | "C" | "D";
 
-export const STEP_INFO: Record<StepId, { name: string; emoji: string; weight: number }> = {
-  cloth: { name: "삼베 바르기", emoji: "🧵", weight: 0.8 },
-  lacquer: { name: "옻칠", emoji: "🖌️", weight: 1.3 },
-  dry: { name: "건조", emoji: "🌡️", weight: 1 },
-  cut: { name: "자개 자르기", emoji: "🪚", weight: 1.3 },
-  attach: { name: "자개 붙이기", emoji: "🍯", weight: 1.2 },
-  iron: { name: "다림질", emoji: "♨️", weight: 0.8 },
-  peel: { name: "종이 떼기", emoji: "📜", weight: 0.7 },
-  fill: { name: "메움칠", emoji: "🫙", weight: 1 },
-  sand: { name: "갈아내기", emoji: "✨", weight: 1.4 },
+export const STEP_INFO: Record<StepId, { name: string; weight: number }> = {
+  cloth: { name: "삼베 바르기", weight: 0.8 },
+  lacquer: { name: "옻칠", weight: 1.3 },
+  dry: { name: "건조", weight: 1 },
+  cut: { name: "자개 자르기", weight: 1.3 },
+  attach: { name: "자개 붙이기", weight: 1.2 },
+  iron: { name: "다림질", weight: 0.8 },
+  peel: { name: "종이 떼기", weight: 0.7 },
+  fill: { name: "메움칠", weight: 1 },
+  sand: { name: "갈아내기", weight: 1.4 },
 };
 
 export const uid = () => Math.random().toString(36).slice(2, 10);

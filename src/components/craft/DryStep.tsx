@@ -104,7 +104,7 @@ export default function DryStep({ design, onDone }: { design: Design; onDone: (s
 
   return (
     <div className="flex flex-col gap-3">
-      <StepHeader title={tr(lang, "dry.title")} emoji="🌡️">
+      <StepHeader title={tr(lang, "dry.title")} icon="torch">
         {phase === "open" ? (
           <>{tNode(lang, "dry.tipOpen", { b: <b>{tr(lang, "dry.tipOpenB")}</b> })}</>
         ) : phase === "closing" ? (
