@@ -1,0 +1,1171 @@
+{
+  "source": {
+    "path": "source/npc_sheet_corrected.png",
+    "sha256": "867bbbd4fd23224bf16f7202960d999374e78cfe3fad1a19b2e5d027fd9680e8"
+  },
+  "count": 40,
+  "note": "Role and gender labels are character-design assignments based on visual presentation, not verified historical identities. Suggested names are fictional.",
+  "npcs": [
+    {
+      "id": "npc_r01c01",
+      "portrait": "/npc/portraits/npc_r01c01.png",
+      "row": 1,
+      "column": 1,
+      "role_ko": "사부 장인",
+      "gender_presentation": "여성형",
+      "group": "fixed",
+      "suggested_name_ko": "장순덕",
+      "is_story_npc": true,
+      "named_file": "named_portraits/001_jang_sun_deok.png",
+      "name_en": "Jang Sun-deok",
+      "number": 1,
+      "crop_box": [
+        0,
+        0,
+        200,
+        220
+      ],
+      "content_offset": [
+        4,
+        4
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "a53f2cd797c2ba0bdfd0109c225dbe79496924f996002923812aa646dcf92859"
+    },
+    {
+      "id": "npc_r01c02",
+      "portrait": "/npc/portraits/npc_r01c02.png",
+      "row": 1,
+      "column": 2,
+      "role_ko": "관리",
+      "gender_presentation": "남성형",
+      "group": "official",
+      "suggested_name_ko": "이윤겸",
+      "is_story_npc": false,
+      "named_file": "named_portraits/002_lee_yun_gyeom.png",
+      "name_en": "Lee Yun-gyeom",
+      "number": 2,
+      "crop_box": [
+        200,
+        0,
+        386,
+        220
+      ],
+      "content_offset": [
+        11,
+        4
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "6e48c08a148cef914fa4ebdf9a368e498413916167c533151900bee51441fc15"
+    },
+    {
+      "id": "npc_r01c03",
+      "portrait": "/npc/portraits/npc_r01c03.png",
+      "row": 1,
+      "column": 3,
+      "role_ko": "양반가 아가씨",
+      "gender_presentation": "여성형",
+      "group": "lady",
+      "suggested_name_ko": "윤서화",
+      "is_story_npc": false,
+      "named_file": "named_portraits/003_yun_seo_hwa.png",
+      "name_en": "Yun Seo-hwa",
+      "number": 3,
+      "crop_box": [
+        386,
+        0,
+        576,
+        220
+      ],
+      "content_offset": [
+        9,
+        4
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "2c369fa7d8fafe5ce43282715121f44302863082f674d29a1bff28b5741fe021"
+    },
+    {
+      "id": "npc_r01c04",
+      "portrait": "/npc/portraits/npc_r01c04.png",
+      "row": 1,
+      "column": 4,
+      "role_ko": "양반",
+      "gender_presentation": "남성형",
+      "group": "scholar",
+      "suggested_name_ko": "한도겸",
+      "is_story_npc": false,
+      "named_file": "named_portraits/004_han_do_gyeom.png",
+      "name_en": "Han Do-gyeom",
+      "number": 4,
+      "crop_box": [
+        576,
+        0,
+        768,
+        220
+      ],
+      "content_offset": [
+        8,
+        4
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "7e9fc32987750adc43a1cd3c57a66dab24b3ba887211f2ca660b1462df72bf0b"
+    },
+    {
+      "id": "npc_r01c05",
+      "portrait": "/npc/portraits/npc_r01c05.png",
+      "row": 1,
+      "column": 5,
+      "role_ko": "서양인 방문객",
+      "gender_presentation": "남성형",
+      "group": "foreigner",
+      "suggested_name_ko": "Edward",
+      "is_story_npc": false,
+      "named_file": "named_portraits/005_edward.png",
+      "name_en": "Edward",
+      "number": 5,
+      "crop_box": [
+        768,
+        0,
+        960,
+        220
+      ],
+      "content_offset": [
+        8,
+        4
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "be5e23de5c9eaa6971f007cc459e29f9ac036998dd07a652b5effe3ba85e32dd"
+    },
+    {
+      "id": "npc_r01c06",
+      "portrait": "/npc/portraits/npc_r01c06.png",
+      "row": 1,
+      "column": 6,
+      "role_ko": "상인",
+      "gender_presentation": "남성형",
+      "group": "merchant",
+      "suggested_name_ko": "김만복",
+      "is_story_npc": false,
+      "named_file": "named_portraits/006_kim_man_bok.png",
+      "name_en": "Kim Man-bok",
+      "number": 6,
+      "crop_box": [
+        960,
+        0,
+        1152,
+        220
+      ],
+      "content_offset": [
+        8,
+        4
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "531c478259a4e8d57ccfef40945401decfa4b152a1a6b8fcd5b7dbf1a97e6ebb"
+    },
+    {
+      "id": "npc_r01c07",
+      "portrait": "/npc/portraits/npc_r01c07.png",
+      "row": 1,
+      "column": 7,
+      "role_ko": "공방 장인",
+      "gender_presentation": "여성형",
+      "group": "artisan",
+      "suggested_name_ko": "박연실",
+      "is_story_npc": false,
+      "named_file": "named_portraits/007_park_yeon_sil.png",
+      "name_en": "Park Yeon-sil",
+      "number": 7,
+      "crop_box": [
+        1152,
+        0,
+        1340,
+        220
+      ],
+      "content_offset": [
+        10,
+        4
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "f041c9468a854c2532623020cbd458a13792810b84e1f22e377717b6214adeb0"
+    },
+    {
+      "id": "npc_r01c08",
+      "portrait": "/npc/portraits/npc_r01c08.png",
+      "row": 1,
+      "column": 8,
+      "role_ko": "선비",
+      "gender_presentation": "남성형",
+      "group": "scholar",
+      "suggested_name_ko": "서정훈",
+      "is_story_npc": false,
+      "named_file": "named_portraits/008_seo_jeong_hun.png",
+      "name_en": "Seo Jeong-hun",
+      "number": 8,
+      "crop_box": [
+        1340,
+        0,
+        1536,
+        220
+      ],
+      "content_offset": [
+        6,
+        4
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "c359362447d8f76e27987011eccd08def348c0710fc498e3eff4d4b7d89bb01e"
+    },
+    {
+      "id": "npc_r02c01",
+      "portrait": "/npc/portraits/npc_r02c01.png",
+      "row": 2,
+      "column": 1,
+      "role_ko": "목공 장인",
+      "gender_presentation": "남성형",
+      "group": "artisan",
+      "suggested_name_ko": "최덕수",
+      "is_story_npc": false,
+      "named_file": "named_portraits/009_choi_deok_su.png",
+      "name_en": "Choi Deok-su",
+      "number": 9,
+      "crop_box": [
+        0,
+        220,
+        200,
+        420
+      ],
+      "content_offset": [
+        4,
+        14
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "29afc87d01d4c7cd2f9f297e8b3a848e88937e19934ce7ae62af95fc387ea3a2"
+    },
+    {
+      "id": "npc_r02c02",
+      "portrait": "/npc/portraits/npc_r02c02.png",
+      "row": 2,
+      "column": 2,
+      "role_ko": "공방 견습",
+      "gender_presentation": "여성형",
+      "group": "artisan",
+      "suggested_name_ko": "송분이",
+      "is_story_npc": false,
+      "named_file": "named_portraits/010_song_bun_i.png",
+      "name_en": "Song Bun-i",
+      "number": 10,
+      "crop_box": [
+        200,
+        220,
+        386,
+        420
+      ],
+      "content_offset": [
+        11,
+        14
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "f8b6367029224601258840a6d9901ed3b636f026abe6228d5743ffcd6775bcd3"
+    },
+    {
+      "id": "npc_r02c03",
+      "portrait": "/npc/portraits/npc_r02c03.png",
+      "row": 2,
+      "column": 3,
+      "role_ko": "양반가 부인",
+      "gender_presentation": "여성형",
+      "group": "lady",
+      "suggested_name_ko": "정연화",
+      "is_story_npc": false,
+      "named_file": "named_portraits/011_jeong_yeon_hwa.png",
+      "name_en": "Jeong Yeon-hwa",
+      "number": 11,
+      "crop_box": [
+        386,
+        220,
+        576,
+        420
+      ],
+      "content_offset": [
+        9,
+        14
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "47c8e71c49dc58851782245601dab5b870a5128721cafc1382cdfcc49c55dc46"
+    },
+    {
+      "id": "npc_r02c04",
+      "portrait": "/npc/portraits/npc_r02c04.png",
+      "row": 2,
+      "column": 4,
+      "role_ko": "선비",
+      "gender_presentation": "남성형",
+      "group": "scholar",
+      "suggested_name_ko": "임재겸",
+      "is_story_npc": false,
+      "named_file": "named_portraits/012_im_jae_gyeom.png",
+      "name_en": "Im Jae-gyeom",
+      "number": 12,
+      "crop_box": [
+        576,
+        220,
+        768,
+        420
+      ],
+      "content_offset": [
+        8,
+        14
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "c75bc68282edacaf9880b2316220c9490db149ca2b9f2fc9af8aaf5e483a6efc"
+    },
+    {
+      "id": "npc_r02c05",
+      "portrait": "/npc/portraits/npc_r02c05.png",
+      "row": 2,
+      "column": 5,
+      "role_ko": "양반가 아가씨",
+      "gender_presentation": "여성형",
+      "group": "lady",
+      "suggested_name_ko": "이채련",
+      "is_story_npc": false,
+      "named_file": "named_portraits/013_lee_chae_ryeon.png",
+      "name_en": "Lee Chae-ryeon",
+      "number": 13,
+      "crop_box": [
+        768,
+        220,
+        960,
+        420
+      ],
+      "content_offset": [
+        8,
+        14
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "8f131a4ed75dbdc9b60868eae1a0ed5e06cca95c549e87f9f25c33172341f723"
+    },
+    {
+      "id": "npc_r02c06",
+      "portrait": "/npc/portraits/npc_r02c06.png",
+      "row": 2,
+      "column": 6,
+      "role_ko": "자개 감정 장인",
+      "gender_presentation": "남성형",
+      "group": "artisan",
+      "suggested_name_ko": "윤석돌",
+      "is_story_npc": false,
+      "named_file": "named_portraits/014_yun_seok_dol.png",
+      "name_en": "Yun Seok-dol",
+      "number": 14,
+      "crop_box": [
+        960,
+        220,
+        1152,
+        420
+      ],
+      "content_offset": [
+        8,
+        14
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "9fd35ffc8e69b0d31b914e26549a56b8ce0ce570e08ae3f043cd8cb11ad8960e"
+    },
+    {
+      "id": "npc_r02c07",
+      "portrait": "/npc/portraits/npc_r02c07.png",
+      "row": 2,
+      "column": 7,
+      "role_ko": "짐꾼·행상",
+      "gender_presentation": "남성형",
+      "group": "merchant",
+      "suggested_name_ko": "오길동",
+      "is_story_npc": false,
+      "named_file": "named_portraits/015_oh_gil_dong.png",
+      "name_en": "Oh Gil-dong",
+      "number": 15,
+      "crop_box": [
+        1152,
+        220,
+        1340,
+        420
+      ],
+      "content_offset": [
+        10,
+        14
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "01abbeafc8f7a73ee6acac8d6e62985627764ea1e389477e6f4dcb61271db96e"
+    },
+    {
+      "id": "npc_r02c08",
+      "portrait": "/npc/portraits/npc_r02c08.png",
+      "row": 2,
+      "column": 8,
+      "role_ko": "서양인 방문객",
+      "gender_presentation": "여성형",
+      "group": "foreigner",
+      "suggested_name_ko": "Clara",
+      "is_story_npc": false,
+      "named_file": "named_portraits/016_clara.png",
+      "name_en": "Clara",
+      "number": 16,
+      "crop_box": [
+        1340,
+        220,
+        1536,
+        420
+      ],
+      "content_offset": [
+        6,
+        14
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "4dcbd9ef9a923ca7c637e29c69bad3a4c3ee9dc2cbec9994d4d6fb72cd2afefc"
+    },
+    {
+      "id": "npc_r03c01",
+      "portrait": "/npc/portraits/npc_r03c01.png",
+      "row": 3,
+      "column": 1,
+      "role_ko": "자개 상인",
+      "gender_presentation": "여성형",
+      "group": "merchant",
+      "suggested_name_ko": "한복례",
+      "is_story_npc": false,
+      "named_file": "named_portraits/017_han_bok_rye.png",
+      "name_en": "Han Bok-rye",
+      "number": 17,
+      "crop_box": [
+        0,
+        420,
+        200,
+        610
+      ],
+      "content_offset": [
+        4,
+        19
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "cbdb9a990764e00e360f21e34e6563908c7745e4ff1bcf7f944365dd6c0b3553"
+    },
+    {
+      "id": "npc_r03c02",
+      "portrait": "/npc/portraits/npc_r03c02.png",
+      "row": 3,
+      "column": 2,
+      "role_ko": "상인",
+      "gender_presentation": "남성형",
+      "group": "merchant",
+      "suggested_name_ko": "조춘식",
+      "is_story_npc": false,
+      "named_file": "named_portraits/018_jo_chun_sik.png",
+      "name_en": "Jo Chun-sik",
+      "number": 18,
+      "crop_box": [
+        200,
+        420,
+        386,
+        610
+      ],
+      "content_offset": [
+        11,
+        19
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "e087ca0aa59f64ae7dbce5af5204093addb1c3eea4e33840bb7b69104a3a6885"
+    },
+    {
+      "id": "npc_r03c03",
+      "portrait": "/npc/portraits/npc_r03c03.png",
+      "row": 3,
+      "column": 3,
+      "role_ko": "재료상",
+      "gender_presentation": "여성형",
+      "group": "merchant",
+      "suggested_name_ko": "장옥이",
+      "is_story_npc": false,
+      "named_file": "named_portraits/019_jang_ok_i.png",
+      "name_en": "Jang Ok-i",
+      "number": 19,
+      "crop_box": [
+        386,
+        420,
+        576,
+        610
+      ],
+      "content_offset": [
+        9,
+        19
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "4fe44e7986feed828b1a490d80e2f921dad0c649205b6b70a501cce6f724b3dc"
+    },
+    {
+      "id": "npc_r03c04",
+      "portrait": "/npc/portraits/npc_r03c04.png",
+      "row": 3,
+      "column": 4,
+      "role_ko": "상단 주인",
+      "gender_presentation": "남성형",
+      "group": "merchant",
+      "suggested_name_ko": "홍만수",
+      "is_story_npc": false,
+      "named_file": "named_portraits/020_hong_man_su.png",
+      "name_en": "Hong Man-su",
+      "number": 20,
+      "crop_box": [
+        576,
+        420,
+        768,
+        610
+      ],
+      "content_offset": [
+        8,
+        19
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "a8a392a74bf0526aa459883c9494872a470908d0c55abdf69bccbcf8fa8c9e2e"
+    },
+    {
+      "id": "npc_r03c05",
+      "portrait": "/npc/portraits/npc_r03c05.png",
+      "row": 3,
+      "column": 5,
+      "role_ko": "선비",
+      "gender_presentation": "남성형",
+      "group": "scholar",
+      "suggested_name_ko": "백도현",
+      "is_story_npc": false,
+      "named_file": "named_portraits/021_baek_do_hyeon.png",
+      "name_en": "Baek Do-hyeon",
+      "number": 21,
+      "crop_box": [
+        768,
+        420,
+        960,
+        610
+      ],
+      "content_offset": [
+        8,
+        19
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "7318dae8d2ea8b62d7e73d75e130841d44a1cdfc1729b5c6fc26dfe426d5cd32"
+    },
+    {
+      "id": "npc_r03c06",
+      "portrait": "/npc/portraits/npc_r03c06.png",
+      "row": 3,
+      "column": 6,
+      "role_ko": "공예품 의뢰인",
+      "gender_presentation": "여성형",
+      "group": "lady",
+      "suggested_name_ko": "김소담",
+      "is_story_npc": false,
+      "named_file": "named_portraits/022_kim_so_dam.png",
+      "name_en": "Kim So-dam",
+      "number": 22,
+      "crop_box": [
+        960,
+        420,
+        1152,
+        610
+      ],
+      "content_offset": [
+        8,
+        19
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "2d3b2e8ae9bb376211fc602ef24db85b405fb38562c2e657c3b46b3cc8430f8e"
+    },
+    {
+      "id": "npc_r03c07",
+      "portrait": "/npc/portraits/npc_r03c07.png",
+      "row": 3,
+      "column": 7,
+      "role_ko": "원로 장인",
+      "gender_presentation": "남성형",
+      "group": "artisan",
+      "suggested_name_ko": "박학수",
+      "is_story_npc": false,
+      "named_file": "named_portraits/023_park_hak_su.png",
+      "name_en": "Park Hak-su",
+      "number": 23,
+      "crop_box": [
+        1152,
+        420,
+        1340,
+        610
+      ],
+      "content_offset": [
+        10,
+        19
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "c02ae93c1d0d318cf96e6e88c486c8f472507197a0c255ae0268e5befb3e23e6"
+    },
+    {
+      "id": "npc_r03c08",
+      "portrait": "/npc/portraits/npc_r03c08.png",
+      "row": 3,
+      "column": 8,
+      "role_ko": "칠기 장인",
+      "gender_presentation": "남성형",
+      "group": "artisan",
+      "suggested_name_ko": "이성복",
+      "is_story_npc": false,
+      "named_file": "named_portraits/024_lee_seong_bok.png",
+      "name_en": "Lee Seong-bok",
+      "number": 24,
+      "crop_box": [
+        1340,
+        420,
+        1536,
+        610
+      ],
+      "content_offset": [
+        6,
+        19
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "b553cdc18b74cff244c953ce7ef47b3c5761fbf3443f0980112a232d88176e8c"
+    },
+    {
+      "id": "npc_r04c01",
+      "portrait": "/npc/portraits/npc_r04c01.png",
+      "row": 4,
+      "column": 1,
+      "role_ko": "양반",
+      "gender_presentation": "남성형",
+      "group": "scholar",
+      "suggested_name_ko": "민재하",
+      "is_story_npc": false,
+      "named_file": "named_portraits/025_min_jae_ha.png",
+      "name_en": "Min Jae-ha",
+      "number": 25,
+      "crop_box": [
+        0,
+        610,
+        200,
+        808
+      ],
+      "content_offset": [
+        4,
+        15
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "8ebc93d9e71915d987b5dfe7df2bf92176c1d26884734dbb945ea2ac9ce5c461"
+    },
+    {
+      "id": "npc_r04c02",
+      "portrait": "/npc/portraits/npc_r04c02.png",
+      "row": 4,
+      "column": 2,
+      "role_ko": "꽃 상인",
+      "gender_presentation": "여성형",
+      "group": "merchant",
+      "suggested_name_ko": "최꽃분",
+      "is_story_npc": false,
+      "named_file": "named_portraits/026_choi_kkot_bun.png",
+      "name_en": "Choi Kkot-bun",
+      "number": 26,
+      "crop_box": [
+        200,
+        610,
+        386,
+        808
+      ],
+      "content_offset": [
+        11,
+        15
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "649521f8afee1b99fd948b788759bc64c6e02ee34d2895b29ae4591d9850eaf6"
+    },
+    {
+      "id": "npc_r04c03",
+      "portrait": "/npc/portraits/npc_r04c03.png",
+      "row": 4,
+      "column": 3,
+      "role_ko": "농부",
+      "gender_presentation": "남성형",
+      "group": "commoner",
+      "suggested_name_ko": "조덕구",
+      "is_story_npc": false,
+      "named_file": "named_portraits/027_jo_deok_gu.png",
+      "name_en": "Jo Deok-gu",
+      "number": 27,
+      "crop_box": [
+        386,
+        610,
+        576,
+        808
+      ],
+      "content_offset": [
+        9,
+        15
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "3767571d475bd0d0d8cb78428496340555a2c9b63151c6edb34eee0c000ee1e3"
+    },
+    {
+      "id": "npc_r04c04",
+      "portrait": "/npc/portraits/npc_r04c04.png",
+      "row": 4,
+      "column": 4,
+      "role_ko": "학자",
+      "gender_presentation": "남성형",
+      "group": "scholar",
+      "suggested_name_ko": "김정헌",
+      "is_story_npc": false,
+      "named_file": "named_portraits/028_kim_jeong_heon.png",
+      "name_en": "Kim Jeong-heon",
+      "number": 28,
+      "crop_box": [
+        576,
+        610,
+        768,
+        808
+      ],
+      "content_offset": [
+        8,
+        15
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "0524e14ac6a89c8973b14e0bca5aeced833441859f7a14f200d7d17c64c99d41"
+    },
+    {
+      "id": "npc_r04c05",
+      "portrait": "/npc/portraits/npc_r04c05.png",
+      "row": 4,
+      "column": 5,
+      "role_ko": "양반가 아가씨",
+      "gender_presentation": "여성형",
+      "group": "lady",
+      "suggested_name_ko": "서연희",
+      "is_story_npc": false,
+      "named_file": "named_portraits/029_seo_yeon_hui.png",
+      "name_en": "Seo Yeon-hui",
+      "number": 29,
+      "crop_box": [
+        768,
+        610,
+        960,
+        808
+      ],
+      "content_offset": [
+        8,
+        15
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "8e14fcacffb0315d8d419146e69837711a0382521a15095872ef13333301dc92"
+    },
+    {
+      "id": "npc_r04c06",
+      "portrait": "/npc/portraits/npc_r04c06.png",
+      "row": 4,
+      "column": 6,
+      "role_ko": "관리",
+      "gender_presentation": "남성형",
+      "group": "official",
+      "suggested_name_ko": "남성원",
+      "is_story_npc": false,
+      "named_file": "named_portraits/030_nam_seong_won.png",
+      "name_en": "Nam Seong-won",
+      "number": 30,
+      "crop_box": [
+        960,
+        610,
+        1152,
+        808
+      ],
+      "content_offset": [
+        8,
+        15
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "903cc582d6ceb12aa0bdba3b71daab226b905bfc5ea9ecb317d2da2a73ff7e91"
+    },
+    {
+      "id": "npc_r04c07",
+      "portrait": "/npc/portraits/npc_r04c07.png",
+      "row": 4,
+      "column": 7,
+      "role_ko": "장터 상인",
+      "gender_presentation": "여성형",
+      "group": "merchant",
+      "suggested_name_ko": "오금순",
+      "is_story_npc": false,
+      "named_file": "named_portraits/031_oh_geum_sun.png",
+      "name_en": "Oh Geum-sun",
+      "number": 31,
+      "crop_box": [
+        1152,
+        610,
+        1340,
+        808
+      ],
+      "content_offset": [
+        10,
+        15
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "3698dff25c2137111fdf9547371aebb4406fdad80b6b1aa2aad72d6b8e9fb054"
+    },
+    {
+      "id": "npc_r04c08",
+      "portrait": "/npc/portraits/npc_r04c08.png",
+      "row": 4,
+      "column": 8,
+      "role_ko": "행상",
+      "gender_presentation": "남성형",
+      "group": "merchant",
+      "suggested_name_ko": "배만복",
+      "is_story_npc": false,
+      "named_file": "named_portraits/032_bae_man_bok.png",
+      "name_en": "Bae Man-bok",
+      "number": 32,
+      "crop_box": [
+        1340,
+        610,
+        1536,
+        808
+      ],
+      "content_offset": [
+        6,
+        15
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "a0c83e15a2888cd37cc4daf6b1a457dd038b4025d4778e6aa032d25be69ad197"
+    },
+    {
+      "id": "npc_r05c01",
+      "portrait": "/npc/portraits/npc_r05c01.png",
+      "row": 5,
+      "column": 1,
+      "role_ko": "장터 상인",
+      "gender_presentation": "여성형",
+      "group": "merchant",
+      "suggested_name_ko": "황연실",
+      "is_story_npc": false,
+      "named_file": "named_portraits/033_hwang_yeon_sil.png",
+      "name_en": "Hwang Yeon-sil",
+      "number": 33,
+      "crop_box": [
+        0,
+        808,
+        200,
+        1024
+      ],
+      "content_offset": [
+        4,
+        6
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "49b4aa9d775e462e5a17ae36545d32a32446cdd279f068c4102c641705e48353"
+    },
+    {
+      "id": "npc_r05c02",
+      "portrait": "/npc/portraits/npc_r05c02.png",
+      "row": 5,
+      "column": 2,
+      "role_ko": "먹거리 상인",
+      "gender_presentation": "남성형",
+      "group": "merchant",
+      "suggested_name_ko": "임복남",
+      "is_story_npc": false,
+      "named_file": "named_portraits/034_im_bok_nam.png",
+      "name_en": "Im Bok-nam",
+      "number": 34,
+      "crop_box": [
+        200,
+        808,
+        386,
+        1024
+      ],
+      "content_offset": [
+        11,
+        6
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "ef3593b82bcaa77ea140174face6a90d3d1251677bd9f5f934e57710d9ad5c50"
+    },
+    {
+      "id": "npc_r05c03",
+      "portrait": "/npc/portraits/npc_r05c03.png",
+      "row": 5,
+      "column": 3,
+      "role_ko": "견습 심부름꾼",
+      "gender_presentation": "남성형",
+      "group": "commoner",
+      "suggested_name_ko": "강도치",
+      "is_story_npc": false,
+      "named_file": "named_portraits/035_kang_do_chi.png",
+      "name_en": "Kang Do-chi",
+      "number": 35,
+      "crop_box": [
+        386,
+        808,
+        576,
+        1024
+      ],
+      "content_offset": [
+        9,
+        6
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "134fa0a4cf59e8813f4c4e465e806af4efb382a831f21ffbd8d19b965be03598"
+    },
+    {
+      "id": "npc_r05c04",
+      "portrait": "/npc/portraits/npc_r05c04.png",
+      "row": 5,
+      "column": 4,
+      "role_ko": "공예품 의뢰인",
+      "gender_presentation": "여성형",
+      "group": "lady",
+      "suggested_name_ko": "윤매화",
+      "is_story_npc": false,
+      "named_file": "named_portraits/036_yun_mae_hwa.png",
+      "name_en": "Yun Mae-hwa",
+      "number": 36,
+      "crop_box": [
+        576,
+        808,
+        768,
+        1024
+      ],
+      "content_offset": [
+        8,
+        6
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "1d94c84b50c9f69503395a156eab4a757b76c051106f9b7404b897c871ef86ce"
+    },
+    {
+      "id": "npc_r05c05",
+      "portrait": "/npc/portraits/npc_r05c05.png",
+      "row": 5,
+      "column": 5,
+      "role_ko": "원로 장인",
+      "gender_presentation": "남성형",
+      "group": "artisan",
+      "suggested_name_ko": "이만석",
+      "is_story_npc": false,
+      "named_file": "named_portraits/037_lee_man_seok.png",
+      "name_en": "Lee Man-seok",
+      "number": 37,
+      "crop_box": [
+        768,
+        808,
+        960,
+        1024
+      ],
+      "content_offset": [
+        8,
+        6
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "c5475fcb46ffbea3b7071e8263da91c268a2ddcdda29af803d26cb82606e8f05"
+    },
+    {
+      "id": "npc_r05c06",
+      "portrait": "/npc/portraits/npc_r05c06.png",
+      "row": 5,
+      "column": 6,
+      "role_ko": "약초·꽃 상인",
+      "gender_presentation": "여성형",
+      "group": "merchant",
+      "suggested_name_ko": "신초희",
+      "is_story_npc": false,
+      "named_file": "named_portraits/038_shin_cho_hui.png",
+      "name_en": "Shin Cho-hui",
+      "number": 38,
+      "crop_box": [
+        960,
+        808,
+        1152,
+        1024
+      ],
+      "content_offset": [
+        8,
+        6
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "722e18468f57c221d4eafccdc28ca015739f506be45f6d31973298a19b823f17"
+    },
+    {
+      "id": "npc_r05c07",
+      "portrait": "/npc/portraits/npc_r05c07.png",
+      "row": 5,
+      "column": 7,
+      "role_ko": "나그네",
+      "gender_presentation": "남성형",
+      "group": "commoner",
+      "suggested_name_ko": "최재문",
+      "is_story_npc": false,
+      "named_file": "named_portraits/039_choi_jae_mun.png",
+      "name_en": "Choi Jae-mun",
+      "number": 39,
+      "crop_box": [
+        1152,
+        808,
+        1340,
+        1024
+      ],
+      "content_offset": [
+        10,
+        6
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "f99cb42ddcc267a32615b5a994f0b53855ab0f6e3a920c3486f27b627bb0fc35"
+    },
+    {
+      "id": "npc_r05c08",
+      "portrait": "/npc/portraits/npc_r05c08.png",
+      "row": 5,
+      "column": 8,
+      "role_ko": "어린 의뢰인",
+      "gender_presentation": "여성형",
+      "group": "commoner",
+      "suggested_name_ko": "송아린",
+      "is_story_npc": false,
+      "named_file": "named_portraits/040_song_a_rin.png",
+      "name_en": "Song A-rin",
+      "number": 40,
+      "crop_box": [
+        1340,
+        808,
+        1536,
+        1024
+      ],
+      "content_offset": [
+        6,
+        6
+      ],
+      "output_size": [
+        208,
+        228
+      ],
+      "sha256": "de450ff5987ee94381d2d163a4de247a71745a88cb8ec04076e0f31ee2fac93b"
+    }
+  ],
+  "crop_method": "Fixed manually reviewed grid boundaries, full cell retained, transparent outer padding; no resizing or color heuristics"
+}

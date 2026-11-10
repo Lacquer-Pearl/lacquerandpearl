@@ -1,0 +1,13 @@
+{
+  "variant": "corrected",
+  "count": 40,
+  "source_sha256": "867bbbd4fd23224bf16f7202960d999374e78cfe3fad1a19b2e5d027fd9680e8",
+  "canvas_size": [
+    208,
+    228
+  ],
+  "all_cells_pixel_exact": true,
+  "full_sheet_reconstruction_pixel_exact": true,
+  "minimum_added_padding_px": 4,
+  "unique_ids_and_paths": true
+}
