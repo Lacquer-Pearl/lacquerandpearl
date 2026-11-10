@@ -259,6 +259,8 @@ function JulStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; onD
     s.breaks++;
     s.idx = 0;
     s.stress = 0;
+    s.off = 0;
+    s.last = null;
     setBreaks(s.breaks);
     setIdx(0);
     setStress(0);
@@ -281,7 +283,11 @@ function JulStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; onD
     if (s.done) return;
     s.err += err;
     s.errN++;
-    s.stress = Math.max(0, s.stress * 0.96 + Math.max(0, speed - 0.35) * 0.18);
+    // 빠른 톱질 + 선에서 살짝 빗나간 오차도 힘을 키움
+    s.stress = Math.max(
+      0,
+      s.stress * 0.96 + Math.max(0, speed - 0.35) * 0.18 + Math.max(0, err - 9) * 0.028,
+    );
     setStress(s.stress);
     loopLevel(Math.min(1, speed * 1.5));
     if (s.stress > 1) {
@@ -323,11 +329,28 @@ function JulStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; onD
     }
     if (bestD < 16) {
       advance(best, bestD, speed);
-      setWarn((w) => (w?.startsWith("✋") ? null : w));
-    } else {
-      s.off++;
-      loopLevel(0);
-      if (s.off % 25 === 0) setWarn(t(lang, "cut.follow"));
+      setWarn((w) => (w?.startsWith("✋") || w?.startsWith("⚠️") ? null : w));
+      return;
+    }
+
+    // 선에서 벗어난 채 톱질 — 많이 어긋날수록 부러질 힘 급상승
+    s.off++;
+    const severe = bestD > 26;
+    const wild = bestD > 36;
+    const drift = Math.max(0, bestD - 14) / 28;
+    const drag = Math.max(0, speed - 0.12) * (wild ? 0.55 : severe ? 0.38 : 0.22);
+    s.stress = Math.max(0, s.stress * 0.97 + drift * 0.2 + drag);
+    if (wild && moved > 1.5) s.stress += 0.16;
+    setStress(s.stress);
+    loopLevel(Math.min(1, 0.2 + s.stress));
+    if (s.stress > 1) {
+      crack();
+      return;
+    }
+    if (severe) {
+      if (s.off % 10 === 0) setWarn(t(lang, "cut.skewWarn"));
+    } else if (s.off % 25 === 0) {
+      setWarn(t(lang, "cut.follow"));
     }
   };
 
