@@ -28,8 +28,9 @@ export interface ArtworkProps {
   svgRef?: React.Ref<SVGSVGElement>;
 }
 
-export function pieceTransform(p: Pick<PlacedPiece, "x" | "y" | "r" | "s">) {
-  return `translate(${p.x} ${p.y}) rotate(${p.r}) scale(${p.s})`;
+export function pieceTransform(p: Pick<PlacedPiece, "x" | "y" | "r" | "s"> & { flipX?: boolean }) {
+  const sx = p.flipX ? -p.s : p.s;
+  return `translate(${p.x} ${p.y}) rotate(${p.r}) scale(${sx} ${p.s})`;
 }
 
 /** 같은 판자개에서도 조각마다 다른 자리·방향으로 오려낸 것처럼 보이게 하는 변형 (x, y, 회전) */

@@ -62,11 +62,11 @@ function marqueeRect(d: { x0: number; y0: number; x1: number; y1: number }) {
   };
 }
 
-function localToWorld(p: Pick<PlacedPiece, "x" | "y" | "r" | "s">, lx: number, ly: number) {
+function localToWorld(p: Pick<PlacedPiece, "x" | "y" | "r" | "s"> & { flipX?: boolean }, lx: number, ly: number) {
   const rad = (p.r * Math.PI) / 180;
   const cos = Math.cos(rad);
   const sin = Math.sin(rad);
-  const x = lx * p.s;
+  const x = lx * (p.flipX ? -p.s : p.s);
   const y = ly * p.s;
   return { x: p.x + x * cos - y * sin, y: p.y + x * sin + y * cos };
 }
@@ -124,7 +124,15 @@ export default function DesignStep({
         : [...design.pieces].reverse().find((x) => x.motif === m && MOTIFS[m].tile);
     if (origin) {
       const slot = nextPatternSlot(origin, design.pieces);
-      if (slot) p = { ...p, ...slot, r: origin.r, s: origin.s, pearl: origin.pearl ?? design.pearl };
+      if (slot)
+        p = {
+          ...p,
+          ...slot,
+          r: origin.r,
+          s: origin.s,
+          flipX: origin.flipX,
+          pearl: origin.pearl ?? design.pearl,
+        };
     }
     update([...design.pieces, p]);
     setSelected(p.id);
@@ -336,6 +344,16 @@ export default function DesignStep({
             <div className="flex gap-1">
               <Btn
                 size="sm"
+                variant="cream"
+                onClick={() => {
+                  sfx.click();
+                  patch(sel.id, (p) => ({ ...p, flipX: !p.flipX }));
+                }}
+              >
+                {t(lang, "design.flip")}
+              </Btn>
+              <Btn
+                size="sm"
                 variant="lavender"
                 disabled={design.pieces.length >= MAX_PIECES}
                 onClick={() => {
@@ -389,6 +407,20 @@ export default function DesignStep({
           <div className="flex items-center justify-between gap-1">
             <span className="text-sm text-[var(--brown)]">{t(lang, "design.multi", { n: selPieces.length })}</span>
             <div className="flex gap-1">
+              <Btn
+                size="sm"
+                variant="cream"
+                onClick={() => {
+                  sfx.click();
+                  update(
+                    design.pieces.map((pc) =>
+                      selected.includes(pc.id) ? { ...pc, flipX: !pc.flipX } : pc,
+                    ),
+                  );
+                }}
+              >
+                {t(lang, "design.flip")}
+              </Btn>
               <Btn
                 size="sm"
                 variant="lavender"

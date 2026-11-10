@@ -267,14 +267,17 @@ function JulStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; onD
     sfx.crack();
     setShake(true);
     setTimeout(() => setShake(false), 400);
-    const inv = useSave.getState().inventory;
+
+    // 부러질 때마다 여분 자개 1조각을 낭비(소모)
+    const inv = { ...useSave.getState().inventory };
     if (inv[pearlMat] > 0) {
-      useSave.setState({ inventory: { ...inv, [pearlMat]: inv[pearlMat] - 1 } });
-      setWarn(t(lang, "cut.brokeNew"));
+      inv[pearlMat] -= 1;
+      useSave.setState({ inventory: inv });
+      setWarn(t(lang, "cut.brokeNew", { left: inv[pearlMat] }));
     } else {
-      setWarn(t(lang, "cut.brokeKeep"));
+      setWarn(t(lang, "cut.brokeNeed"));
     }
-    setTimeout(() => setWarn(null), 2000);
+    setTimeout(() => setWarn(null), 2200);
     if (s.breaks >= 3) finish();
   };
 

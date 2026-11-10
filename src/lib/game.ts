@@ -22,6 +22,8 @@ export interface PlacedPiece {
   s: number;
   /** 회전 (도) */
   r: number;
+  /** 좌우 반전 */
+  flipX?: boolean;
   /** 자개 종류 (없으면 예전 작품처럼 design.pearl) */
   pearl?: PearlId;
 }
