@@ -11,6 +11,7 @@ import {
   type PearlId,
   type ShapeId,
 } from "./data";
+import { pickPatron, rememberNpcs, type Patron, type PatronRequest } from "./npcs";
 
 export interface PlacedPiece {
   id: string;
@@ -37,6 +38,8 @@ export interface Commission {
   id: string;
   customer: number;
   line: string;
+  /** 새로 만든 의뢰의 의뢰인. 없으면 예전 저장의 customer 번호를 쓴다. */
+  patron?: Patron;
   shape: ShapeId;
   lacquer: LacquerId;
   pearl?: PearlId;
@@ -68,6 +71,8 @@ export interface Artwork {
   grade: Grade;
   commissionId?: string;
   customer?: number;
+  /** 납품한 의뢰인. 의뢰가 게시판에서 빠져도 이름과 초상화가 유지된다. */
+  patron?: Patron;
   earned: number;
   value: number;
   sold: boolean;
@@ -204,10 +209,15 @@ export function nextPatternSlot(o: PlacedPiece, pieces: PlacedPiece[]) {
   }
 }
 
-export function generateCommission(reputation: number): Commission {
+function commissionNames(c: Commission) {
+  if (c.patron) return [c.patron.nameKo, c.patron.nameEn];
+  const legacy = CUSTOMERS[c.customer];
+  return legacy ? [legacy.name] : [];
+}
+
+export function generateCommission(reputation: number, patrons?: PatronRequest): Commission {
   const tier = Math.min(4, Math.floor(reputation / 120));
-  const customer = Math.floor(Math.random() * CUSTOMERS.length);
-  const c = CUSTOMERS[customer];
+  const patron = pickPatron(patrons);
   const shape = pick(SHAPE_LIST).id;
   const lacquer = pick(LACQUER_LIST).id;
   const typeCount = Math.min(3, 1 + Math.floor(Math.random() * (1 + tier * 0.7)) + (Math.random() < 0.35 ? 1 : 0));
@@ -226,7 +236,49 @@ export function generateCommission(reputation: number): Commission {
       (1 + tier * 0.25) *
       (pearl ? 1 + (PEARLS[pearl].bonus - 1) * 1.4 : 1),
   );
-  return { id: uid(), customer, line: pick(c.lines), shape, lacquer, pearl, motifs, reward };
+  return {
+    id: uid(),
+    customer: patron.fallbackCustomer,
+    line: patron.lineKey,
+    patron,
+    shape,
+    lacquer,
+    pearl,
+    motifs,
+    reward,
+  };
+}
+
+/** 비어 있는 칸만 채운다. 이미 있는 의뢰의 의뢰인은 바꾸지 않는다. */
+export function addCommissions(
+  reputation: number,
+  existing: Commission[],
+  recentIds: string[],
+  count: number,
+) {
+  const added: Commission[] = [];
+  const recent = new Set(recentIds);
+  for (const c of existing) if (c.patron) recent.add(c.patron.id);
+  for (let i = 0; i < count; i++) {
+    const batch = [...existing, ...added];
+    added.push(
+      generateCommission(reputation, {
+        avoidIds: batch.flatMap((c) => (c.patron ? [c.patron.id] : [])),
+        avoidNames: batch.flatMap(commissionNames),
+        recentIds: [...recent],
+        avoidLineKeys: batch.flatMap((c) => (c.patron ? [c.patron.lineKey] : [])),
+      }),
+    );
+    const id = added[added.length - 1].patron?.id;
+    if (id) recent.add(id);
+  }
+  return {
+    added,
+    recentIds: rememberNpcs(
+      recentIds,
+      added.flatMap((c) => (c.patron ? [c.patron.id] : [])),
+    ),
+  };
 }
 
 export function countMotifs(pieces: PlacedPiece[]) {

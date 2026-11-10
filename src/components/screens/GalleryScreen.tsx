@@ -6,7 +6,7 @@ import { Btn, Coin, Modal, TopBar } from "@/components/ui";
 import { GRADE_INFO, topMotif, type Artwork as ArtworkT } from "@/lib/game";
 import {
   artworkTitle,
-  customerName,
+  clientLabel,
   gradeLabel,
   rankTitle,
   t,
@@ -60,7 +60,7 @@ export default function GalleryScreen() {
                 <span className="truncate text-sm">{localizedTitle(lang, a)}</span>
                 {a.commissionId ? (
                   <span className="text-xs opacity-70">
-                    {t(lang, "gallery.delivered", { name: customerName(lang, a.customer ?? 0) })}
+                    {t(lang, "gallery.delivered", { name: clientLabel(lang, a).name })}
                   </span>
                 ) : a.sold ? (
                   <span className="text-xs opacity-70">{t(lang, "gallery.sold")}</span>

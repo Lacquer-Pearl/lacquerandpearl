@@ -4,11 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Artwork from "@/components/Artwork";
 import Avatar, { type Mood } from "@/components/Avatar";
 import { Btn, Coin, Meter, Sparkles, TopBar } from "@/components/ui";
-import { CUSTOMERS, rankProgress } from "@/lib/data";
+import { rankProgress } from "@/lib/data";
 import { GRADE_INFO, STEP_INFO, reputationGain, topMotif, type StepId } from "@/lib/game";
 import {
   artworkTitle,
-  customerName,
+  clientLabel,
   gradeLabel,
   rankTitle,
   reactionText,
@@ -66,7 +66,7 @@ export default function ResultScreen() {
   const shownStep = rankProgress(shownRep);
   const label = gradeLabel(lang, art.grade);
   const title = artworkTitle(lang, art.design.shape, art.design.lacquer, topMotif(art.design));
-  const cust = art.customer != null ? CUSTOMERS[art.customer] : undefined;
+  const client = art.patron || art.customer != null ? clientLabel(lang, art) : undefined;
   const mood: Mood =
     art.grade === "S"
       ? "wow"
@@ -91,11 +91,11 @@ export default function ResultScreen() {
         </div>
         <h2 className="step-title text-center">{title}</h2>
 
-        {cust ? (
+        {client ? (
           <div className="panel flex items-center gap-3">
-            <Avatar c={cust} mood={mood} className="h-16 w-16 shrink-0" />
+            <Avatar c={client.customer} portrait={client.portrait} mood={mood} className="h-16 w-16 shrink-0" />
             <div className="flex-1">
-              <b className="text-[var(--brown)]">{customerName(lang, art.customer!)}</b>
+              <b className="text-[var(--brown)]">{client.name}</b>
               <div className="bubble mt-1 text-sm">“{reaction}”</div>
             </div>
           </div>

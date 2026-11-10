@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import type { CustomerDef } from "@/lib/data";
 
 export type Mood = "happy" | "neutral" | "sad" | "wow";
@@ -6,11 +9,28 @@ export default function Avatar({
   c,
   mood = "neutral",
   className,
+  portrait,
 }: {
   c: CustomerDef;
   mood?: Mood;
   className?: string;
+  portrait?: string;
 }) {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  if (portrait && failedSrc !== portrait) {
+    return (
+      <img
+        src={portrait}
+        alt=""
+        width={188}
+        height={201}
+        decoding="async"
+        draggable={false}
+        className="npc-portrait"
+        onError={() => setFailedSrc(portrait)}
+      />
+    );
+  }
   const mouth =
     mood === "happy"
       ? "M42 66 Q50 74 58 66"

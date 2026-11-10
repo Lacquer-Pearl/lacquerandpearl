@@ -5,12 +5,9 @@ import Artwork from "@/components/Artwork";
 import Avatar from "@/components/Avatar";
 import MotifIcon, { NacreSwatch } from "@/components/MotifIcon";
 import { Btn, Coin, TopBar } from "@/components/ui";
-import { CUSTOMERS, LACQUERS, type MotifId } from "@/lib/data";
-import { generateCommission } from "@/lib/game";
+import { LACQUERS, type MotifId } from "@/lib/data";
 import {
-  customerLine,
-  customerName,
-  customerTitle,
+  clientLabel,
   lacquerName,
   motifName,
   pearlName,
@@ -24,7 +21,7 @@ export default function BoardScreen() {
   const startCraft = useUI((s) => s.startCraft);
   const commissions = useSave((s) => s.commissions);
   const ensure = useSave((s) => s.ensureCommissions);
-  const rep = useSave((s) => s.reputation);
+  const refresh = useSave((s) => s.refreshCommissions);
   const lang = useSave((s) => s.lang);
 
   useEffect(() => ensure(), [ensure]);
@@ -35,17 +32,17 @@ export default function BoardScreen() {
       <div className="screen-body">
         <p className="panel text-sm leading-relaxed text-[var(--brown)]">{t(lang, "board.repHint")}</p>
         {commissions.map((c) => {
-          const cust = CUSTOMERS[c.customer];
+          const client = clientLabel(lang, c);
           return (
             <div key={c.id} className="panel commission-card">
               <div className="flex items-start gap-3">
-                <Avatar c={cust} className="h-16 w-16 shrink-0" />
+                <Avatar c={client.customer} portrait={client.portrait} className="h-16 w-16 shrink-0" />
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline gap-1.5">
-                    <b className="text-lg text-[var(--brown)]">{customerName(lang, c.customer)}</b>
-                    <span className="text-xs opacity-70">{customerTitle(lang, c.customer)}</span>
+                  <div className="flex flex-wrap items-baseline gap-x-1.5">
+                    <b className="text-lg text-[var(--brown)]">{client.name}</b>
+                    <span className="text-xs opacity-70">{client.title}</span>
                   </div>
-                  <div className="bubble mt-1 text-sm">“{customerLine(lang, c.customer, c.line)}”</div>
+                  <div className="bubble mt-1 text-sm">“{client.line}”</div>
                 </div>
               </div>
               <div className="mt-3 flex items-center gap-3">
@@ -87,7 +84,7 @@ export default function BoardScreen() {
         })}
         <Btn
           variant="cream"
-          onClick={() => useSave.setState({ commissions: [0, 1, 2].map(() => generateCommission(rep)) })}
+          onClick={() => refresh()}
         >
           {t(lang, "board.refresh")}
         </Btn>

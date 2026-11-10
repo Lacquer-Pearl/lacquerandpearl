@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { CRAFT_COST, MATERIALS, MOTIF_LIST, PEARLS, type MaterialId, type MotifId, type PearlId } from "./data";
 import {
-  generateCommission,
+  addCommissions,
   pearlCost,
   type Artwork,
   type Commission,
@@ -13,6 +13,7 @@ import {
   type StepScores,
 } from "./game";
 import type { Locale } from "./i18n";
+import { rememberNpcs, sanitizePatron } from "./npcs";
 
 export type Inventory = Record<MaterialId, number>;
 
@@ -51,6 +52,8 @@ interface SaveState {
   realCraftInterest: string[];
   redeemedCoupons: string[];
   craftProgress: CraftProgress | null;
+  /** 최근에 등장한 의뢰인 id. 새 의뢰가 같은 사람을 바로 다시 뽑지 않게 한다. */
+  npcRecent: string[];
 
   buy: (id: MaterialId) => boolean;
   /** "ok" | "used" | "invalid" */
@@ -58,6 +61,7 @@ interface SaveState {
   missingFor: (design: Pick<Design, "pearl" | "pieces">) => MaterialId[];
   consumeFor: (design: Pick<Design, "pearl" | "pieces">) => boolean;
   ensureCommissions: () => void;
+  refreshCommissions: () => void;
   finishArtwork: (art: Artwork, repGain: number) => void;
   sellArtwork: (id: string) => void;
   setMuted: (m: boolean) => void;
@@ -93,6 +97,7 @@ const initial = {
   realCraftInterest: [] as string[],
   redeemedCoupons: [] as string[],
   craftProgress: null as CraftProgress | null,
+  npcRecent: [] as string[],
 };
 
 const COUPONS: Record<string, number> = {
@@ -138,19 +143,27 @@ export const useSave = create<SaveState>()(
       },
 
       ensureCommissions: () => {
-        const { commissions, reputation } = get();
+        const { commissions, reputation, npcRecent } = get();
         if (commissions.length >= 3) return;
-        const next = [...commissions];
-        while (next.length < 3) next.push(generateCommission(reputation));
-        set({ commissions: next });
+        const { added, recentIds } = addCommissions(reputation, commissions, npcRecent, 3 - commissions.length);
+        set({ commissions: [...commissions, ...added], npcRecent: recentIds });
+      },
+
+      refreshCommissions: () => {
+        const { commissions, reputation, npcRecent } = get();
+        const prior = commissions.flatMap((c) => (c.patron ? [c.patron.id] : []));
+        const { added, recentIds } = addCommissions(reputation, [], rememberNpcs(npcRecent, prior), 3);
+        set({ commissions: added, npcRecent: recentIds });
       },
 
       finishArtwork: (art, repGain) => {
         const s = get();
+        const done = s.commissions.find((c) => c.id === art.commissionId);
         set({
           gallery: [art, ...s.gallery].slice(0, 60),
           money: s.money + art.earned,
           reputation: s.reputation + repGain,
+          npcRecent: done?.patron ? rememberNpcs(s.npcRecent, [done.patron.id]) : s.npcRecent,
           commissions: art.commissionId
             ? s.commissions.filter((c) => c.id !== art.commissionId)
             : s.commissions,
@@ -195,11 +208,32 @@ export const useSave = create<SaveState>()(
           ...current,
           ...p,
           lang,
-          craftProgress: p?.craftProgress ?? null,
+          craftProgress: p?.craftProgress
+            ? {
+                ...p.craftProgress,
+                commission: p.craftProgress.commission
+                  ? {
+                      ...p.craftProgress.commission,
+                      patron: sanitizePatron(p.craftProgress.commission.patron),
+                    }
+                  : undefined,
+              }
+            : null,
           inventory: { ...START_INVENTORY, ...p?.inventory },
-          commissions: (p?.commissions ?? current.commissions).filter((c) =>
-            Object.keys(c.motifs).every((m) => listed.has(m as MotifId)),
-          ),
+          commissions: (p?.commissions ?? current.commissions)
+            .filter((c) => Object.keys(c.motifs).every((m) => listed.has(m as MotifId)))
+            .map((c) => {
+              const patron = sanitizePatron(c.patron);
+              return patron ? { ...c, patron } : { ...c, patron: undefined };
+            }),
+          gallery: (p?.gallery ?? current.gallery).map((a) => {
+            if (!a.patron) return a;
+            const patron = sanitizePatron(a.patron);
+            return patron ? { ...a, patron } : { ...a, patron: undefined };
+          }),
+          npcRecent: Array.isArray(p?.npcRecent)
+            ? p.npcRecent.filter((id): id is string => typeof id === "string").slice(-24)
+            : [],
         };
       },
       partialize: (s) => ({
@@ -215,6 +249,7 @@ export const useSave = create<SaveState>()(
         realCraftInterest: s.realCraftInterest,
         redeemedCoupons: s.redeemedCoupons,
         craftProgress: s.craftProgress,
+        npcRecent: s.npcRecent,
       }),
     },
   ),

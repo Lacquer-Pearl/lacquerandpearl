@@ -958,6 +958,21 @@ button.chip:active {
     opacity: 0;
   }
 }
+.npc-portrait {
+  display: block;
+  width: 4.5rem;
+  height: auto;
+  aspect-ratio: 188 / 201;
+  object-fit: contain;
+  flex-shrink: 0;
+  background: #f8f2e8;
+  border-radius: 0.85rem;
+}
+@media (max-width: 420px) {
+  .npc-portrait {
+    width: 4rem;
+  }
+}
 @keyframes reveal {
   from {
     filter: brightness(1.6) blur(5px);

@@ -257,6 +257,7 @@ export default function CraftFlow() {
       grade,
       commissionId: commission?.id,
       customer: commission?.customer,
+      patron: commission?.patron,
       earned: commission ? Math.round(commission.reward * GRADE_INFO[grade].mult) : 0,
       value: artworkValue(d, total),
       sold: !!commission,

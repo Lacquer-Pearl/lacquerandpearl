@@ -4,6 +4,7 @@ import { createElement, type ReactNode } from "react";
 import { CUSTOMERS, type LacquerId, type MaterialId, type PearlId, type ShapeId } from "./data";
 import type { MotifId } from "./motifs";
 import type { Grade, StepId } from "./game";
+import type { Patron } from "./npcs";
 
 export type Locale = "ko" | "en";
 
@@ -410,6 +411,34 @@ const ko: Dict = {
   "customer.5.title": "수집가 대감",
   "customer.5.line0": "내 수집품에 걸맞은 걸작을 원하네.",
   "customer.5.line1": "값은 넉넉히 쳐 주겠네. 허허.",
+  "npc.line.official.0": "치수와 문양을 어긋남 없이 맞춰 주시게.",
+  "npc.line.official.1": "관아에 올릴 물건이니 마감이 단정해야 하오.",
+  "npc.line.official.2": "정해진 규격에서 벗어나지 않게 해주시오.",
+  "npc.line.official.3": "장식은 절제하고, 격식은 빠짐없이 부탁하오.",
+  "npc.line.scholar.0": "서재에 두어도 격이 떨어지지 않을 물건을 청하오.",
+  "npc.line.scholar.1": "문양은 단정하되, 뜻이 남도록 해주시오.",
+  "npc.line.scholar.2": "소박하면서도 품이 있는 것을 바라오.",
+  "npc.line.scholar.3": "오래 보아도 질리지 않는 격조를 부탁하오.",
+  "npc.line.artisan.0": "이음새와 칠의 두께까지 살펴 주시게.",
+  "npc.line.artisan.1": "보기보다 손이 가는 일이니, 마무리를 단단히 해주소.",
+  "npc.line.artisan.2": "같은 일을 하는 사람이라 완성도가 제일 궁금하오.",
+  "npc.line.artisan.3": "도구 자국이 남지 않게, 면을 고르게 부탁하오.",
+  "npc.line.merchant.0": "값이 좀 나가도 쓸 만한 것이어야 하오.",
+  "npc.line.merchant.1": "장식이 과하면 팔기 어렵소. 실속을 봐 주시오.",
+  "npc.line.merchant.2": "들고 다녀도 성할 만큼 튼튼하면 좋겠소.",
+  "npc.line.merchant.3": "보기 좋고 값도 말이 되는 선으로 부탁하오.",
+  "npc.line.lady.0": "꽃무늬가 너무 크면 부담스러워요. 결을 봐 주세요.",
+  "npc.line.lady.1": "가장자리 장식을 조금 더 섬세하게 해 주셨으면 해요.",
+  "npc.line.lady.2": "색이 튀기보다, 오래 두어도 예쁜 쪽을 원해요.",
+  "npc.line.lady.3": "자개의 결이 문양과 어울리게 골라 주세요.",
+  "npc.line.commoner.0": "거창한 것보다, 집에 두고 쓸 만한 것이면 좋겠어요.",
+  "npc.line.commoner.1": "손에 익은 크기면 충분해요.",
+  "npc.line.commoner.2": "지나다 생각이 나서 들렀어요. 소박하게 부탁드려요.",
+  "npc.line.commoner.3": "무늬는 알아보기 쉬운 것이 좋아요.",
+  "npc.line.foreigner.0": "한국의 자개 장식이 궁금해서 부탁드려요.",
+  "npc.line.foreigner.1": "전통 문양의 뜻을 담아 주실 수 있을까요?",
+  "npc.line.foreigner.2": "고국에 가져갈 기념이 될 물건을 찾고 있어요.",
+  "npc.line.foreigner.3": "옻칠과 자개가 어떻게 만나는지 보고 싶어요.",
   "master.name": "옻골 스승님",
   "master.title": "나전칠기 명장",
 };
@@ -814,6 +843,34 @@ const en: Dict = {
   "customer.5.title": "Collector lord",
   "customer.5.line0": "I want a masterpiece worthy of my collection.",
   "customer.5.line1": "I'll pay generously. Hoho.",
+  "npc.line.official.0": "Please match the measurements and the pattern without a slip.",
+  "npc.line.official.1": "This will be presented at the office, so the finish must be exact.",
+  "npc.line.official.2": "Kindly keep it within the set form.",
+  "npc.line.official.3": "Keep the ornament restrained, and leave out none of the formalities.",
+  "npc.line.scholar.0": "I ask for a piece that would not lower the tone of a study.",
+  "npc.line.scholar.1": "Let the pattern be composed, and still leave a meaning in it.",
+  "npc.line.scholar.2": "I would like it plain, and still dignified.",
+  "npc.line.scholar.3": "Please give it a grace that does not tire the eye.",
+  "npc.line.artisan.0": "Please mind the joints, and the thickness of the lacquer too.",
+  "npc.line.artisan.1": "This takes more handwork than it shows. Make the finish solid.",
+  "npc.line.artisan.2": "I do this work myself, so the finish is what I came to see.",
+  "npc.line.artisan.3": "Please even the surface so no tool mark remains.",
+  "npc.line.merchant.0": "It can cost a fair sum, as long as it is useful.",
+  "npc.line.merchant.1": "Too much ornament is hard to sell. Please keep it practical.",
+  "npc.line.merchant.2": "I would like it sturdy enough to carry about.",
+  "npc.line.merchant.3": "Make it pleasant to look at, and sensible in price.",
+  "npc.line.lady.0": "A flower that is too large feels heavy. Please mind the balance.",
+  "npc.line.lady.1": "I would like the border ornament a little finer.",
+  "npc.line.lady.2": "I would rather it stay lovely than call attention to itself.",
+  "npc.line.lady.3": "Please choose nacre whose grain suits the pattern.",
+  "npc.line.commoner.0": "Nothing grand. Something I can keep at home would do.",
+  "npc.line.commoner.1": "A size that sits well in the hand is enough.",
+  "npc.line.commoner.2": "I stopped in because it came to mind on the way. Something plain, please.",
+  "npc.line.commoner.3": "A pattern that is easy to recognize would be good.",
+  "npc.line.foreigner.0": "I came because I wanted to see Korean nacre inlay.",
+  "npc.line.foreigner.1": "Could you put the meaning of a traditional pattern into it?",
+  "npc.line.foreigner.2": "I am looking for a piece I can take home as a keepsake.",
+  "npc.line.foreigner.3": "I want to see how the lacquer and the nacre meet.",
   "master.name": "Master Ottgol",
   "master.title": "Najeon master",
 };
@@ -889,6 +946,30 @@ export function customerLine(lang: Locale, i: number, line: string) {
   const idx = CUSTOMERS[i]?.lines.indexOf(line) ?? -1;
   if (idx >= 0) return t(lang, `customer.${i}.line${idx}`);
   return line;
+}
+
+/** 새 의뢰인은 저장된 이름·직업을 쓰고, 예전 의뢰는 기존 손님 번호를 쓴다. */
+export function clientLabel(
+  lang: Locale,
+  source: { customer?: number; line?: string; patron?: Patron },
+) {
+  if (source.patron) {
+    return {
+      name: lang === "en" ? source.patron.nameEn : source.patron.nameKo,
+      title: lang === "en" ? source.patron.roleEn : source.patron.roleKo,
+      line: t(lang, source.patron.lineKey),
+      portrait: source.patron.portrait,
+      customer: CUSTOMERS[source.patron.fallbackCustomer] ?? CUSTOMERS[0],
+    };
+  }
+  const i = source.customer ?? 0;
+  return {
+    name: customerName(lang, i),
+    title: customerTitle(lang, i),
+    line: source.line ? customerLine(lang, i, source.line) : "",
+    portrait: undefined as string | undefined,
+    customer: CUSTOMERS[i] ?? CUSTOMERS[0],
+  };
 }
 
 export function artworkTitle(
