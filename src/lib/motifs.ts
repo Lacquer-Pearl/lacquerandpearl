@@ -522,6 +522,30 @@ export const PATTERN_MOTIFS = MOTIF_LIST.filter((m) => m.kind === "pattern");
 /** 밑그림·선택 표시·자르기에 쓰는 바깥 윤곽 */
 export const motifOutline = (id: MotifId) => MOTIFS[id].cutPath ?? MOTIFS[id].path;
 
+/**
+ * 자르기 미니게임용 맞춤 배율.
+ * 스탬프·패턴 단위는 좌표계가 커서 고정 4.5배로 그리면 판만 커다랗게 보입니다.
+ */
+export function motifCutFit(id: MotifId): { ox: number; oy: number; scale: number } {
+  const m = MOTIFS[id];
+  const target = 200;
+  if (m.stamp) {
+    const { x, y, w, h } = m.stamp;
+    return {
+      ox: x + w / 2,
+      oy: y + h / 2,
+      scale: Math.min(target / Math.max(w, 1), target / Math.max(h, 1)),
+    };
+  }
+  if (m.kind === "pattern") {
+    return { ox: 0, oy: 0, scale: 6.2 };
+  }
+  if (m.strokes?.length && !m.path) {
+    return { ox: 0, oy: 0, scale: 3.6 };
+  }
+  return { ox: 0, oy: 0, scale: 4.5 };
+}
+
 const partsCache = new Map<MotifId, string[]>();
 
 /** 따로 오려 붙인 자개 조각들 */

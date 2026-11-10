@@ -213,6 +213,7 @@ const ko: Dict = {
   "cut.autoTitle": "기계 가공",
   "cut.autoTip": "기계는 빠르지만, 장인의 손끝 같은 섬세함은 없단다.",
   "cut.autoProgress": "가공 중…",
+  "cut.round": "자개 {n}/{max} · {pearl}",
 
   "attach.title": "아교 바르고 자개 붙이기",
   "attach.tip":
@@ -586,6 +587,7 @@ const en: Dict = {
   "cut.autoTitle": "Machine cut",
   "cut.autoTip": "Machines are fast, but they lack a master's touch.",
   "cut.autoProgress": "Cutting…",
+  "cut.round": "Shell {n}/{max} · {pearl}",
 
   "attach.title": "Glue and place shell",
   "attach.tip": "Glue dries fast! Drag the shell {b}. Stick it before the glue sets.",

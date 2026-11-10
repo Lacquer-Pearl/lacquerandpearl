@@ -137,6 +137,25 @@ export function mainPearl(design: Pick<Design, "pearl" | "pieces">): PearlId {
   return (Object.entries(counts) as [PearlId, number][]).sort((a, b) => b[1] - a[1])[0]?.[0] ?? design.pearl;
 }
 
+/** 자개 종류별 자르기 라운드: 등장 순서 + 그 종류에서 가장 많이 쓴 문양 */
+export function cutJobs(design: Design): { pearl: PearlId; motif: MotifId }[] {
+  if (!design.pieces.length) return [{ pearl: design.pearl, motif: "plum" }];
+  const order: PearlId[] = [];
+  const byPearl = new Map<PearlId, Partial<Record<MotifId, number>>>();
+  for (const p of design.pieces) {
+    const pearl = piecePearl(p, design);
+    if (!order.includes(pearl)) order.push(pearl);
+    const bag = byPearl.get(pearl) ?? {};
+    bag[p.motif] = (bag[p.motif] ?? 0) + 1;
+    byPearl.set(pearl, bag);
+  }
+  return order.map((pearl) => {
+    const bag = byPearl.get(pearl)!;
+    const motif = (Object.entries(bag) as [MotifId, number][]).sort((a, b) => b[1] - a[1])[0][0];
+    return { pearl, motif };
+  });
+}
+
 /** 패턴 단위를 이웃 조각의 격자에 맞춤. 맞출 이웃이 없거나 너무 멀면 그대로 */
 export function snapToPattern(piece: PlacedPiece, others: PlacedPiece[]): PlacedPiece {
   const tile = MOTIFS[piece.motif].tile;

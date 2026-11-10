@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { MotifSilhouette, NacreDefs, SheenGradient } from "@/components/Artwork";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { MotifMasks, NacreDefs, NacrePiece, SheenGradient, motifMask } from "@/components/Artwork";
 import { TOOL_TIP, ToolGraphic } from "@/components/Tools";
 import { Btn, Meter } from "@/components/ui";
-import { MOTIFS, PEARLS, motifOutline, type MotifId } from "@/lib/data";
-import { countMotifs, mainPearl, type Design } from "@/lib/game";
-import { motifName, t, tNode } from "@/lib/i18n";
+import { MOTIFS, PEARLS, motifCutFit, motifOutline, type MotifId, type PearlId } from "@/lib/data";
+import { cutJobs, type Design } from "@/lib/game";
+import { motifName, pearlName, t, tNode } from "@/lib/i18n";
 import { loopLevel, sfx, startLoop, stopLoop } from "@/lib/sound";
 import { useSave } from "@/lib/store";
 import { StepHeader } from "./common";
@@ -15,11 +15,24 @@ type Method = "jul" | "kkeun" | "auto";
 
 export default function CutStep({ design, onDone }: { design: Design; onDone: (score: number) => void }) {
   const lang = useSave((s) => s.lang);
+  const jobs = useMemo(() => cutJobs(design), [design]);
   const [method, setMethod] = useState<Method | null>(null);
-  const motif = useMemo<MotifId>(() => {
-    const counts = Object.entries(countMotifs(design.pieces)) as [MotifId, number][];
-    return counts.sort((a, b) => b[1] - a[1])[0]?.[0] ?? "plum";
-  }, [design.pieces]);
+  const [jobIdx, setJobIdx] = useState(0);
+  const scores = useRef<number[]>([]);
+  const job = jobs[Math.min(jobIdx, jobs.length - 1)];
+
+  const finishJob = useCallback(
+    (score: number) => {
+      scores.current.push(score);
+      if (scores.current.length < jobs.length) {
+        setJobIdx(scores.current.length);
+        return;
+      }
+      const avg = scores.current.reduce((a, b) => a + b, 0) / scores.current.length;
+      onDone(Math.round(avg));
+    },
+    [jobs.length, onDone],
+  );
 
   if (!method)
     return (
@@ -27,6 +40,11 @@ export default function CutStep({ design, onDone }: { design: Design; onDone: (s
         <StepHeader title={t(lang, "cut.title")} emoji="🪚">
           {tNode(lang, "cut.tip", { b: <b>{t(lang, "cut.tipB")}</b> })}
         </StepHeader>
+        {jobs.length > 1 && (
+          <div className="panel py-2 text-center text-sm text-[var(--brown)]">
+            {t(lang, "cut.round", { n: 1, max: jobs.length, pearl: pearlName(lang, jobs[0].pearl) })}
+          </div>
+        )}
         <button className="method-card" onClick={() => (sfx.click(), setMethod("jul"))}>
           <span className="text-4xl">🪚</span>
           <span className="flex flex-col text-left">
@@ -51,13 +69,41 @@ export default function CutStep({ design, onDone }: { design: Design; onDone: (s
       </div>
     );
 
-  if (method === "jul") return <JulStep design={design} motif={motif} onDone={onDone} />;
-  if (method === "kkeun") return <KkeunStep design={design} onDone={onDone} />;
-  return <AutoStep onDone={onDone} />;
+  const roundBanner =
+    jobs.length > 1 ? (
+      <div className="panel py-2 text-center text-sm text-[var(--brown)]">
+        {t(lang, "cut.round", {
+          n: jobIdx + 1,
+          max: jobs.length,
+          pearl: pearlName(lang, job.pearl),
+        })}
+      </div>
+    ) : null;
+
+  if (method === "jul")
+    return (
+      <div className="flex flex-col gap-3">
+        {roundBanner}
+        <JulStep key={`${jobIdx}-jul`} motif={job.motif} pearl={job.pearl} onDone={finishJob} />
+      </div>
+    );
+  if (method === "kkeun")
+    return (
+      <div className="flex flex-col gap-3">
+        {roundBanner}
+        <KkeunStep key={`${jobIdx}-kkeun`} pearl={job.pearl} onDone={finishJob} />
+      </div>
+    );
+  return (
+    <div className="flex flex-col gap-3">
+      {roundBanner}
+      <AutoStep key={`${jobIdx}-auto`} onDone={finishJob} />
+    </div>
+  );
 }
 
 /** 얇게 켠 조각을 이어 붙인 판자개 원판 */
-function ShellSheet({ pearl }: { pearl: Design["pearl"] }) {
+function ShellSheet({ pearl }: { pearl: PearlId }) {
   const outline = "M18 26 H282 Q288 26 288 32 V268 Q288 274 282 274 H18 Q12 274 12 268 V32 Q12 26 18 26 Z";
   return (
     <g>
@@ -82,7 +128,7 @@ function ShellSheet({ pearl }: { pearl: Design["pearl"] }) {
   );
 }
 
-function samplePath(d: string, scale: number, cx: number, cy: number, step = 3) {
+function samplePath(d: string, scale: number, cx: number, cy: number, ox: number, oy: number, step = 3) {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.style.position = "absolute";
   svg.style.visibility = "hidden";
@@ -99,20 +145,20 @@ function samplePath(d: string, scale: number, cx: number, cy: number, step = 3) 
   const n = Math.max(20, Math.round((len * scale) / step));
   for (let i = 0; i <= n; i++) {
     const pt = p.getPointAtLength((i / n) * len);
-    pts.push({ x: cx + pt.x * scale, y: cy + pt.y * scale });
+    pts.push({ x: cx + (pt.x - ox) * scale, y: cy + (pt.y - oy) * scale });
   }
   svg.remove();
   return pts;
 }
 
 /** 여러 획을 이어 붙일 때, 획과 획 사이에는 polyline을 끊기 위한 경계 인덱스 */
-function sampleCutGuide(ds: string[], scale: number, cx: number, cy: number, step = 4) {
+function sampleCutGuide(ds: string[], scale: number, cx: number, cy: number, ox: number, oy: number, step = 4) {
   const pts: { x: number; y: number }[] = [];
   /** 이 인덱스 점 다음에 선을 이어 그리지 않음 (획의 끝) */
   const gapAfter = new Set<number>();
   for (const d of ds) {
     if (!d) continue;
-    const seg = samplePath(d, scale, cx, cy, step);
+    const seg = samplePath(d, scale, cx, cy, ox, oy, step);
     if (seg.length < 2) continue;
     if (pts.length) gapAfter.add(pts.length - 1);
     pts.push(...seg);
@@ -135,13 +181,20 @@ function cutPolylines(pts: { x: number; y: number }[], upTo: number, gapAfter: S
   return parts;
 }
 
-function JulStep({ design, motif, onDone }: { design: Design; motif: MotifId; onDone: (s: number) => void }) {
+function cutGuidePaths(motif: MotifId) {
+  const m = MOTIFS[motif];
+  if (m.strokes?.length) return m.strokes.map((s) => s.d);
+  const outline = motifOutline(motif);
+  return outline ? [outline] : [];
+}
+
+function JulStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; onDone: (s: number) => void }) {
   const lang = useSave((s) => s.lang);
   const m = MOTIFS[motif];
-  const SCALE = 4.5;
+  const fit = useMemo(() => motifCutFit(motif), [motif]);
   const [{ pts, gapAfter }] = useState(() => {
-    const ds = m.strokes?.length ? m.strokes.map((s) => s.d) : [m.cutPath || m.path];
-    return sampleCutGuide(ds, SCALE, 150, 150, 4);
+    const ds = cutGuidePaths(motif);
+    return sampleCutGuide(ds, fit.scale, 150, 150, fit.ox, fit.oy, 4);
   });
   const [idx, setIdx] = useState(0);
   const [stress, setStress] = useState(0);
@@ -150,16 +203,35 @@ function JulStep({ design, motif, onDone }: { design: Design; motif: MotifId; on
   const [warn, setWarn] = useState<string | null>(null);
   const [shake, setShake] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
-  const st = useRef({ idx: 0, stress: 0, err: 0, errN: 0, off: 0, lastT: 0, last: null as null | { x: number; y: number }, down: false, done: false, breaks: 0 });
+  const st = useRef({
+    idx: 0,
+    stress: 0,
+    err: 0,
+    errN: 0,
+    off: 0,
+    lastT: 0,
+    last: null as null | { x: number; y: number },
+    down: false,
+    done: false,
+    breaks: 0,
+  });
   const inventory = useSave((s) => s.inventory);
-  const pearl = mainPearl(design);
   const pearlMat = PEARLS[pearl].material;
+  const motifXf = `translate(150 150) scale(${fit.scale}) translate(${-fit.ox} ${-fit.oy})`;
 
   useEffect(() => {
     startLoop("saw");
     loopLevel(0);
     return () => stopLoop();
   }, []);
+
+  // 가이드가 비면(빈 path) 바로 통과시키지 않고 최저점
+  useEffect(() => {
+    if (pts.length < 2) {
+      const id = setTimeout(() => onDone(40), 400);
+      return () => clearTimeout(id);
+    }
+  }, [pts.length, onDone]);
 
   const finish = () => {
     const s = st.current;
@@ -263,6 +335,7 @@ function JulStep({ design, motif, onDone }: { design: Design; motif: MotifId; on
 
   const cutParts = cutPolylines(pts, idx, gapAfter);
   const next = pts[Math.min(pts.length - 1, idx + 1)];
+  const outline = motifOutline(motif);
 
   return (
     <div className="flex flex-col gap-3">
@@ -294,31 +367,48 @@ function JulStep({ design, motif, onDone }: { design: Design; motif: MotifId; on
           onWheel={onWheel}
         >
           <ShellSheet pearl={pearl} />
-          {m.strokes?.length ? (
-            <g transform={`translate(150 150) scale(${SCALE})`} opacity="0.85">
-              <MotifSilhouette motif={motif} color="#4a3c38" />
-            </g>
-          ) : (
-            <>
+          <defs>
+            <NacreDefs id="cut-piece-nacre" pearl={pearl} scale={1.4} />
+            <MotifMasks id="cut-piece-mask" motifs={[motif]} />
+          </defs>
+          <g transform={motifXf} opacity="0.95">
+            {/* 실제로 오려낼 문양 — 스탬프/패턴도 판 크기에 맞춰 보임 */}
+            <NacrePiece
+              motif={motif}
+              fill="url(#cut-piece-nacre)"
+              mask={motifMask("cut-piece-mask", motif)}
+              light={0.15}
+            />
+            {!m.stamp && outline && (
+              <>
+                <path
+                  d={outline}
+                  fill="none"
+                  stroke="#fffaf0"
+                  strokeWidth={2.6 / fit.scale}
+                  opacity="0.45"
+                />
+                <path
+                  d={outline}
+                  fill="none"
+                  stroke="#4a3c38"
+                  strokeWidth={1.3 / fit.scale}
+                  strokeDasharray={`${4 / fit.scale} ${3 / fit.scale}`}
+                  opacity="0.75"
+                />
+              </>
+            )}
+            {m.stamp && outline && (
               <path
-                d={motifOutline(motif)}
-                transform={`translate(150 150) scale(${SCALE})`}
-                fill="none"
-                stroke="#fffaf0"
-                strokeWidth={2.6 / SCALE}
-                opacity="0.45"
-              />
-              <path
-                d={motifOutline(motif)}
-                transform={`translate(150 150) scale(${SCALE})`}
+                d={outline}
                 fill="none"
                 stroke="#4a3c38"
-                strokeWidth={1.3 / SCALE}
-                strokeDasharray={`${4 / SCALE} ${3 / SCALE}`}
-                opacity="0.75"
+                strokeWidth={1.1 / fit.scale}
+                strokeDasharray={`${5 / fit.scale} ${3.5 / fit.scale}`}
+                opacity="0.7"
               />
-            </>
-          )}
+            )}
+          </g>
           {cutParts.map((part, i) => (
             <polyline
               key={i}
@@ -335,10 +425,19 @@ function JulStep({ design, motif, onDone }: { design: Design; motif: MotifId; on
             <circle cx={next.x} cy={next.y} r="7" fill="#d9b25f" stroke="#fff" strokeWidth="1.5" className="pulse" />
           )}
           {breaks > 0 && (
-            <path d="M60 80 L90 110 L80 130 L110 160" stroke="#8a7a72" strokeWidth="1.5" fill="none" opacity={Math.min(0.8, breaks * 0.3)} />
+            <path
+              d="M60 80 L90 110 L80 130 L110 160"
+              stroke="#8a7a72"
+              strokeWidth="1.5"
+              fill="none"
+              opacity={Math.min(0.8, breaks * 0.3)}
+            />
           )}
           {saw && (
-            <g transform={`translate(${saw.x - TOOL_TIP.saw[0] * 0.9} ${saw.y - TOOL_TIP.saw[1] * 0.9}) scale(0.9)`} className="pointer-events-none">
+            <g
+              transform={`translate(${saw.x - TOOL_TIP.saw[0] * 0.9} ${saw.y - TOOL_TIP.saw[1] * 0.9}) scale(0.9)`}
+              className="pointer-events-none"
+            >
               <ToolGraphic tool="saw" />
             </g>
           )}
@@ -347,12 +446,12 @@ function JulStep({ design, motif, onDone }: { design: Design; motif: MotifId; on
       </div>
       <div className="panel flex flex-col gap-2 py-3">
         <Meter
-          value={pts.length ? idx / (pts.length - 1) : 0}
+          value={pts.length > 1 ? idx / (pts.length - 1) : 0}
           color="var(--pink)"
           label={
             <>
               <span>{t(lang, "cut.progress")}</span>
-              <span>{pts.length ? Math.round((idx / (pts.length - 1)) * 100) : 0}%</span>
+              <span>{pts.length > 1 ? Math.round((idx / (pts.length - 1)) * 100) : 0}%</span>
             </>
           }
         />
@@ -385,14 +484,19 @@ function makeMarks() {
   return arr;
 }
 
-function KkeunStep({ design, onDone }: { design: Design; onDone: (s: number) => void }) {
+function KkeunStep({ pearl, onDone }: { pearl: PearlId; onDone: (s: number) => void }) {
   const lang = useSave((s) => s.lang);
   const [marks] = useState(makeMarks);
   const [offset, setOffset] = useState(0);
   const [results, setResults] = useState<(number | null | undefined)[]>(Array(MARKS).fill(undefined));
   const [flash, setFlash] = useState<string | null>(null);
   const [chop, setChop] = useState(false);
-  const st = useRef({ offset: 0, results: Array(MARKS).fill(undefined) as (number | null | undefined)[], wasted: 0, done: false });
+  const st = useRef({
+    offset: 0,
+    results: Array(MARKS).fill(undefined) as (number | null | undefined)[],
+    wasted: 0,
+    done: false,
+  });
 
   useEffect(() => {
     let raf = 0;
@@ -471,7 +575,7 @@ function KkeunStep({ design, onDone }: { design: Design; onDone: (s: number) => 
       >
         <svg viewBox="0 0 300 200" className="w-full">
           <defs>
-            <NacreDefs id="kk-nacre" pearl={mainPearl(design)} scale={0.8} />
+            <NacreDefs id="kk-nacre" pearl={pearl} scale={0.8} />
           </defs>
           <rect x="0" y="118" width="300" height="62" fill="#5c3f2c" rx="6" />
           <rect x="0" y="118" width="300" height="3" fill="#8a6748" />
@@ -546,7 +650,16 @@ function AutoStep({ onDone }: { onDone: (s: number) => void }) {
         <span className="spin">⚙️</span>
       </div>
       <div className="panel py-3">
-        <Meter value={p / 100} color="var(--blue)" label={<><span>{t(lang, "cut.autoProgress")}</span><span>{p}%</span></>} />
+        <Meter
+          value={p / 100}
+          color="var(--blue)"
+          label={
+            <>
+              <span>{t(lang, "cut.autoProgress")}</span>
+              <span>{p}%</span>
+            </>
+          }
+        />
       </div>
     </div>
   );
