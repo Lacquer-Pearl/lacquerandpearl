@@ -962,14 +962,15 @@ button.chip:active {
   display: block;
   width: 4.5rem;
   height: auto;
-  aspect-ratio: 188 / 201;
   object-fit: contain;
   flex-shrink: 0;
-  background: #f8f2e8;
-  border-radius: 0.85rem;
+  background: transparent;
+}
+.npc-portrait.master {
+  width: 3rem;
 }
 @media (max-width: 420px) {
-  .npc-portrait {
+  .npc-portrait:not(.master) {
     width: 4rem;
   }
 }

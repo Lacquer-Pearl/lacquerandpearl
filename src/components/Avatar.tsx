@@ -17,16 +17,15 @@ export default function Avatar({
   portrait?: string;
 }) {
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const master = className?.split(/\s+/).includes("master");
   if (portrait && failedSrc !== portrait) {
     return (
       <img
         src={portrait}
         alt=""
-        width={188}
-        height={201}
         decoding="async"
         draggable={false}
-        className="npc-portrait"
+        className={master ? "npc-portrait master" : "npc-portrait"}
         onError={() => setFailedSrc(portrait)}
       />
     );

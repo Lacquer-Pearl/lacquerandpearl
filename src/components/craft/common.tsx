@@ -13,10 +13,12 @@ export const MASTER: CustomerDef = {
   lines: [],
 };
 
+const MASTER_PORTRAIT = "/npc/portraits/npc_r01c01.png";
+
 export function MasterTip({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-start gap-2">
-      <Avatar c={MASTER} mood="happy" className="h-12 w-12 shrink-0" />
+      <Avatar c={MASTER} mood="happy" portrait={MASTER_PORTRAIT} className="master h-12 w-12 shrink-0" />
       <div className="bubble flex-1 text-[15px] leading-snug">{children}</div>
     </div>
   );
