@@ -8,6 +8,7 @@ import {
   artworkValue,
   GRADE_INFO,
   gradeOf,
+  reputationGain,
   scoreCraft,
   scoreDesign,
   STEP_INFO,
@@ -255,7 +256,7 @@ export default function CraftFlow() {
       gloss: 0.25 + (sand / 100) * 0.6,
       dull: Math.min(0.7, (sandStats.current?.over ?? 0) * 2.5),
     };
-    finishArtwork(art, Math.round(GRADE_INFO[grade].rep * (commission ? 1 : 0.5)));
+    finishArtwork(art, reputationGain(grade, !!commission));
     showResult(art);
   }, [design, commission, finishArtwork, showResult, lang]);
 

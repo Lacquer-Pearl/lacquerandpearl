@@ -197,6 +197,51 @@ b {
   white-space: nowrap;
   color: var(--brown);
 }
+button.chip {
+  font-family: inherit;
+  cursor: pointer;
+}
+button.chip:active {
+  transform: translateY(1px);
+}
+.rank-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rank-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-radius: 12px;
+  padding: 8px 12px;
+  background: #f8f2e8;
+  color: var(--brown);
+  font-size: 15px;
+}
+.rank-row.now {
+  background: #fffdf8;
+  border: 1.5px solid var(--brown);
+  font-weight: 700;
+}
+.rank-row.locked {
+  opacity: 0.45;
+}
+.rep-promote {
+  border-radius: 16px;
+  background: #f8f2e8;
+  border: 1.5px solid var(--line-deep);
+  padding: 12px;
+  text-align: center;
+  color: var(--brown);
+}
+.rep-count {
+  font-variant-numeric: tabular-nums;
+}
 .chip-ok {
   border-color: var(--mint-deep);
   background: #eaf2ec;

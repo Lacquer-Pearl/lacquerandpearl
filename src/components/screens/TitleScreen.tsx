@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import ReputationModal from "@/components/ReputationModal";
 import { Btn, Coin, Modal, Sparkles, SoundToggle } from "@/components/ui";
 import { MasterTip } from "@/components/craft/common";
 import { rankTitle, t, tNode, type Locale } from "@/lib/i18n";
@@ -46,6 +47,7 @@ export default function TitleScreen() {
   const setLang = useSave((s) => s.setLang);
   const [settings, setSettings] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [repOpen, setRepOpen] = useState(false);
 
   const signSrc = lang === "en" ? "/images/ui/sign-en.png" : "/images/ui/sign-ko.png";
   const signSize = lang === "en" ? { width: 770, height: 346 } : { width: 528, height: 233 };
@@ -69,7 +71,17 @@ export default function TitleScreen() {
           />
         </div>
         <div className="flex gap-2">
-          <span className="chip">🏅 {rankTitle(lang, rep)}</span>
+          <button
+            type="button"
+            className="chip"
+            aria-haspopup="dialog"
+            onClick={() => {
+              sfx.click();
+              setRepOpen(true);
+            }}
+          >
+            🏅 {rankTitle(lang, rep)}
+          </button>
           <span className="chip">
             <Coin /> {money.toLocaleString()}
           </span>
@@ -95,6 +107,8 @@ export default function TitleScreen() {
           </TitleMenuBtn>
         </div>
       </div>
+
+      {repOpen && <ReputationModal lang={lang} rep={rep} onClose={() => setRepOpen(false)} />}
 
       {(!tutorialSeen || settings) && (
         <Modal

@@ -140,6 +140,7 @@ function ArtDetail({ art, onClose }: { art: ArtworkT; onClose: () => void }) {
             </Btn>
           )}
         </div>
+        {!art.sold && <p className="text-center text-sm text-[var(--brown)]">{t(lang, "gallery.sellNoRep")}</p>}
         <div className="rounded-2xl bg-[#f6ece6] p-3 text-sm text-[var(--brown)]">
           <b>{t(lang, "gallery.interestTitle")}</b>
           <p className="mt-1 opacity-80">{t(lang, "gallery.interestBody")}</p>

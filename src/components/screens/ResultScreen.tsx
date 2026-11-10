@@ -4,12 +4,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Artwork from "@/components/Artwork";
 import Avatar, { type Mood } from "@/components/Avatar";
 import { Btn, Coin, Meter, Sparkles, TopBar } from "@/components/ui";
-import { CUSTOMERS } from "@/lib/data";
-import { GRADE_INFO, STEP_INFO, topMotif, type StepId } from "@/lib/game";
+import { CUSTOMERS, rankProgress } from "@/lib/data";
+import { GRADE_INFO, STEP_INFO, reputationGain, topMotif, type StepId } from "@/lib/game";
 import {
   artworkTitle,
   customerName,
   gradeLabel,
+  rankTitle,
   reactionText,
   stepName,
   t,
@@ -18,10 +19,28 @@ import { saveArtworkImage } from "@/lib/exportImage";
 import { sfx } from "@/lib/sound";
 import { useSave, useUI } from "@/lib/store";
 
+function useCountUp(from: number, to: number, ms = 800) {
+  const [value, setValue] = useState(from);
+  useEffect(() => {
+    const start = performance.now();
+    let frame = 0;
+    const tick = (now: number) => {
+      const p = Math.min(1, (now - start) / ms);
+      const eased = 1 - (1 - p) ** 3;
+      setValue(Math.round(from + (to - from) * eased));
+      if (p < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [from, to, ms]);
+  return value;
+}
+
 export default function ResultScreen() {
   const art = useUI((s) => s.lastArtwork);
   const go = useUI((s) => s.go);
   const lang = useSave((s) => s.lang);
+  const rep = useSave((s) => s.reputation);
   const svgRef = useRef<SVGSVGElement>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const reaction = useMemo(
@@ -36,8 +55,15 @@ export default function ResultScreen() {
     if (art.earned) setTimeout(sfx.coin, 900);
   }, [art]);
 
+  const repGain = art ? reputationGain(art.grade, !!art.commissionId) : 0;
+  const shownRep = useCountUp(Math.max(0, rep - repGain), rep);
+  const beforeRank = rankProgress(Math.max(0, rep - repGain));
+  const afterRank = rankProgress(rep);
+  const promoted = beforeRank.index !== afterRank.index;
+
   if (!art) return null;
   const g = GRADE_INFO[art.grade];
+  const shownStep = rankProgress(shownRep);
   const label = gradeLabel(lang, art.grade);
   const title = artworkTitle(lang, art.design.shape, art.design.lacquer, topMotif(art.design));
   const cust = art.customer != null ? CUSTOMERS[art.customer] : undefined;
@@ -116,17 +142,49 @@ export default function ResultScreen() {
           </div>
         </div>
 
-        <div className="panel flex items-center justify-around text-lg text-[var(--brown)]">
-          {art.commissionId ? (
-            <span className="coin-pop">
-              +<Coin /> {art.earned}
-            </span>
+        <div className="panel flex flex-col gap-2 text-[15px] text-[var(--brown)]">
+          <div className="flex items-center justify-between text-lg">
+            {art.commissionId ? (
+              <span className="coin-pop">
+                +<Coin /> {art.earned}
+              </span>
+            ) : (
+              <span>
+                {t(lang, "result.appraise")} <Coin /> {art.value}
+              </span>
+            )}
+          </div>
+          <div className="flex justify-between gap-3">
+            <span>{t(lang, "result.gradeLabel")}</span>
+            <b>
+              {art.grade} {label}
+            </b>
+          </div>
+          <div className="flex justify-between gap-3">
+            <span>{t(lang, "result.repGain")}</span>
+            <b>+{repGain}</b>
+          </div>
+          <div className="flex justify-between gap-3">
+            <span>{t(lang, "result.repNow")}</span>
+            <b className="rep-count">{shownRep}</b>
+          </div>
+          {shownStep.maxed ? (
+            <p className="text-center font-semibold">{t(lang, "rep.maxed")}</p>
           ) : (
-            <span>
-              {t(lang, "result.appraise")} <Coin /> {art.value}
-            </span>
+            <>
+              <div className="flex justify-between gap-3">
+                <span>{t(lang, "result.repRemain")}</span>
+                <b className="rep-count">{shownStep.remaining}</b>
+              </div>
+              <Meter value={shownStep.ratio} color="#8d5a32" />
+            </>
           )}
-          <span>+⭐ {Math.round(g.rep * (art.commissionId ? 1 : 0.5))}</span>
+          {promoted && shownRep === rep && (
+            <div className="rep-promote">
+              <p>{t(lang, "result.promoted")}</p>
+              <b className="mt-1 block text-lg">{rankTitle(lang, rep)}</b>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-2">

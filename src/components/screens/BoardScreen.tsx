@@ -33,6 +33,7 @@ export default function BoardScreen() {
     <div className="screen">
       <TopBar title={t(lang, "board.title")} onBack={() => go("title")} />
       <div className="screen-body">
+        <p className="panel text-sm leading-relaxed text-[var(--brown)]">{t(lang, "board.repHint")}</p>
         {commissions.map((c) => {
           const cust = CUSTOMERS[c.customer];
           return (

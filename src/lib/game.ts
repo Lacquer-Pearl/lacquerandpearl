@@ -305,6 +305,11 @@ export const GRADE_INFO: Record<Grade, { color: string; rep: number; mult: numbe
   D: { color: "#8c8079", rep: 1, mult: 0.45 },
 };
 
+/** 작품 한 점이 지급하는 명성. 의뢰는 전액, 자유 디자인은 절반이다. */
+export function reputationGain(grade: Grade, forCommission: boolean) {
+  return Math.round(GRADE_INFO[grade].rep * (forCommission ? 1 : 0.5));
+}
+
 export function artworkValue(design: Design, total: number) {
   const base = SHAPES[design.shape].basePrice + design.pieces.length * 12;
   const bonus = design.pieces.length

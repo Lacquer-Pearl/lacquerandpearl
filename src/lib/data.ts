@@ -265,3 +265,23 @@ export function workshopTitle(rep: number) {
   for (const l of WORKSHOP_LEVELS) if (rep >= l.rep) t = l.title;
   return t;
 }
+
+/** 현재 칭호 구간 안에서의 진행. 기준값은 WORKSHOP_LEVELS만 사용한다. */
+export function rankProgress(rep: number) {
+  let index = 0;
+  for (let i = 0; i < WORKSHOP_LEVELS.length; i++) {
+    if (rep >= WORKSHOP_LEVELS[i].rep) index = i;
+  }
+  const current = WORKSHOP_LEVELS[index];
+  const next = WORKSHOP_LEVELS[index + 1];
+  if (!next) return { index, current, next: undefined, remaining: 0, ratio: 1, maxed: true as const };
+  const span = next.rep - current.rep;
+  return {
+    index,
+    current,
+    next,
+    remaining: next.rep - rep,
+    ratio: span <= 0 ? 1 : (rep - current.rep) / span,
+    maxed: false as const,
+  };
+}
