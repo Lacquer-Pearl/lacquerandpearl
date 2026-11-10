@@ -505,7 +505,7 @@ export const MOTIF_LIST: MotifDef[] = (
     "grapeLeaf",
     "vine",
     "cloud",
-    "cloudLine",
+    // "cloudLine" — 구름과 겹쳐 선택 목록에서는 숨김 (기존 작품 표시용으로 MOTIFS에는 유지)
     "mountain",
     "rock",
     "wave",
