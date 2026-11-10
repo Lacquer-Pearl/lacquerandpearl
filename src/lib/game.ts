@@ -145,20 +145,12 @@ export function mainPearl(design: Pick<Design, "pearl" | "pieces">): PearlId {
 /** 자개 종류별 자르기 라운드: 등장 순서 + 그 종류에서 가장 많이 쓴 문양 */
 export function cutJobs(design: Design): { pearl: PearlId; motif: MotifId }[] {
   if (!design.pieces.length) return [{ pearl: design.pearl, motif: "plum" }];
-  const order: PearlId[] = [];
-  const byPearl = new Map<PearlId, Partial<Record<MotifId, number>>>();
+  const jobs: { pearl: PearlId; motif: MotifId }[] = [];
   for (const p of design.pieces) {
     const pearl = piecePearl(p, design);
-    if (!order.includes(pearl)) order.push(pearl);
-    const bag = byPearl.get(pearl) ?? {};
-    bag[p.motif] = (bag[p.motif] ?? 0) + 1;
-    byPearl.set(pearl, bag);
+    if (!jobs.some((j) => j.pearl === pearl && j.motif === p.motif)) jobs.push({ pearl, motif: p.motif });
   }
-  return order.map((pearl) => {
-    const bag = byPearl.get(pearl)!;
-    const motif = (Object.entries(bag) as [MotifId, number][]).sort((a, b) => b[1] - a[1])[0][0];
-    return { pearl, motif };
-  });
+  return jobs;
 }
 
 /** 패턴 단위를 이웃 조각의 격자에 맞춤. 맞출 이웃이 없거나 너무 멀면 그대로 */

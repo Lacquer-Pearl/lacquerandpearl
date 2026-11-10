@@ -175,20 +175,30 @@ const ko: Dict = {
   "design.patternMotifs": "패턴 문양 · 이웃에 이어 붙여 면을 채워요",
   "design.pieceShell": "이 조각의 자개",
   "design.newPearl": "새로 놓을 자개",
+  "design.multi": "{n}개 선택됨",
+  "design.selectHint": "빈 곳을 끌면 여러 조각을 한꺼번에 고를 수 있어요 (Shift+클릭으로 추가)",
+  "design.buyPack": "{n}개 구매",
 
   "cloth.title": "백골에 삼베 바르기",
   "cloth.tip":
-    "나무 틀(백골)에 생칠을 먹이고 {b}를 붙이면 나무가 뒤틀리거나 갈라지지 않는단다. 빈틈없이 골고루 덮어 보렴.",
+    "나무 틀(백골)에 생칠을 먹이고 {b}를 붙이면 나무가 뒤틀리거나 갈라지지 않는단다. 한쪽 끝을 누른 채 반대쪽으로 쭉 끌어 긴 삼베 조각을 펴 붙이렴. 비뚤게 끌면 주름이 잡힌단다. 여러 장 붙여 빈틈없이 덮어 보렴.",
   "cloth.tipB": "삼베",
   "cloth.good": "삼베로 덮은 면적",
+  "cloth.over": "주름·두껍게 겹친 곳",
+  "cloth.count": "삼베 {n}장",
+  "cloth.undo": "↩ 떼기",
 
   "lacquer.title": "{name} 하기",
   "lacquer.tip":
-    "옻칠은 {b1}가 생명이란다. 두 번쯤 겹쳐 칠하면 딱 좋지만, 한곳만 너무 칠하면 {b2} 자국이 남는단다.",
+    "붓을 옻 그릇에 적셔 칠하렴. 바를수록 붓이 말라 칠이 연해지니 자주 적셔 주어야 한단다. 옻칠은 {b1}가 생명이라, 한곳만 너무 칠하면 {b2} 자국이 남는단다.",
   "lacquer.tipB1": "얇고 고르게",
   "lacquer.tipB2": "흘러내려",
   "lacquer.good": "고르게 칠한 면적",
   "lacquer.over": "흘러내린 곳",
+  "lacquer.dip": "옻 그릇에 붓 적시기",
+  "lacquer.load": "붓에 머금은 옻",
+  "lacquer.empty": "붓이 말랐어요",
+  "lacquer.dipHint": "그릇을 눌러 붓을 옻에 적셔요",
 
   "dry.title": "옻장에서 건조하기",
   "dry.tip":
@@ -244,7 +254,7 @@ const ko: Dict = {
   "cut.autoTitle": "기계 가공",
   "cut.autoTip": "기계는 빠르지만, 장인의 손끝 같은 섬세함은 없단다.",
   "cut.autoProgress": "가공 중…",
-  "cut.round": "자개 {n}/{max} · {pearl}",
+  "cut.round": "자개 {n}/{max} · {motif} · {pearl}",
 
   "attach.title": "아교 바르고 자개 붙이기",
   "attach.tip":
@@ -261,11 +271,14 @@ const ko: Dict = {
 
   "iron.title": "유산지 대고 다림질",
   "iron.tip":
-    "자개 위에 유산지를 덮고 인두로 {b1} 눌러 주렴. 그래야 자개가 바닥에 착 달라붙는단다. 한곳에 오래 대면 {b2} 버린단다!",
+    "자개 위에 유산지를 덮고 인두를 꾹 눌러 주렴. 누르고 있으면 덜 붙음 → 잘 붙음 → 탐 순서로 변한단다. 너무 오래 대면 연기가 나며 {b2} 버리니, 자리를 옮겨 가며 {b1} 찍어 온 면을 다리렴.",
   "iron.tipB1": "골고루",
   "iron.tipB2": "눌어붙어",
   "iron.good": "고르게 다린 면적",
   "iron.over": "눌은 자국",
+  "iron.stageLoose": "덜 붙음",
+  "iron.stageGood": "잘 붙음",
+  "iron.stageBurnt": "탐!",
 
   "peel.title": "종이 떼기",
   "peel.tip": "자개를 고정했던 유산지를 떼어낼 차례란다. {b1}, 위에서 아래로 {b2} 쓸어내리렴.",
@@ -288,7 +301,7 @@ const ko: Dict = {
 
   "sand.title": "갈아내기 (연마)",
   "sand.tip":
-    "숫돌로 살살 갈아내면 덮였던 자개가 {b1} 드러난단다. 하지만 {b2} 자개 광택이 죽어 버리니 적당히 멈추렴!",
+    "숫돌로 살살 갈아내면 덮였던 자개가 {b1} 드러난단다. 하지만 {b2} 자개가 뿌옇게 연해지고 흠집이 나니 적당히 멈추렴!",
   "sand.tipB1": "영롱하게",
   "sand.tipB2": "너무 많이 갈면",
   "sand.good": "알맞게 갈아낸 면적",
@@ -607,20 +620,30 @@ const en: Dict = {
   "design.patternMotifs": "Pattern motifs · chain them to fill a surface",
   "design.pieceShell": "Shell for this piece",
   "design.newPearl": "Shell for new pieces",
+  "design.multi": "{n} selected",
+  "design.selectHint": "Drag on empty space to select several pieces (Shift+click to add)",
+  "design.buyPack": "Buy {n}",
 
   "cloth.title": "Wrap hemp on the wood",
   "cloth.tip":
-    "Coat the wooden form and apply {b} so the wood won't warp or crack. Cover every gap evenly.",
+    "Coat the wooden form and apply {b} so the wood won't warp or crack. Press one end and drag straight across to lay a long strip. Drag crooked and it wrinkles. Lay several strips to cover every gap.",
   "cloth.tipB": "hemp cloth",
   "cloth.good": "Area covered with hemp",
+  "cloth.over": "Wrinkles & thick overlaps",
+  "cloth.count": "{n} strips",
+  "cloth.undo": "↩ Peel",
 
   "lacquer.title": "Apply {name}",
   "lacquer.tip":
-    "Lacquer must be {b1}. A couple of thin coats is ideal — too much in one spot will {b2} and leave marks.",
+    "Dip the brush in the lacquer bowl. The coat fades as the brush dries, so keep dipping. Lacquer must be {b1} — too much in one spot will {b2} and leave marks.",
   "lacquer.tipB1": "thin and even",
   "lacquer.tipB2": "drip",
   "lacquer.good": "Evenly coated area",
   "lacquer.over": "Drips",
+  "lacquer.dip": "Dip the brush in lacquer",
+  "lacquer.load": "Lacquer on the brush",
+  "lacquer.empty": "Brush is dry",
+  "lacquer.dipHint": "Tap the bowl to load the brush",
 
   "dry.title": "Dry in the lacquer cabinet",
   "dry.tip":
@@ -676,7 +699,7 @@ const en: Dict = {
   "cut.autoTitle": "Machine cut",
   "cut.autoTip": "Machines are fast, but they lack a master's touch.",
   "cut.autoProgress": "Cutting…",
-  "cut.round": "Shell {n}/{max} · {pearl}",
+  "cut.round": "Shell {n}/{max} · {motif} · {pearl}",
 
   "attach.title": "Glue and place shell",
   "attach.tip": "Glue dries fast! Drag the shell {b}. Stick it before the glue sets.",
@@ -692,11 +715,14 @@ const en: Dict = {
 
   "iron.title": "Iron under parchment",
   "iron.tip":
-    "Cover with parchment and press {b1} with the iron so the shell seats firmly. Hold too long in one spot and it will {b2}!",
+    "Cover with parchment and press the iron down. While held it goes loose → bonded → burnt. Hold too long and it smokes and will {b2}, so move and press {b1} across the whole surface.",
   "iron.tipB1": "evenly",
   "iron.tipB2": "scorch",
   "iron.good": "Evenly ironed area",
   "iron.over": "Scorch marks",
+  "iron.stageLoose": "Loose",
+  "iron.stageGood": "Bonded",
+  "iron.stageBurnt": "Burnt!",
 
   "peel.title": "Peel the paper",
   "peel.tip":
@@ -720,7 +746,7 @@ const en: Dict = {
 
   "sand.title": "Polish (grind)",
   "sand.tip":
-    "Gently grind with a whetstone and the shell appears {b1}. But {b2} the luster dies — stop in time!",
+    "Gently grind with a whetstone and the shell appears {b1}. But {b2} the shell turns cloudy and gets scratched — stop in time!",
   "sand.tipB1": "brilliantly",
   "sand.tipB2": "grind too much and",
   "sand.good": "Properly polished area",

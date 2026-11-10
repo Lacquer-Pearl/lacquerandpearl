@@ -19,6 +19,7 @@ export interface ArtworkProps {
   dull?: number;
   pieces?: PlacedPiece[];
   selectedId?: string;
+  selectedIds?: string[];
   className?: string;
   shimmer?: boolean;
   shadow?: boolean;
@@ -288,6 +289,7 @@ export default function Artwork({
   dull = 0,
   pieces,
   selectedId,
+  selectedIds,
   className,
   shimmer = true,
   shadow = true,
@@ -442,7 +444,7 @@ export default function Artwork({
                 onPointerDown={onPiecePointerDown ? (e) => onPiecePointerDown(e, p) : undefined}
                 style={onPiecePointerDown ? { cursor: "grab" } : undefined}
               />
-              {selectedId === p.id && (
+              {(selectedId === p.id || selectedIds?.includes(p.id)) && (
                 <path
                   d={motifOutline(p.motif)}
                   fill="none"

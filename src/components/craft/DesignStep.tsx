@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Artwork from "@/components/Artwork";
-import { Btn } from "@/components/ui";
+import { Btn, Coin } from "@/components/ui";
 import MotifIcon, { NacreSwatch } from "@/components/MotifIcon";
 import {
   LACQUERS,
@@ -39,7 +39,7 @@ import {
   t,
 } from "@/lib/i18n";
 import { sfx } from "@/lib/sound";
-import { costFor, useSave, useUI } from "@/lib/store";
+import { costFor, useSave } from "@/lib/store";
 import { StepHeader } from "./common";
 
 const MAX_PIECES = 32;
@@ -47,9 +47,19 @@ const MIN_S = 0.5;
 const MAX_S = 2.5;
 
 type DragState =
-  | { kind: "move"; id: string; dx: number; dy: number }
+  | { kind: "move"; sx: number; sy: number; origins: { id: string; x: number; y: number }[] }
   | { kind: "scale"; id: string; startDist: number; startS: number }
-  | { kind: "rotate"; id: string; startAngle: number; startR: number };
+  | { kind: "rotate"; id: string; startAngle: number; startR: number }
+  | { kind: "marquee"; x0: number; y0: number; x1: number; y1: number; add: boolean; base: string[] };
+
+function marqueeRect(d: { x0: number; y0: number; x1: number; y1: number }) {
+  return {
+    x: Math.min(d.x0, d.x1),
+    y: Math.min(d.y0, d.y1),
+    w: Math.abs(d.x1 - d.x0),
+    h: Math.abs(d.y1 - d.y0),
+  };
+}
 
 function localToWorld(p: Pick<PlacedPiece, "x" | "y" | "r" | "s">, lx: number, ly: number) {
   const rad = (p.r * Math.PI) / 180;
@@ -75,7 +85,8 @@ export default function DesignStep({
   commission?: Commission;
   onStart: () => void;
 }) {
-  const [selected, setSelected] = useState<string | undefined>();
+  const [selected, setSelectedIds] = useState<string[]>([]);
+  const [marquee, setMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const drag = useRef<DragState | null>(null);
   const piecesRef = useRef(design.pieces);
@@ -84,13 +95,16 @@ export default function DesignStep({
   }, [design.pieces]);
   const lang = useSave((s) => s.lang);
   const inventory = useSave((s) => s.inventory);
+  const money = useSave((s) => s.money);
+  const buy = useSave((s) => s.buy);
   const missingFor = useSave((s) => s.missingFor);
-  const go = useUI((s) => s.go);
 
   const counts = countMotifs(design.pieces);
   const missing = missingFor(design);
-  const sel = design.pieces.find((p) => p.id === selected);
+  const selPieces = design.pieces.filter((p) => selected.includes(p.id));
+  const sel = selPieces.length === 1 ? selPieces[0] : undefined;
   const cost = costFor(design);
+  const setSelected = (id?: string) => setSelectedIds(id ? [id] : []);
 
   const update = (pieces: PlacedPiece[]) => {
     piecesRef.current = pieces;
@@ -124,10 +138,41 @@ export default function DesignStep({
     const d = drag.current;
     drag.current = null;
     if (!d) return;
-    if (d.kind !== "move") return;
+    if (d.kind === "marquee") {
+      setMarquee(null);
+      const r = marqueeRect(d);
+      if (r.w < 3 && r.h < 3) {
+        if (!d.add) setSelectedIds([]);
+        return;
+      }
+      const hit = piecesRef.current
+        .filter((p) => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h)
+        .map((p) => p.id);
+      setSelectedIds([...new Set([...d.base, ...hit])]);
+      if (hit.length) sfx.tick();
+      return;
+    }
+    if (d.kind !== "move" || d.origins.length !== 1) return;
+    const id = d.origins[0].id;
     const pieces = piecesRef.current;
-    const next = pieces.map((p) => (p.id === d.id ? snapToPattern(p, pieces) : p));
-    update(next);
+    update(pieces.map((p) => (p.id === id ? snapToPattern(p, pieces) : p)));
+  };
+
+  const removeSelected = () => {
+    update(design.pieces.filter((p) => !selected.includes(p.id)));
+    setSelectedIds([]);
+  };
+
+  const duplicateSelected = () => {
+    if (design.pieces.length + selPieces.length > MAX_PIECES) return;
+    const copies = selPieces.map((p) => ({
+      ...p,
+      id: uid(),
+      x: Math.min(285, p.x + 22),
+      y: Math.min(285, p.y + 14),
+    }));
+    update([...design.pieces, ...copies]);
+    setSelectedIds(copies.map((c) => c.id));
   };
 
   const capture = (e: React.PointerEvent) => {
@@ -172,12 +217,26 @@ export default function DesignStep({
             const d = drag.current;
             if (!d) return;
             const p = toLocal(e);
+            if (d.kind === "marquee") {
+              d.x1 = Math.max(0, Math.min(300, p.x));
+              d.y1 = Math.max(0, Math.min(300, p.y));
+              setMarquee(marqueeRect(d));
+              return;
+            }
             if (d.kind === "move") {
-              patch(d.id, (pc) => ({
-                ...pc,
-                x: Math.max(10, Math.min(290, p.x - d.dx)),
-                y: Math.max(10, Math.min(290, p.y - d.dy)),
-              }));
+              let dx = p.x - d.sx;
+              let dy = p.y - d.sy;
+              for (const o of d.origins) {
+                dx = Math.max(10 - o.x, Math.min(290 - o.x, dx));
+                dy = Math.max(10 - o.y, Math.min(290 - o.y, dy));
+              }
+              const at = new Map(d.origins.map((o) => [o.id, o]));
+              update(
+                piecesRef.current.map((pc) => {
+                  const o = at.get(pc.id);
+                  return o ? { ...pc, x: o.x + dx, y: o.y + dy } : pc;
+                }),
+              );
               return;
             }
             const piece = piecesRef.current.find((pc) => pc.id === d.id);
@@ -196,19 +255,50 @@ export default function DesignStep({
           }}
           onPointerUp={endDrag}
           onPointerCancel={endDrag}
-          onPointerDown={() => setSelected(undefined)}
+          onPointerDown={(e) => {
+            e.currentTarget.setPointerCapture(e.pointerId);
+            const l = toLocal(e);
+            const add = e.shiftKey || e.metaKey || e.ctrlKey;
+            drag.current = { kind: "marquee", x0: l.x, y0: l.y, x1: l.x, y1: l.y, add, base: add ? selected : [] };
+          }}
         >
           <Artwork
             design={design}
-            selectedId={selected}
+            selectedIds={selected}
             onPiecePointerDown={(e, p) => {
               capture(e);
               const l = toLocal(e);
-              drag.current = { kind: "move", id: p.id, dx: l.x - p.x, dy: l.y - p.y };
-              setSelected(p.id);
+              let ids = selected;
+              if (e.shiftKey || e.metaKey || e.ctrlKey) {
+                ids = selected.includes(p.id) ? selected.filter((x) => x !== p.id) : [...selected, p.id];
+                setSelectedIds(ids);
+                if (!ids.includes(p.id)) return;
+              } else if (!selected.includes(p.id)) {
+                ids = [p.id];
+                setSelectedIds(ids);
+              }
+              drag.current = {
+                kind: "move",
+                sx: l.x,
+                sy: l.y,
+                origins: piecesRef.current.filter((pc) => ids.includes(pc.id)).map((pc) => ({ id: pc.id, x: pc.x, y: pc.y })),
+              };
               sfx.tick();
             }}
           />
+          {marquee && (
+            <rect
+              x={marquee.x}
+              y={marquee.y}
+              width={marquee.w}
+              height={marquee.h}
+              fill="rgba(226,194,122,0.14)"
+              stroke="#c4a05a"
+              strokeWidth="1.2"
+              strokeDasharray="4 3"
+              className="pointer-events-none"
+            />
+          )}
           {sel && (
             <PieceEditChrome
               piece={sel}
@@ -293,7 +383,47 @@ export default function DesignStep({
             ))}
           </div>
         </div>
-      ) : null}
+      ) : selPieces.length > 1 ? (
+        <div className="panel flex flex-col gap-2 py-2">
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-sm text-[var(--brown)]">{t(lang, "design.multi", { n: selPieces.length })}</span>
+            <div className="flex gap-1">
+              <Btn
+                size="sm"
+                variant="lavender"
+                disabled={design.pieces.length + selPieces.length > MAX_PIECES}
+                onClick={duplicateSelected}
+              >
+                {t(lang, "design.dup")}
+              </Btn>
+              <Btn size="sm" variant="pink" onClick={removeSelected}>
+                🗑
+              </Btn>
+              <Btn size="sm" variant="cream" onClick={() => setSelectedIds([])}>
+                ✕
+              </Btn>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-[var(--brown-light)]">{t(lang, "design.pieceShell")}</span>
+            {PEARL_LIST.map((p) => (
+              <button
+                key={p.id}
+                className={`pearl-pick ${selPieces.every((pc) => piecePearl(pc, design) === p.id) ? "on" : ""}`}
+                title={pearlName(lang, p.id)}
+                onClick={() => {
+                  sfx.click();
+                  update(design.pieces.map((pc) => (selected.includes(pc.id) ? { ...pc, pearl: p.id } : pc)));
+                }}
+              >
+                <NacreSwatch pearl={p.id} className="swatch" />
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="text-center text-xs text-[var(--brown-light)]">{t(lang, "design.selectHint")}</div>
+      )}
 
       <div className="panel flex flex-col gap-3 py-3">
         <div>
@@ -388,21 +518,27 @@ export default function DesignStep({
 
       <div className="panel py-3">
         <div className="label">{t(lang, "design.materials")}</div>
-        <div className="grid grid-cols-3 gap-1.5 text-sm">
+        <div className="grid grid-cols-1 gap-1.5 text-sm sm:grid-cols-2">
           {(Object.entries(cost) as [MaterialId, number][]).map(([k, n]) => (
-            <div key={k} className={`mat ${inventory[k] < n ? "lack" : ""}`}>
-              {MATERIALS[k].emoji} {lang === "ko" ? materialName(lang, k).split(" ")[0] : materialName(lang, k)} {inventory[k]}/{n}
+            <div key={k} className={`mat flex items-center justify-between gap-2 ${inventory[k] < n ? "lack" : ""}`}>
+              <span className="min-w-0 truncate">
+                {MATERIALS[k].emoji} {lang === "ko" ? materialName(lang, k).split(" ")[0] : materialName(lang, k)} {inventory[k]}/{n}
+              </span>
+              <button
+                className="mat-buy"
+                disabled={money < MATERIALS[k].price}
+                title={t(lang, "design.buyPack", { n: MATERIALS[k].pack })}
+                onClick={() => {
+                  if (buy(k)) sfx.coin();
+                  else sfx.fail();
+                }}
+              >
+                <Coin /> {MATERIALS[k].price}
+              </button>
             </div>
           ))}
         </div>
-        {missing.length > 0 && (
-          <div className="mt-2 flex items-center justify-between gap-2 text-sm text-[var(--red)]">
-            {t(lang, "design.lack")}
-            <Btn size="sm" variant="gold" onClick={() => go("shop")}>
-              {t(lang, "design.goShop")}
-            </Btn>
-          </div>
-        )}
+        {missing.length > 0 && <div className="mt-2 text-sm text-[var(--red)]">{t(lang, "design.lack")}</div>}
       </div>
 
       <Btn
@@ -469,7 +605,8 @@ function PieceEditChrome({
         onPointerDown={onRotateStart}
       />
       <path
-        d={`M${rot.x - 3.2} ${rot.y - 1.2} A3.6 3.6 0 1 1 ${rot.x + 2.8} ${rot.y - 2.2} M${rot.x + 1.2} ${rot.y - 3.8} L${rot.x + 3.4} ${rot.y - 1.6} L${rot.x + 0.6} ${rot.y - 1.2}`}
+        d="M0 -3.4 A3.4 3.4 0 1 1 -3.4 0 M-5.1 0.4 L-3.4 -1.4 L-1.7 0.4"
+        transform={`translate(${rot.x} ${rot.y}) rotate(${piece.r})`}
         fill="none"
         stroke="#8a6a3a"
         strokeWidth="1.2"

@@ -24,13 +24,25 @@ export interface PaintConfig {
   over: number;
   /** 이 값에서 시각적으로 약 90% 덮이도록 맞춤 */
   opaqueAt: number;
-  mode: "paint" | "erase" | "pattern";
+  /** stamp: 누르고 있는 동안 도구 면적 전체가 시간에 따라 쌓인다 */
+  mode: "paint" | "erase" | "pattern" | "stamp";
   color: string;
   initialFill?: string;
   overColor: string;
-  overStyle: "drip" | "spot" | "haze";
+  overStyle: "drip" | "spot" | "haze" | "none";
   sound: "brush" | "sand" | "iron";
   tool: ToolId;
+  /** 붓이 머금은 옻. 한 번 찍을 때마다 이 비율로 줄어든다 */
+  inkDecay?: number;
+  /** stamp: 초당 중심부에 쌓이는 양 */
+  stampRate?: number;
+  /** stamp: 덜 붙음 · 잘 붙음 · 탐 */
+  stampLabels?: [string, string, string];
+}
+
+/** 0 = 덜 됨, 1 = 알맞음, 2 = 지나침 */
+function stageOf(v: number, cfg: PaintConfig) {
+  return v > cfg.over ? 2 : v >= cfg.range[0] ? 1 : 0;
 }
 
 const N = 50;
@@ -85,6 +97,9 @@ export default function PaintCanvas({
   foreground,
   onStats,
   disabled,
+  inkRef,
+  ink = 1,
+  onInk,
 }: {
   shape: ShapeId;
   config: PaintConfig;
@@ -92,6 +107,10 @@ export default function PaintCanvas({
   foreground?: React.ReactNode;
   onStats: (s: PaintStats) => void;
   disabled?: boolean;
+  /** 붓이 머금은 옻 (0~1). config.inkDecay가 있을 때만 쓴다 */
+  inkRef?: React.RefObject<number>;
+  ink?: number;
+  onInk?: (ink: number) => void;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<HTMLCanvasElement>(null);
@@ -109,10 +128,20 @@ export default function PaintCanvas({
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
   const cfgRef = useRef(config);
   const statsRef = useRef(onStats);
+  const inkCb = useRef(onInk);
+  const strokeDir = useRef(0);
+  const hold = useRef<{ x: number; y: number; t: number } | null>(null);
+  const holdFrame = useRef(0);
+  const smokeAt = useRef(0);
+  const smokeId = useRef(0);
+  const stampBuf = useRef<HTMLCanvasElement | null>(null);
+  const [pressed, setPressed] = useState<{ x: number; y: number; stage: number } | null>(null);
+  const [smoke, setSmoke] = useState<{ id: number; x: number; y: number }[]>([]);
 
   useEffect(() => {
     cfgRef.current = config;
     statsRef.current = onStats;
+    inkCb.current = onInk;
   });
 
   useEffect(() => {
@@ -149,6 +178,8 @@ export default function PaintCanvas({
       stopLoop();
       cancelAnimationFrame(raf.current);
       cancelAnimationFrame(dripFrame.current);
+      cancelAnimationFrame(holdFrame.current);
+      hold.current = null;
     };
   }, [shape]);
 
@@ -173,6 +204,7 @@ export default function PaintCanvas({
       }
       const n = masked.current || 1;
       statsRef.current({ touched: touched / n, inRange: inRange / n, over: overN / n, mean: sum / n });
+      if (cfgRef.current.inkDecay && inkRef) inkCb.current?.(inkRef.current);
     });
   }
 
@@ -180,7 +212,14 @@ export default function PaintCanvas({
     const cfg = cfgRef.current;
     const r = cfg.brushRadius;
     const spacing = r / 3;
-    const rate = (cfg.passAmount * spacing) / r;
+    let load = 1;
+    if (cfg.inkDecay && inkRef) {
+      load = inkRef.current;
+      if (load < 0.03) return;
+      inkRef.current = load * cfg.inkDecay;
+      load *= 1.25;
+    }
+    const rate = ((cfg.passAmount * spacing) / r) * load;
     const alpha = Math.min(0.9, (2.3 * rate) / cfg.opaqueAt);
     const ctx = layerRef.current!.getContext("2d")!;
 
@@ -228,12 +267,131 @@ export default function PaintCanvas({
         if (d2 >= 1) continue;
         g[k] += rate * (1 - d2);
         if (g[k] <= cfg.over) continue;
-        if (cfg.overStyle === "drip") dripTouch = true;
-        else if (!flagged.current[k]) fresh.push({ x: cx, y: cy });
-        flagged.current[k] = 1;
+        if (cfg.overStyle === "drip") {
+          dripTouch = true;
+          flagged.current[k] = 1;
+          continue;
+        }
+        const level = cfg.overStyle === "haze" ? (g[k] > cfg.over * 1.8 ? 3 : g[k] > cfg.over * 1.35 ? 2 : 1) : 1;
+        if (flagged.current[k] < level) {
+          fresh.push({ x: cx, y: cy });
+          flagged.current[k] = level;
+        }
       }
     if (dripTouch) scheduleDrip();
-    else for (const p of fresh) drawOver(octx, p.x, p.y, cfg);
+    else if (cfg.overStyle !== "none") for (const p of fresh) drawOver(octx, p.x, p.y, cfg, strokeDir.current);
+  }
+
+  function stampColor(v: number, cfg: PaintConfig): [number, number, number, number] {
+    const [lo, hi] = cfg.range;
+    const stops: [number, [number, number, number, number]][] = [
+      [0, [246, 238, 220, 0.72]],
+      [lo * 0.55, [240, 228, 204, 0.6]],
+      [lo, [218, 194, 150, 0.26]],
+      [hi, [206, 176, 122, 0.3]],
+      [cfg.over, [168, 112, 56, 0.55]],
+      [cfg.over + 0.6, [92, 48, 20, 0.86]],
+      [cfg.over + 1.6, [48, 24, 10, 0.94]],
+    ];
+    if (v <= 0) return stops[0][1];
+    for (let s = 1; s < stops.length; s++) {
+      const [b, cb] = stops[s];
+      if (v > b) continue;
+      const [a, ca] = stops[s - 1];
+      const t = (v - a) / (b - a || 1);
+      return [0, 1, 2, 3].map((c) => ca[c] + (cb[c] - ca[c]) * t) as [number, number, number, number];
+    }
+    return stops[stops.length - 1][1];
+  }
+
+  /** 다림질 결과를 칸 단위가 아니라 부드럽게 번진 색으로 다시 그린다 */
+  function redrawStamp() {
+    const cfg = cfgRef.current;
+    let buf = stampBuf.current;
+    if (!buf) {
+      buf = document.createElement("canvas");
+      buf.width = buf.height = N;
+      stampBuf.current = buf;
+    }
+    const bctx = buf.getContext("2d")!;
+    const img = bctx.createImageData(N, N);
+    const g = grid.current;
+    for (let k = 0; k < g.length; k++) {
+      const [r, gg, b, a] = stampColor(g[k], cfg);
+      img.data[k * 4] = r;
+      img.data[k * 4 + 1] = gg;
+      img.data[k * 4 + 2] = b;
+      img.data[k * 4 + 3] = Math.round(a * 255);
+    }
+    bctx.putImageData(img, 0, 0);
+    const ctx = layerRef.current!.getContext("2d")!;
+    ctx.clearRect(0, 0, 300, 300);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.save();
+    ctx.filter = "blur(1.5px)";
+    ctx.drawImage(buf, 0, 0, 300, 300);
+    ctx.restore();
+  }
+
+  function pressStep(now: number) {
+    const h = hold.current;
+    if (!h) return;
+    const cfg = cfgRef.current;
+    const dt = Math.min(0.05, (now - h.t) / 1000);
+    h.t = now;
+    const r = cfg.brushRadius;
+    const add = (cfg.stampRate ?? 1) * dt;
+    const g = grid.current;
+    const m = mask.current;
+    const i0 = Math.max(0, Math.floor((h.x - r) / CELL));
+    const i1 = Math.min(N - 1, Math.floor((h.x + r) / CELL));
+    const j0 = Math.max(0, Math.floor((h.y - r) / CELL));
+    const j1 = Math.min(N - 1, Math.floor((h.y + r) / CELL));
+    let sum = 0;
+    let n = 0;
+    let burnt = false;
+    for (let j = j0; j <= j1; j++)
+      for (let i = i0; i <= i1; i++) {
+        const k = j * N + i;
+        if (!m[k]) continue;
+        const d2 = (((i + 0.5) * CELL - h.x) ** 2 + ((j + 0.5) * CELL - h.y) ** 2) / (r * r);
+        if (d2 >= 1) continue;
+        g[k] += add * (1 - d2 * d2);
+        if (d2 < 0.5) {
+          sum += g[k];
+          n++;
+        }
+        if (g[k] > cfg.over) burnt = true;
+      }
+    redrawStamp();
+    report();
+    const stage = n ? stageOf(sum / n, cfg) : 0;
+    setPressed((p) => (p && p.stage === stage ? p : { x: h.x, y: h.y, stage }));
+    loopLevel(burnt ? 1 : 0.6);
+    if (burnt && now - smokeAt.current > 130) {
+      smokeAt.current = now;
+      const id = ++smokeId.current;
+      const puff = { id, x: h.x + (Math.random() - 0.5) * r * 0.9, y: h.y + (Math.random() - 0.5) * r * 0.6 };
+      setSmoke((s) => [...s.slice(-14), puff]);
+      setTimeout(() => setSmoke((s) => s.filter((p) => p.id !== id)), 1600);
+    }
+    holdFrame.current = requestAnimationFrame(pressStep);
+  }
+
+  function startPress(p: { x: number; y: number }) {
+    hold.current = { ...p, t: performance.now() };
+    setPressed({ ...p, stage: 0 });
+    cancelAnimationFrame(holdFrame.current);
+    holdFrame.current = requestAnimationFrame(pressStep);
+  }
+
+  function endPress() {
+    if (!hold.current) return;
+    hold.current = null;
+    cancelAnimationFrame(holdFrame.current);
+    setPressed(null);
+    loopLevel(0);
   }
 
   function scheduleDrip() {
@@ -264,6 +422,7 @@ export default function PaintCanvas({
       return;
     }
     const dist = Math.hypot(p.x - l.x, p.y - l.y);
+    if (dist > 0.5) strokeDir.current = Math.atan2(p.y - l.y, p.x - l.x);
     velocity.current = velocity.current * 0.7 + dist * 0.3;
     loopLevel(Math.min(1, velocity.current / 6));
     if (dist < spacing) return;
@@ -279,8 +438,15 @@ export default function PaintCanvas({
     down.current = false;
     last.current = null;
     velocity.current = 0;
+    endPress();
     loopLevel(0);
   }
+
+  const stamp = config.mode === "stamp";
+  const toolAt = pressed ?? cursor;
+  const brushColor =
+    config.mode !== "paint" ? undefined : config.inkDecay ? mixHex(config.color, "#cbb58c", 1 - Math.min(1, ink)) : config.color;
+  const pct = (v: number) => `${(v / 300) * 100}%`;
 
   return (
     <div
@@ -294,13 +460,17 @@ export default function PaintCanvas({
         last.current = null;
         const p = toLocal(e);
         setCursor(p);
+        if (stamp) {
+          startPress(p);
+          return;
+        }
         stroke(p);
         report();
       }}
       onPointerMove={(e) => {
         const p = toLocal(e);
         setCursor(p);
-        if (down.current && !disabled) stroke(p);
+        if (down.current && !disabled && !stamp) stroke(p);
       }}
       onPointerUp={end}
       onPointerCancel={end}
@@ -313,13 +483,33 @@ export default function PaintCanvas({
       <canvas ref={layerRef} className="absolute inset-0 h-full w-full" />
       <canvas ref={overRef} className="absolute inset-0 h-full w-full" />
       {foreground && <div className="pointer-events-none absolute inset-0">{foreground}</div>}
-      {cursor && !disabled && (
-        <ToolCursor
-          tool={config.tool}
-          color={config.mode === "paint" ? config.color : undefined}
-          x={`${(cursor.x / 300) * 100}%`}
-          y={`${(cursor.y / 300) * 100}%`}
+      {stamp && cursor && !pressed && !disabled && (
+        <div
+          className="iron-footprint"
+          style={{ left: pct(cursor.x), top: pct(cursor.y), width: pct(config.brushRadius * 2), height: pct(config.brushRadius * 2) }}
         />
+      )}
+      {pressed && (
+        <>
+          <div
+            className={`iron-footprint pressing stage-${pressed.stage}`}
+            style={{ left: pct(pressed.x), top: pct(pressed.y), width: pct(config.brushRadius * 2), height: pct(config.brushRadius * 2) }}
+          />
+          {config.stampLabels && (
+            <div
+              className={`iron-label stage-${pressed.stage}`}
+              style={{ left: pct(pressed.x), top: pct(pressed.y - config.brushRadius - 6) }}
+            >
+              {config.stampLabels[pressed.stage]}
+            </div>
+          )}
+        </>
+      )}
+      {smoke.map((s) => (
+        <span key={s.id} className="iron-smoke" style={{ left: pct(s.x), top: pct(s.y) }} />
+      ))}
+      {toolAt && !disabled && (
+        <ToolCursor tool={config.tool} color={brushColor} x={pct(toolAt.x)} y={pct(toolAt.y)} />
       )}
     </div>
   );
@@ -402,16 +592,56 @@ function redrawDrips(ctx: CanvasRenderingContext2D, grid: Float32Array, over: nu
   ctx.globalAlpha = 1;
 }
 
-function drawOver(ctx: CanvasRenderingContext2D, x: number, y: number, cfg: PaintConfig) {
-  ctx.fillStyle = cfg.overColor;
-  if (cfg.overStyle === "spot") {
-    ctx.globalAlpha = 0.45;
-    ctx.beginPath();
-    ctx.arc(x + (Math.random() - 0.5) * 3, y + (Math.random() - 0.5) * 3, CELL * 0.9, 0, Math.PI * 2);
-    ctx.fill();
-  } else {
-    ctx.globalAlpha = 0.5;
-    ctx.fillRect(x - CELL / 2, y - CELL / 2, CELL, CELL);
+function drawOver(ctx: CanvasRenderingContext2D, x: number, y: number, cfg: PaintConfig, dir: number) {
+  if (cfg.overStyle === "haze") {
+    drawWear(ctx, x, y, dir);
+    return;
   }
+  ctx.fillStyle = cfg.overColor;
+  ctx.globalAlpha = 0.45;
+  ctx.beginPath();
+  ctx.arc(x + (Math.random() - 0.5) * 3, y + (Math.random() - 0.5) * 3, CELL * 0.9, 0, Math.PI * 2);
+  ctx.fill();
   ctx.globalAlpha = 1;
+}
+
+/** 너무 갈아낸 곳: 광택이 죽어 뿌옇게 연해지고, 숫돌 결을 따라 잔 흠집이 난다 */
+function drawWear(ctx: CanvasRenderingContext2D, x: number, y: number, dir: number) {
+  const jx = x + (Math.random() - 0.5) * CELL;
+  const jy = y + (Math.random() - 0.5) * CELL;
+  ctx.save();
+  ctx.filter = "blur(2.6px)";
+  ctx.globalAlpha = 0.13;
+  ctx.fillStyle = "#efe9e2";
+  ctx.beginPath();
+  ctx.arc(jx, jy, CELL * 1.15, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.lineCap = "round";
+  const lines = 1 + (Math.random() < 0.5 ? 1 : 0);
+  for (let s = 0; s < lines; s++) {
+    const a = dir + (Math.random() - 0.5) * 0.5;
+    const len = 4 + Math.random() * 9;
+    const sx = jx + (Math.random() - 0.5) * CELL * 1.4;
+    const sy = jy + (Math.random() - 0.5) * CELL * 1.4;
+    const ex = sx + Math.cos(a) * len;
+    const ey = sy + Math.sin(a) * len;
+    ctx.globalAlpha = 0.35;
+    ctx.strokeStyle = "#1a120e";
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(sx + 0.3, sy + 0.4);
+    ctx.lineTo(ex + 0.3, ey + 0.4);
+    ctx.stroke();
+    ctx.globalAlpha = 0.55;
+    ctx.strokeStyle = "#fbf7f1";
+    ctx.lineWidth = 0.4;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(ex, ey);
+    ctx.stroke();
+  }
+  ctx.restore();
 }

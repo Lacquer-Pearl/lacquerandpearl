@@ -42,7 +42,12 @@ export default function CutStep({ design, onDone }: { design: Design; onDone: (s
         </StepHeader>
         {jobs.length > 1 && (
           <div className="panel py-2 text-center text-sm text-[var(--brown)]">
-            {t(lang, "cut.round", { n: 1, max: jobs.length, pearl: pearlName(lang, jobs[0].pearl) })}
+            {t(lang, "cut.round", {
+              n: 1,
+              max: jobs.length,
+              motif: motifName(lang, jobs[0].motif),
+              pearl: pearlName(lang, jobs[0].pearl),
+            })}
           </div>
         )}
         <button className="method-card" onClick={() => (sfx.click(), setMethod("jul"))}>
@@ -75,6 +80,7 @@ export default function CutStep({ design, onDone }: { design: Design; onDone: (s
         {t(lang, "cut.round", {
           n: jobIdx + 1,
           max: jobs.length,
+          motif: motifName(lang, job.motif),
           pearl: pearlName(lang, job.pearl),
         })}
       </div>

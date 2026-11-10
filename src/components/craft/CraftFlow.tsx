@@ -24,6 +24,7 @@ import { artworkTitle, lacquerName, stepName, t, tNode, type Locale } from "@/li
 import { sfx } from "@/lib/sound";
 import { clearCraftBoot, takeCraftBoot, useSave, useUI } from "@/lib/store";
 import AttachStep from "./AttachStep";
+import ClothStep from "./ClothStep";
 import CutStep from "./CutStep";
 import DesignStep from "./DesignStep";
 import DryStep from "./DryStep";
@@ -33,30 +34,9 @@ import PeelStep from "./PeelStep";
 
 const STEPS: ("design" | StepId)[] = ["design", "cloth", "lacquer", "dry", "cut", "attach", "iron", "peel", "fill", "sand"];
 
-function paintDefs(design: Design, lang: Locale): Record<"cloth" | "lacquer" | "iron" | "fill" | "sand", PaintStepDef> {
+function paintDefs(design: Design, lang: Locale): Record<"lacquer" | "iron" | "fill" | "sand", PaintStepDef> {
   const lac = LACQUERS[design.lacquer];
   return {
-    cloth: {
-      title: t(lang, "cloth.title"),
-      emoji: "🧵",
-      tip: <>{tNode(lang, "cloth.tip", { b: <b>{t(lang, "cloth.tipB")}</b> })}</>,
-      config: {
-        brushRadius: 28,
-        passAmount: 1,
-        range: [0.45, 99],
-        over: 99,
-        opaqueAt: 0.6,
-        mode: "pattern",
-        color: "#ead9b9",
-        overColor: "#000",
-        overStyle: "spot",
-        sound: "brush",
-        tool: "spatula",
-      },
-      goodLabel: t(lang, "cloth.good"),
-      minTouched: 0.35,
-      score: (s) => s.inRange * 108,
-    },
     lacquer: {
       title: t(lang, "lacquer.title", { name: lacquerName(lang, design.lacquer) }),
       emoji: "🖌️",
@@ -80,6 +60,8 @@ function paintDefs(design: Design, lang: Locale): Record<"cloth" | "lacquer" | "
         overStyle: "drip",
         sound: "brush",
         tool: "brush",
+        // 한 번 적신 붓이 마를 때까지의 총량. 0.9775는 0.955의 약 2배
+        inkDecay: 0.9775,
       },
       goodLabel: t(lang, "lacquer.good"),
       overLabel: t(lang, "lacquer.over"),
@@ -98,18 +80,20 @@ function paintDefs(design: Design, lang: Locale): Record<"cloth" | "lacquer" | "
         </>
       ),
       config: {
-        brushRadius: 24,
+        brushRadius: 30,
         passAmount: 0.6,
         range: [0.8, 2.1],
         over: 2.8,
         opaqueAt: 1.4,
-        mode: "paint",
+        mode: "stamp",
         color: "#cdb68a",
         initialFill: "rgba(246,238,220,0.72)",
         overColor: "#6e3f1c",
-        overStyle: "spot",
+        overStyle: "none",
         sound: "iron",
         tool: "iron",
+        stampRate: 1.1,
+        stampLabels: [t(lang, "iron.stageLoose"), t(lang, "iron.stageGood"), t(lang, "iron.stageBurnt")],
       },
       goodLabel: t(lang, "iron.good"),
       overLabel: t(lang, "iron.over"),
@@ -342,14 +326,7 @@ export default function CraftFlow() {
             }}
           />
         )}
-        {step === "cloth" && (
-          <PaintStep
-            def={defs.cloth}
-            shape={design.shape}
-            background={<Artwork design={design} surface="wood" showPieces={false} className="h-full w-full" />}
-            onDone={onPaintDone}
-          />
-        )}
+        {step === "cloth" && <ClothStep design={design} onDone={onStepDone} />}
         {step === "lacquer" && (
           <PaintStep
             def={defs.lacquer}

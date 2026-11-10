@@ -549,6 +549,114 @@ button.chip:active {
   background: #f8ebe8;
   color: var(--red);
 }
+.lacquer-bowl {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: #f3e8d6;
+  border: 1.5px solid var(--line-deep);
+  box-shadow: 0 3px 0 var(--line-deep);
+  padding: 4px 6px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.lacquer-bowl:active,
+.lacquer-bowl.dip {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--line-deep);
+}
+.lacquer-bowl.dip svg {
+  animation: bowl-dip 0.38s ease-out;
+}
+@keyframes bowl-dip {
+  40% {
+    transform: scale(1.06, 0.92);
+  }
+}
+
+.iron-footprint {
+  position: absolute;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  border: 1.5px dashed rgba(255, 245, 225, 0.75);
+  box-shadow: 0 0 0 1px rgba(60, 35, 20, 0.35);
+}
+.iron-footprint.pressing {
+  border-style: solid;
+  border-width: 2px;
+  background: radial-gradient(circle, rgba(255, 170, 90, 0.18), rgba(255, 120, 40, 0.06) 70%, transparent);
+}
+.iron-footprint.stage-1 {
+  border-color: rgba(120, 200, 150, 0.9);
+}
+.iron-footprint.stage-2 {
+  border-color: rgba(200, 70, 40, 0.95);
+  background: radial-gradient(circle, rgba(255, 90, 30, 0.3), rgba(120, 40, 10, 0.12) 70%, transparent);
+}
+.iron-label {
+  position: absolute;
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+  border-radius: 999px;
+  padding: 1px 9px;
+  font-size: 12px;
+  white-space: nowrap;
+  background: rgba(251, 247, 240, 0.95);
+  border: 1px solid var(--brown);
+  color: var(--brown);
+}
+.iron-label.stage-1 {
+  border-color: var(--mint-deep);
+  color: #2f6a4c;
+}
+.iron-label.stage-2 {
+  border-color: var(--red);
+  color: var(--red);
+}
+.iron-smoke {
+  position: absolute;
+  pointer-events: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(120, 112, 104, 0.55), rgba(150, 140, 130, 0.25) 55%, transparent 72%);
+  filter: blur(2px);
+  animation: iron-smoke 1.5s ease-out forwards;
+}
+@keyframes iron-smoke {
+  from {
+    transform: translate(-50%, -50%) scale(0.5);
+    opacity: 0.9;
+  }
+  to {
+    transform: translate(calc(-50% + 8px), calc(-50% - 60px)) scale(2.2);
+    opacity: 0;
+  }
+}
+
+.mat-buy {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border-radius: 999px;
+  border: 1px solid var(--gold-deep);
+  background: #f6e7c4;
+  box-shadow: 0 2px 0 var(--gold-deep);
+  padding: 1px 8px;
+  font-size: 12px;
+  color: var(--brown);
+}
+.mat-buy:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 0 var(--gold-deep);
+}
+.mat-buy:disabled {
+  opacity: 0.45;
+  box-shadow: none;
+}
 
 .method-card {
   display: flex;
