@@ -3,10 +3,29 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { CRAFT_COST, MATERIALS, MOTIF_LIST, PEARLS, type MaterialId, type MotifId, type PearlId } from "./data";
-import { generateCommission, pearlCost, type Artwork, type Commission, type Design } from "./game";
+import {
+  generateCommission,
+  pearlCost,
+  type Artwork,
+  type Commission,
+  type Design,
+  type PlacedPiece,
+  type StepScores,
+} from "./game";
 import type { Locale } from "./i18n";
 
 export type Inventory = Record<MaterialId, number>;
+
+/** 제작 중 저장 — 완료된 단계 점수까지 보관하고, 현재 단계부터 이어함 */
+export interface CraftProgress {
+  design: Design;
+  commission?: Commission;
+  stepIdx: number;
+  scores: StepScores;
+  placed: PlacedPiece[];
+  sandOver?: number;
+  savedAt: number;
+}
 
 const START_INVENTORY: Inventory = {
   wood: 2,
@@ -31,6 +50,7 @@ interface SaveState {
   tutorialSeen: boolean;
   realCraftInterest: string[];
   redeemedCoupons: string[];
+  craftProgress: CraftProgress | null;
 
   buy: (id: MaterialId) => boolean;
   /** "ok" | "used" | "invalid" */
@@ -45,6 +65,8 @@ interface SaveState {
   setLang: (lang: Locale) => void;
   setTutorialSeen: () => void;
   toggleInterest: (id: string) => void;
+  saveCraftProgress: (p: CraftProgress) => void;
+  clearCraftProgress: () => void;
   resetSave: () => void;
 }
 
@@ -70,6 +92,7 @@ const initial = {
   tutorialSeen: false,
   realCraftInterest: [] as string[],
   redeemedCoupons: [] as string[],
+  craftProgress: null as CraftProgress | null,
 };
 
 const COUPONS: Record<string, number> = {
@@ -153,6 +176,8 @@ export const useSave = create<SaveState>()(
         const list = get().realCraftInterest;
         set({ realCraftInterest: list.includes(id) ? list.filter((x) => x !== id) : [...list, id] });
       },
+      saveCraftProgress: (craftProgress) => set({ craftProgress }),
+      clearCraftProgress: () => set({ craftProgress: null }),
       resetSave: () => {
         set({ ...initial, commissions: [] });
         get().ensureCommissions();
@@ -160,7 +185,7 @@ export const useSave = create<SaveState>()(
     }),
     {
       name: "lacquer-pearl-save",
-      version: 1,
+      version: 2,
       skipHydration: true,
       merge: (persisted, current) => {
         const p = persisted as Partial<SaveState> | undefined;
@@ -170,6 +195,7 @@ export const useSave = create<SaveState>()(
           ...current,
           ...p,
           lang,
+          craftProgress: p?.craftProgress ?? null,
           inventory: { ...START_INVENTORY, ...p?.inventory },
           commissions: (p?.commissions ?? current.commissions).filter((c) =>
             Object.keys(c.motifs).every((m) => listed.has(m as MotifId)),
@@ -188,12 +214,24 @@ export const useSave = create<SaveState>()(
         tutorialSeen: s.tutorialSeen,
         realCraftInterest: s.realCraftInterest,
         redeemedCoupons: s.redeemedCoupons,
+        craftProgress: s.craftProgress,
       }),
     },
   ),
 );
 
 export type Screen = "title" | "board" | "craft" | "result" | "gallery" | "shop";
+
+/** CraftFlow 마운트 시 한 번 읽어 이어하기 (Strict Mode 리마운트에도 유지) */
+let craftBoot: CraftProgress | null = null;
+
+export function takeCraftBoot() {
+  return craftBoot;
+}
+
+export function clearCraftBoot() {
+  craftBoot = null;
+}
 
 interface UIState {
   screen: Screen;
@@ -206,6 +244,7 @@ interface UIState {
   back: () => void;
   setDraft: (d?: Design) => void;
   startCraft: (commission?: Commission) => void;
+  resumeCraft: () => boolean;
   showResult: (art: Artwork) => void;
 }
 
@@ -218,6 +257,24 @@ export const useUI = create<UIState>()((set, get) => ({
     set({ screen: prev === "craft" && draft ? "craft" : prev === "craft" ? "title" : prev, prev: "title" });
   },
   setDraft: (draft) => set({ draft }),
-  startCraft: (commission) => set({ screen: "craft", prev: get().screen, commission, draft: undefined }),
-  showResult: (lastArtwork) => set({ screen: "result", lastArtwork, draft: undefined }),
+  startCraft: (commission) => {
+    craftBoot = null;
+    set({ screen: "craft", prev: get().screen, commission, draft: undefined });
+  },
+  resumeCraft: () => {
+    const progress = useSave.getState().craftProgress;
+    if (!progress || progress.stepIdx < 1) return false;
+    craftBoot = progress;
+    set({
+      screen: "craft",
+      prev: get().screen,
+      commission: progress.commission,
+      draft: progress.design,
+    });
+    return true;
+  },
+  showResult: (lastArtwork) => {
+    craftBoot = null;
+    set({ screen: "result", lastArtwork, draft: undefined });
+  },
 }));

@@ -22,7 +22,7 @@ import {
 } from "@/lib/game";
 import { artworkTitle, lacquerName, stepName, t, tNode, type Locale } from "@/lib/i18n";
 import { sfx } from "@/lib/sound";
-import { useSave, useUI } from "@/lib/store";
+import { clearCraftBoot, takeCraftBoot, useSave, useUI } from "@/lib/store";
 import AttachStep from "./AttachStep";
 import CutStep from "./CutStep";
 import DesignStep from "./DesignStep";
@@ -207,6 +207,10 @@ export default function CraftFlow() {
   const showResult = useUI((s) => s.showResult);
   const consumeFor = useSave((s) => s.consumeFor);
   const finishArtwork = useSave((s) => s.finishArtwork);
+  const saveCraftProgress = useSave((s) => s.saveCraftProgress);
+  const clearCraftProgress = useSave((s) => s.clearCraftProgress);
+
+  const resumed = useRef(takeCraftBoot());
 
   const design: Design = useMemo(
     () =>
@@ -219,20 +223,24 @@ export default function CraftFlow() {
     [draft, commission],
   );
 
-  const [stepIdx, setStepIdx] = useState(0);
-  const [placed, setPlaced] = useState<PlacedPiece[]>([]);
+  const [stepIdx, setStepIdx] = useState(() => resumed.current?.stepIdx ?? 0);
+  const [placed, setPlaced] = useState<PlacedPiece[]>(() => resumed.current?.placed ?? []);
   const [toast, setToast] = useState<{ score: number; label: string } | null>(null);
   const [confirmExit, setConfirmExit] = useState(false);
-  const scores = useRef<StepScores>({});
-  const sandStats = useRef<PaintStats | null>(null);
-  const placedRef = useRef<PlacedPiece[]>([]);
+  const scores = useRef<StepScores>({ ...(resumed.current?.scores ?? {}) });
+  const sandStats = useRef<PaintStats | null>(
+    resumed.current?.sandOver != null
+      ? { touched: 0, inRange: 0, over: resumed.current.sandOver, mean: 0 }
+      : null,
+  );
+  const placedRef = useRef<PlacedPiece[]>(resumed.current?.placed ?? []);
 
   const step = STEPS[stepIdx];
-  const built: Design = { ...design, pieces: placed };
+  const built: Design = { ...design, pieces: placed.length ? placed : design.pieces };
   const defs = paintDefs(design, lang);
 
   const complete = useCallback(() => {
-    const d: Design = { ...design, pieces: placedRef.current };
+    const d: Design = { ...design, pieces: placedRef.current.length ? placedRef.current : design.pieces };
     const designScore = scoreDesign(d, commission);
     const craftScore = scoreCraft(scores.current);
     const total = Math.round(commission ? designScore * 0.4 + craftScore * 0.6 : designScore * 0.25 + craftScore * 0.75);
@@ -256,9 +264,10 @@ export default function CraftFlow() {
       gloss: 0.25 + (sand / 100) * 0.6,
       dull: Math.min(0.7, (sandStats.current?.over ?? 0) * 2.5),
     };
+    clearCraftProgress();
     finishArtwork(art, reputationGain(grade, !!commission));
     showResult(art);
-  }, [design, commission, finishArtwork, showResult, lang]);
+  }, [design, commission, finishArtwork, showResult, lang, clearCraftProgress]);
 
   const stepRef = useRef(step);
   const completeRef = useRef(complete);
@@ -325,6 +334,8 @@ export default function CraftFlow() {
             onStart={() => {
               if (!consumeFor(design)) return;
               sfx.success();
+              clearCraftBoot();
+              clearCraftProgress();
               setDraft(design);
               setStepIdx(1);
             }}
@@ -390,7 +401,7 @@ export default function CraftFlow() {
       {confirmExit && (
         <Modal onClose={() => setConfirmExit(false)}>
           <div className="flex flex-col gap-3 text-center">
-            <div className="text-5xl">😢</div>
+            <div className="text-5xl">💾</div>
             <p className="text-lg text-[var(--brown)]">
               {t(lang, "craft.quitAsk")}
               <br />
@@ -403,6 +414,16 @@ export default function CraftFlow() {
               <Btn
                 variant="pink"
                 onClick={() => {
+                  saveCraftProgress({
+                    design,
+                    commission,
+                    stepIdx,
+                    scores: { ...scores.current },
+                    placed: placedRef.current,
+                    sandOver: sandStats.current?.over,
+                    savedAt: Date.now(),
+                  });
+                  clearCraftBoot();
                   setDraft(undefined);
                   go("title");
                 }}

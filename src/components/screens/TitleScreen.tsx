@@ -5,9 +5,23 @@ import { useState } from "react";
 import ReputationModal from "@/components/ReputationModal";
 import { Btn, Coin, Modal, Sparkles, SoundToggle } from "@/components/ui";
 import { MasterTip } from "@/components/craft/common";
-import { rankTitle, t, tNode, type Locale } from "@/lib/i18n";
+import { rankTitle, stepName, t, tNode, type Locale } from "@/lib/i18n";
+import type { StepId } from "@/lib/game";
 import { sfx } from "@/lib/sound";
 import { useSave, useUI } from "@/lib/store";
+
+const CRAFT_STEPS: ("design" | StepId)[] = [
+  "design",
+  "cloth",
+  "lacquer",
+  "dry",
+  "cut",
+  "attach",
+  "iron",
+  "peel",
+  "fill",
+  "sand",
+];
 
 function TitleMenuBtn({
   children,
@@ -37,9 +51,11 @@ function TitleMenuBtn({
 export default function TitleScreen() {
   const go = useUI((s) => s.go);
   const startCraft = useUI((s) => s.startCraft);
+  const resumeCraft = useUI((s) => s.resumeCraft);
   const money = useSave((s) => s.money);
   const rep = useSave((s) => s.reputation);
   const galleryCount = useSave((s) => s.gallery.length);
+  const craftProgress = useSave((s) => s.craftProgress);
   const tutorialSeen = useSave((s) => s.tutorialSeen);
   const setTutorialSeen = useSave((s) => s.setTutorialSeen);
   const resetSave = useSave((s) => s.resetSave);
@@ -48,6 +64,8 @@ export default function TitleScreen() {
   const [settings, setSettings] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [repOpen, setRepOpen] = useState(false);
+
+  const canResume = !!craftProgress && craftProgress.stepIdx >= 1;
 
   const signSrc = lang === "en" ? "/images/ui/sign-en.png" : "/images/ui/sign-ko.png";
   const signSize = lang === "en" ? { width: 770, height: 346 } : { width: 528, height: 233 };
@@ -88,6 +106,18 @@ export default function TitleScreen() {
           <span className="chip">⭐ {rep}</span>
         </div>
         <div className="grid w-full max-w-[360px] grid-cols-1 gap-3">
+          {canResume && craftProgress && (
+            <div className="flex flex-col gap-1">
+              <TitleMenuBtn size="lg" className="title-menu-btn-resume" onClick={() => resumeCraft()}>
+                {t(lang, "craft.resume")}
+              </TitleMenuBtn>
+              <div className="text-center text-xs text-white/85 drop-shadow">
+                {t(lang, "craft.resumeStep", {
+                  step: stepName(lang, CRAFT_STEPS[Math.min(craftProgress.stepIdx, CRAFT_STEPS.length - 1)]),
+                })}
+              </div>
+            </div>
+          )}
           <TitleMenuBtn size="lg" onClick={() => go("board")}>
             {t(lang, "title.commission")}
           </TitleMenuBtn>
