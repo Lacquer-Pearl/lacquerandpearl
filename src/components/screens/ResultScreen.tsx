@@ -202,13 +202,18 @@ export default function ResultScreen() {
           <Btn variant="gold" onClick={() => go("gallery")}>
             {t(lang, "result.toWorkshop")}
           </Btn>
+          {art.commissionId && (
+            <Btn variant="pink" onClick={() => go("board")} className="col-span-2" size="lg">
+              {t(lang, "result.next")}
+            </Btn>
+          )}
           <Btn
-            variant="pink"
-            onClick={() => go(art.commissionId ? "board" : "title")}
+            variant={art.commissionId ? "cream" : "pink"}
+            onClick={() => go("title")}
             className="col-span-2"
             size="lg"
           >
-            {t(lang, art.commissionId ? "result.next" : "result.home")}
+            {t(lang, "result.home")}
           </Btn>
         </div>
       </div>
