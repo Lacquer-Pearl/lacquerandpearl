@@ -212,6 +212,9 @@ function JulStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; onD
   const [saw, setSaw] = useState<{ x: number; y: number } | null>(null);
   const [warn, setWarn] = useState<string | null>(null);
   const [shake, setShake] = useState(false);
+  /** 심각한 실수·부러짐으로 남은 톱질 잔상 */
+  const [scars, setScars] = useState<{ points: { x: number; y: number }[]; kind: "skew" | "crack" }[]>([]);
+  const [skewLive, setSkewLive] = useState<{ x: number; y: number }[]>([]);
   const svgRef = useRef<SVGSVGElement>(null);
   const st = useRef({
     idx: 0,
@@ -225,9 +228,23 @@ function JulStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; onD
     done: false,
     breaks: 0,
   });
+  const scarsRef = useRef(scars);
+  const skewTrail = useRef<{ x: number; y: number }[]>([]);
   const inventory = useSave((s) => s.inventory);
   const pearlMat = PEARLS[pearl].material;
   const motifXf = `translate(150 150) scale(${fit.scale}) translate(${-fit.ox} ${-fit.oy})`;
+
+  const commitScar = (points: { x: number; y: number }[], kind: "skew" | "crack") => {
+    if (points.length < 2) return;
+    scarsRef.current = [...scarsRef.current, { points: points.map((p) => ({ ...p })), kind }];
+    setScars(scarsRef.current);
+  };
+
+  const flushSkewTrail = () => {
+    if (skewTrail.current.length >= 3) commitScar(skewTrail.current, "skew");
+    skewTrail.current = [];
+    setSkewLive([]);
+  };
 
   useEffect(() => {
     startLoop("saw");
@@ -256,6 +273,10 @@ function JulStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; onD
 
   const crack = () => {
     const s = st.current;
+    // 부러지기 직전까지 오려낸 선 + 빗나간 톱질을 잔상으로 남김
+    for (const part of cutPolylines(pts, s.idx, gapAfter)) commitScar(part, "crack");
+    flushSkewTrail();
+
     s.breaks++;
     s.idx = 0;
     s.stress = 0;
@@ -331,12 +352,13 @@ function JulStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; onD
       }
     }
     if (bestD < 16) {
+      flushSkewTrail();
       advance(best, bestD, speed);
       setWarn((w) => (w?.startsWith("✋") || w?.startsWith("⚠️") ? null : w));
       return;
     }
 
-    // 선에서 벗어난 채 톱질 — 많이 어긋날수록 부러질 힘 급상승
+    // 선에서 벗어난 채 톱질 — 많이 어긋날수록 부러질 힘 급상승 + 잔상
     s.off++;
     const severe = bestD > 26;
     const wild = bestD > 36;
@@ -346,6 +368,16 @@ function JulStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; onD
     if (wild && moved > 1.5) s.stress += 0.16;
     setStress(s.stress);
     loopLevel(Math.min(1, 0.2 + s.stress));
+
+    if (severe && moved > 0.4) {
+      const trail = skewTrail.current;
+      const last = trail[trail.length - 1];
+      if (!last || Math.hypot(p.x - last.x, p.y - last.y) > 1.2) {
+        trail.push(p);
+        if (trail.length % 2 === 0) setSkewLive([...trail]);
+      }
+    }
+
     if (s.stress > 1) {
       crack();
       return;
@@ -396,9 +428,13 @@ function JulStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; onD
           onPointerMove={onMove}
           onPointerUp={() => {
             st.current.down = false;
+            flushSkewTrail();
             loopLevel(0);
           }}
-          onPointerCancel={() => (st.current.down = false)}
+          onPointerCancel={() => {
+            st.current.down = false;
+            flushSkewTrail();
+          }}
           onPointerLeave={() => setSaw(null)}
           onWheel={onWheel}
         >
@@ -445,6 +481,32 @@ function JulStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; onD
               />
             )}
           </g>
+          {/* 심각한 실수·부러짐 잔상 */}
+          {scars.map((scar, i) => (
+            <polyline
+              key={`scar-${i}`}
+              points={scar.points.map((p) => `${p.x},${p.y}`).join(" ")}
+              fill="none"
+              stroke={scar.kind === "crack" ? "#7a2e2e" : "#5c4638"}
+              strokeOpacity={scar.kind === "crack" ? 0.72 : 0.5}
+              strokeWidth={scar.kind === "crack" ? 2.6 : 1.9}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeDasharray={scar.kind === "skew" ? "4 3" : undefined}
+            />
+          ))}
+          {skewLive.length > 1 && (
+            <polyline
+              points={skewLive.map((p) => `${p.x},${p.y}`).join(" ")}
+              fill="none"
+              stroke="#8a4a3a"
+              strokeOpacity="0.65"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeDasharray="3 2"
+            />
+          )}
           {cutParts.map((part, i) => (
             <polyline
               key={i}
@@ -459,15 +521,6 @@ function JulStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; onD
           ))}
           {next && (
             <circle cx={next.x} cy={next.y} r="7" fill="#d9b25f" stroke="#fff" strokeWidth="1.5" className="pulse" />
-          )}
-          {breaks > 0 && (
-            <path
-              d="M60 80 L90 110 L80 130 L110 160"
-              stroke="#8a7a72"
-              strokeWidth="1.5"
-              fill="none"
-              opacity={Math.min(0.8, breaks * 0.3)}
-            />
           )}
           {saw && (
             <g
