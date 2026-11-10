@@ -25,7 +25,15 @@ export default function MotifIcon({
         </radialGradient>
       </defs>
       <circle r="31.5" fill={`url(#${id}-bg)`} />
-      <g transform={`scale(${MOTIFS[motif].kind === "pattern" ? 1.15 : 0.9})`}>
+      <g
+        transform={`scale(${
+          MOTIFS[motif].stamp
+            ? Math.min(54 / MOTIFS[motif].stamp.w, 52 / MOTIFS[motif].stamp.h)
+            : MOTIFS[motif].kind === "pattern"
+              ? 1.15
+              : 0.9
+        })`}
+      >
         <NacrePiece motif={motif} fill={`url(#${id})`} mask={motifMask(`${id}-c`, motif)} light={0.12} />
       </g>
     </svg>

@@ -159,6 +159,21 @@ export function motifMask(id: string, motif: MotifId) {
 
 /** 문양 전체를 한 색으로 (그림자·마스크용) */
 export function MotifSilhouette({ motif, color }: { motif: MotifId; color: string }) {
+  const uid = useId().replace(/:/g, "");
+  const stamp = MOTIFS[motif].stamp;
+  if (stamp) {
+    const mid = `sil${uid}`;
+    return (
+      <g>
+        <defs>
+          <mask id={mid} maskUnits="userSpaceOnUse" x={stamp.x} y={stamp.y} width={stamp.w} height={stamp.h}>
+            <image href={stamp.src} x={stamp.x} y={stamp.y} width={stamp.w} height={stamp.h} preserveAspectRatio="none" />
+          </mask>
+        </defs>
+        <rect x={stamp.x} y={stamp.y} width={stamp.w} height={stamp.h} fill={color} mask={`url(#${mid})`} />
+      </g>
+    );
+  }
   return (
     <>
       {motifParts(motif).map((d, i) => (
@@ -199,11 +214,21 @@ export function NacrePiece({
   onPointerDown?: (e: React.PointerEvent) => void;
   style?: React.CSSProperties;
 }) {
+  const uid = useId().replace(/:/g, "");
+  const stamp = MOTIFS[motif].stamp;
   const tint = light > 0 ? "#fffaf0" : "#120b08";
   const tintOpacity = Math.abs(light) * (light > 0 ? 0.07 : 0.1);
   const joint = 0.38 / s;
+  const stampMask = stamp ? `nps${uid}` : undefined;
   return (
     <g mask={mask}>
+      {stamp && (
+        <defs>
+          <mask id={stampMask} maskUnits="userSpaceOnUse" x={stamp.x} y={stamp.y} width={stamp.w} height={stamp.h}>
+            <image href={stamp.src} x={stamp.x} y={stamp.y} width={stamp.w} height={stamp.h} preserveAspectRatio="none" />
+          </mask>
+        </defs>
+      )}
       {onPointerDown && (
         <path d={motifOutline(motif)} fill="transparent" onPointerDown={onPointerDown} style={style} />
       )}
@@ -215,6 +240,33 @@ export function NacrePiece({
           {dull > 0 && <path d={st.d} stroke="#a9a199" strokeOpacity={Math.min(0.75, dull)} strokeWidth={st.w} />}
         </g>
       ))}
+      {stamp && (
+        <g mask={`url(#${stampMask})`}>
+          <rect
+            x={stamp.x}
+            y={stamp.y}
+            width={stamp.w}
+            height={stamp.h}
+            fill={fill}
+            onPointerDown={onPointerDown}
+            style={style}
+          />
+          {light !== 0 && (
+            <rect x={stamp.x} y={stamp.y} width={stamp.w} height={stamp.h} fill={tint} opacity={tintOpacity} pointerEvents="none" />
+          )}
+          {dull > 0 && (
+            <rect
+              x={stamp.x}
+              y={stamp.y}
+              width={stamp.w}
+              height={stamp.h}
+              fill="#a9a199"
+              opacity={Math.min(0.75, dull)}
+              pointerEvents="none"
+            />
+          )}
+        </g>
+      )}
       {motifParts(motif).map((d, i) => (
         <g key={i}>
           <path d={d} fill={fill} onPointerDown={onPointerDown} style={style} />

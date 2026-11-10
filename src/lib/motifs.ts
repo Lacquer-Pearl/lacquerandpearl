@@ -7,7 +7,6 @@ import {
   cloudLine,
   grapeLeaf,
   grapes,
-  kikuScroll,
   mountain,
   rock,
   vine,
@@ -60,6 +59,11 @@ export interface MotifDef {
   tile?: { a: Pt; b: Pt };
   /** 조각 하나에 드는 자개 (기본 1) */
   cost?: number;
+  /**
+   * 원본 이미지 실루엣 스탬프.
+   * path 대신 PNG 알파로 자개 모양을 마스크합니다 (투명 = 선각·빈 곳).
+   */
+  stamp?: { src: string; x: number; y: number; w: number; h: number };
 }
 
 const f = (n: number) => +n.toFixed(2);
@@ -285,7 +289,14 @@ const CLOUD_CUTS = [
 const pe = peony();
 const plum = plumCuts();
 const geo = asanohaHex();
-const kiku = kikuScroll();
+/** public/motifs/kiku-unit.png — 원본 좌우 절반을 패턴 1단위로 사용 */
+const KIKU_STAMP = {
+  src: "/motifs/kiku-unit.png",
+  x: -56,
+  y: -25.16,
+  w: 112,
+  h: 50.42,
+} as const;
 const cloud2 = cloudLine();
 const mtn = mountain();
 const rk = rock();
@@ -379,8 +390,11 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
     kind: "pattern",
     name: "국화 넝쿨",
     meaning: "장수",
-    ...kiku,
-    detailWidth: 0.5,
+    path: "",
+    stamp: { ...KIKU_STAMP },
+    cutPath: `M${KIKU_STAMP.x} ${KIKU_STAMP.y} H${KIKU_STAMP.x + KIKU_STAMP.w} V${KIKU_STAMP.y + KIKU_STAMP.h} H${KIKU_STAMP.x} Z`,
+    tile: { a: [112, 0], b: [0, 74.59] },
+    cost: 0.5,
   },
   orb: {
     id: "orb",
