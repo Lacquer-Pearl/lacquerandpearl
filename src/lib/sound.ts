@@ -289,11 +289,11 @@ function startSynthMusic() {
 }
 
 function pickNextTrack() {
-  if (MUSIC_TRACKS.length === 1) return MUSIC_TRACKS[0];
-  let next = MUSIC_TRACKS[Math.floor(Math.random() * MUSIC_TRACKS.length)];
+  const tracks: readonly string[] = MUSIC_TRACKS;
+  let next = tracks[Math.floor(Math.random() * tracks.length)]!;
   // 직전에 들은 곡과 같으면 다시 뽑기
   for (let i = 0; i < 6 && next === lastTrack; i++) {
-    next = MUSIC_TRACKS[Math.floor(Math.random() * MUSIC_TRACKS.length)];
+    next = tracks[Math.floor(Math.random() * tracks.length)]!;
   }
   return next;
 }

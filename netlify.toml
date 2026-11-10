@@ -1,0 +1,9 @@
+[build]
+  command = "npm run build"
+  publish = "out"
+
+# 정적 export 단일 페이지 — 없는 경로는 앱으로 넘김
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
