@@ -352,7 +352,7 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
   crane: {
     id: "crane",
     kind: "shape",
-    name: "학",
+    name: "학1",
     meaning: "신선",
     path: CRANE1,
     cutPath:
@@ -365,7 +365,7 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
   crane2: {
     id: "crane2",
     kind: "shape",
-    name: "비상하는 학",
+    name: "학2",
     meaning: "길상",
     path: CRANE2,
     cutPath:
