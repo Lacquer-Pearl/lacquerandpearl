@@ -103,6 +103,7 @@ export default function PaintCanvas({
   const last = useRef<{ x: number; y: number } | null>(null);
   const pattern = useRef<CanvasPattern | null>(null);
   const raf = useRef(0);
+  const dripFrame = useRef(0);
   const velocity = useRef(0);
   const down = useRef(false);
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
@@ -147,6 +148,7 @@ export default function PaintCanvas({
     return () => {
       stopLoop();
       cancelAnimationFrame(raf.current);
+      cancelAnimationFrame(dripFrame.current);
     };
   }, [shape]);
 
@@ -214,6 +216,8 @@ export default function PaintCanvas({
     const j0 = Math.max(0, Math.floor((y - r) / CELL));
     const j1 = Math.min(N - 1, Math.floor((y + r) / CELL));
     const octx = overRef.current!.getContext("2d")!;
+    const fresh: { x: number; y: number }[] = [];
+    let dripTouch = false;
     for (let j = j0; j <= j1; j++)
       for (let i = i0; i <= i1; i++) {
         const k = j * N + i;
@@ -223,11 +227,24 @@ export default function PaintCanvas({
         const d2 = ((cx - x) ** 2 + (cy - y) ** 2) / (r * r);
         if (d2 >= 1) continue;
         g[k] += rate * (1 - d2);
-        if (g[k] > cfg.over && !flagged.current[k]) {
-          flagged.current[k] = 1;
-          drawOver(octx, cx, cy, cfg);
-        }
+        if (g[k] <= cfg.over) continue;
+        if (cfg.overStyle === "drip") dripTouch = true;
+        else if (!flagged.current[k]) fresh.push({ x: cx, y: cy });
+        flagged.current[k] = 1;
       }
+    if (dripTouch) scheduleDrip();
+    else for (const p of fresh) drawOver(octx, p.x, p.y, cfg);
+  }
+
+  function scheduleDrip() {
+    if (dripFrame.current) return;
+    dripFrame.current = requestAnimationFrame(() => {
+      dripFrame.current = 0;
+      const canvas = overRef.current;
+      const cfg = cfgRef.current;
+      if (!canvas || cfg.overStyle !== "drip") return;
+      redrawDrips(canvas.getContext("2d")!, grid.current, cfg.over, cfg.color);
+    });
   }
 
   function toLocal(e: React.PointerEvent) {
@@ -314,19 +331,80 @@ function hexA(hex: string, a: number) {
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 }
 
+function hexRgb(hex: string) {
+  const n = parseInt(hex.replace("#", ""), 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+function mixHex(hex: string, to: string, t: number) {
+  const a = hexRgb(hex);
+  const b = hexRgb(to);
+  const m = (x: number, y: number) => Math.round(x + (y - x) * t);
+  return `rgb(${m(a.r, b.r)},${m(a.g, b.g)},${m(a.b, b.b)})`;
+}
+
+/** 얇은 옻층. 더 칠해도 조금밖에 두꺼워지지 않는다. */
+function dripHeight(amount: number, over: number) {
+  const excess = amount - over;
+  if (excess <= 0) return 0;
+  return Math.min(3.4, 0.4 + Math.sqrt(excess) * 1.05);
+}
+
+/**
+ * 칠한 면과 같은 색의 얇은 막.
+ * 가장자리는 흐려 아래 칠과 이어지고, 더 칠한 곳만 아래로 조금 불룩하다.
+ */
+function redrawDrips(ctx: CanvasRenderingContext2D, grid: Float32Array, over: number, color: string) {
+  ctx.clearRect(0, 0, 300, 300);
+  const cells: { x: number; y: number; h: number }[] = [];
+  for (let k = 0; k < grid.length; k++) {
+    const h = dripHeight(grid[k], over);
+    if (h <= 0) continue;
+    const i = k % N;
+    const j = (k / N) | 0;
+    cells.push({ x: (i + 0.5) * CELL, y: (j + 0.5) * CELL, h });
+  }
+  if (cells.length === 0) return;
+
+  const { r, g, b } = hexRgb(color);
+  const dark = (0.3 * r + 0.59 * g + 0.11 * b) / 255 < 0.2;
+  const lip = dark ? mixHex(color, "#000000", 0.35) : mixHex(color, "#140806", 0.28);
+  const rx = CELL * 1.08;
+
+  ctx.save();
+  ctx.filter = "blur(3.2px)";
+  ctx.globalAlpha = dark ? 0.28 : 0.18;
+  ctx.fillStyle = "#1a0e0c";
+  ctx.beginPath();
+  for (const c of cells) ctx.ellipse(c.x + c.h * 0.08, c.y + c.h * 0.42, rx, rx, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.filter = "blur(2px)";
+  ctx.globalAlpha = 0.9;
+  ctx.fillStyle = lip;
+  ctx.beginPath();
+  for (const c of cells) ctx.ellipse(c.x, c.y + 0.25 + c.h * 0.7, rx, rx, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.filter = "blur(1.7px)";
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  for (const c of cells) ctx.ellipse(c.x, c.y, rx, rx, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.filter = "none";
+  ctx.globalAlpha = 1;
+}
+
 function drawOver(ctx: CanvasRenderingContext2D, x: number, y: number, cfg: PaintConfig) {
   ctx.fillStyle = cfg.overColor;
-  if (cfg.overStyle === "drip") {
-    ctx.globalAlpha = 0.55;
-    ctx.beginPath();
-    ctx.ellipse(x, y + 3, CELL * 0.55, CELL * 1.1, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 0.35;
-    ctx.fillStyle = "#ffffff";
-    ctx.beginPath();
-    ctx.arc(x - 1, y, 1, 0, Math.PI * 2);
-    ctx.fill();
-  } else if (cfg.overStyle === "spot") {
+  if (cfg.overStyle === "spot") {
     ctx.globalAlpha = 0.45;
     ctx.beginPath();
     ctx.arc(x + (Math.random() - 0.5) * 3, y + (Math.random() - 0.5) * 3, CELL * 0.9, 0, Math.PI * 2);

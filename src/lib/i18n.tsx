@@ -26,7 +26,7 @@ const ko: Dict = {
 
   "title.commission": "📜 의뢰 받기",
   "title.freeDesign": "🎨 자유 디자인",
-  "title.workshop": "🏯 나의 공방",
+  "title.workshop": "🖼️ 나의 공방",
   "title.shop": "🛒 재료 상점",
   "title.settings": "⚙️ 설정 · 도움말",
   "title.welcome": "나전칠기 공방에 온 걸 환영한다!",
@@ -37,7 +37,7 @@ const ko: Dict = {
   "title.help1b": "의뢰 받기",
   "title.help2": "✏️ 디자인 → 🧵 삼베 → 🖌️ 옻칠 → 🌡️ 건조 → 🪚 자개 자르기",
   "title.help3": "🍯 붙이기 → ♨️ 다림질 → 📜 종이 떼기 → 🫙 메움칠 → ✨ 갈아내기",
-  "title.help4": "🛒 번 돈으로 재료를 사고, 🏯 공방에 작품을 전시해요",
+  "title.help4": "🛒 번 돈으로 재료를 사고, 🖼️ 공방에 작품을 전시해요",
   "title.resetAsk": "정말 처음부터 다시 시작할까요?",
   "title.resetWarn": "모든 작품과 엽전이 사라져요.",
 
@@ -71,7 +71,7 @@ const ko: Dict = {
   "shop.couponUsed": "이미 사용한 쿠폰이에요.",
   "shop.couponBad": "잘못된 쿠폰 코드예요.",
 
-  "gallery.title": "🏯 나의 공방",
+  "gallery.title": "🖼️ 나의 공방",
   "gallery.of": "{rank}의",
   "gallery.name": "나전칠기 공방",
   "gallery.empty": "아직 전시된 작품이 없어요.\n첫 작품을 만들어 보세요!",
@@ -97,7 +97,7 @@ const ko: Dict = {
   "result.craft": "제작 솜씨",
   "result.appraise": "감정가",
   "result.save": "이미지 저장",
-  "result.toWorkshop": "🏯 공방에서 보기",
+  "result.toWorkshop": "🖼️ 공방에서 보기",
   "result.next": "📜 다음 의뢰 받기",
   "result.home": "🏠 처음으로",
 
@@ -401,7 +401,7 @@ const en: Dict = {
 
   "title.commission": "📜 Commissions",
   "title.freeDesign": "🎨 Free Design",
-  "title.workshop": "🏯 My Workshop",
+  "title.workshop": "🖼️ My Workshop",
   "title.shop": "🛒 Material Shop",
   "title.settings": "⚙️ Settings · Help",
   "title.welcome": "Welcome to the lacquer workshop!",
@@ -412,7 +412,7 @@ const en: Dict = {
   "title.help1b": "Commissions",
   "title.help2": "✏️ Design → 🧵 Hemp → 🖌️ Lacquer → 🌡️ Dry → 🪚 Cut shell",
   "title.help3": "🍯 Attach → ♨️ Iron → 📜 Peel → 🫙 Fill → ✨ Polish",
-  "title.help4": "🛒 Buy materials with earnings, 🏯 display pieces in your workshop",
+  "title.help4": "🛒 Buy materials with earnings, 🖼️ display pieces in your workshop",
   "title.resetAsk": "Start over from the beginning?",
   "title.resetWarn": "All artworks and coins will be lost.",
 
@@ -446,7 +446,7 @@ const en: Dict = {
   "shop.couponUsed": "This coupon was already used.",
   "shop.couponBad": "Invalid coupon code.",
 
-  "gallery.title": "🏯 My Workshop",
+  "gallery.title": "🖼️ My Workshop",
   "gallery.of": "{rank}'s",
   "gallery.name": "Najeon Workshop",
   "gallery.empty": "No pieces on display yet.\nMake your first artwork!",
@@ -471,7 +471,7 @@ const en: Dict = {
   "result.craft": "Craftsmanship",
   "result.appraise": "Appraised",
   "result.save": "Save image",
-  "result.toWorkshop": "🏯 View in workshop",
+  "result.toWorkshop": "🖼️ View in workshop",
   "result.next": "📜 Next commission",
   "result.home": "🏠 Home",
 
