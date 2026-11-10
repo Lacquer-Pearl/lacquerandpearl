@@ -129,6 +129,11 @@ const ko: Dict = {
   "result.repNow": "현재 명성",
   "result.repRemain": "다음 칭호까지",
   "result.promoted": "새로운 장인 칭호를 획득했습니다!",
+  "result.surveyTitle": "설문에 참여해 주세요!",
+  "result.surveyBody": "잠깐만 의견을 남겨주시면 큰 도움이 돼요. 참여하면 엽전 100개를 드려요.",
+  "result.surveyCta": "설문 열고 +100 엽전",
+  "result.surveyLater": "나중에",
+  "result.surveyThanks": "감사해요! +{n} 엽전",
 
   "craft.commission": "의뢰 제작",
   "craft.free": "자유 디자인",
@@ -585,6 +590,11 @@ const en: Dict = {
   "result.repNow": "Reputation",
   "result.repRemain": "To next title",
   "result.promoted": "You have earned a new artisan title!",
+  "result.surveyTitle": "Please take our survey!",
+  "result.surveyBody": "A short response helps a lot. You'll receive 100 coins for taking part.",
+  "result.surveyCta": "Open survey +100 coins",
+  "result.surveyLater": "Later",
+  "result.surveyThanks": "Thanks! +{n} coins",
 
   "craft.commission": "Commission work",
   "craft.free": "Free design",

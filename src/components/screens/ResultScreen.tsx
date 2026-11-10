@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Artwork from "@/components/Artwork";
 import Avatar, { type Mood } from "@/components/Avatar";
 import UiIcon, { STEP_ICONS } from "@/components/UiIcon";
-import { Btn, Coin, Meter, Sparkles, TopBar } from "@/components/ui";
+import { Btn, Coin, Meter, Modal, Sparkles, TopBar } from "@/components/ui";
 import { rankProgress } from "@/lib/data";
 import { GRADE_INFO, reputationGain, topMotif, type StepId } from "@/lib/game";
 import {
@@ -19,6 +19,11 @@ import {
 import { saveArtworkImage } from "@/lib/exportImage";
 import { sfx } from "@/lib/sound";
 import { useSave, useUI } from "@/lib/store";
+
+const SURVEY_URL = {
+  ko: "https://forms.gle/s8UeDQ21n7m3Ug6V8",
+  en: "https://forms.gle/RU2RqV5x2B5sc5nM7",
+} as const;
 
 function useCountUp(from: number, to: number, ms = 800) {
   const [value, setValue] = useState(from);
@@ -42,8 +47,12 @@ export default function ResultScreen() {
   const go = useUI((s) => s.go);
   const lang = useSave((s) => s.lang);
   const rep = useSave((s) => s.reputation);
+  const surveyClaimed = useSave((s) => s.surveyClaimed);
+  const claimSurveyReward = useSave((s) => s.claimSurveyReward);
   const svgRef = useRef<SVGSVGElement>(null);
   const [saved, setSaved] = useState<string | null>(null);
+  const [surveyOpen, setSurveyOpen] = useState(false);
+  const [surveyFlash, setSurveyFlash] = useState<string | null>(null);
   const reaction = useMemo(
     () => (art ? reactionText(lang, art.grade, !art.commissionId) : ""),
     [art, lang],
@@ -55,6 +64,22 @@ export default function ResultScreen() {
     else sfx.success();
     if (art.earned) setTimeout(sfx.coin, 900);
   }, [art]);
+
+  useEffect(() => {
+    if (!art || surveyClaimed) return;
+    const id = window.setTimeout(() => setSurveyOpen(true), 1200);
+    return () => window.clearTimeout(id);
+  }, [art, surveyClaimed]);
+
+  const openSurvey = () => {
+    window.open(SURVEY_URL[lang], "_blank", "noopener,noreferrer");
+    if (claimSurveyReward()) {
+      sfx.coin();
+      setSurveyFlash(t(lang, "result.surveyThanks", { n: 100 }));
+      setTimeout(() => setSurveyFlash(null), 1800);
+    }
+    setSurveyOpen(false);
+  };
 
   const repGain = art ? reputationGain(art.grade, !!art.commissionId) : 0;
   const shownRep = useCountUp(Math.max(0, rep - repGain), rep);
@@ -221,6 +246,29 @@ export default function ResultScreen() {
           </Btn>
         </div>
       </div>
+
+      {surveyFlash && (
+        <div className="score-toast-wrap pointer-events-none">
+          <div className="event-toast static pop-in">{surveyFlash}</div>
+        </div>
+      )}
+
+      {surveyOpen && !surveyClaimed && (
+        <Modal onClose={() => setSurveyOpen(false)}>
+          <div className="flex flex-col gap-3 text-[var(--brown)]">
+            <h3 className="step-title text-center">{t(lang, "result.surveyTitle")}</h3>
+            <p className="text-center text-sm leading-relaxed opacity-90">{t(lang, "result.surveyBody")}</p>
+            <div className="grid grid-cols-2 gap-2">
+              <Btn variant="cream" onClick={() => setSurveyOpen(false)}>
+                {t(lang, "result.surveyLater")}
+              </Btn>
+              <Btn variant="gold" sound={false} onClick={openSurvey}>
+                <UiIcon id="scroll" className="ui-icon-sm" /> {t(lang, "result.surveyCta")}
+              </Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

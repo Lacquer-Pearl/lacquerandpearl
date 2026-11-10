@@ -51,6 +51,7 @@ interface SaveState {
   tutorialSeen: boolean;
   realCraftInterest: string[];
   redeemedCoupons: string[];
+  surveyClaimed: boolean;
   craftProgress: CraftProgress | null;
   /** 최근에 등장한 의뢰인 id. 새 의뢰가 같은 사람을 바로 다시 뽑지 않게 한다. */
   npcRecent: string[];
@@ -58,6 +59,8 @@ interface SaveState {
   buy: (id: MaterialId) => boolean;
   /** "ok" | "used" | "invalid" */
   redeemCoupon: (code: string) => "ok" | "used" | "invalid";
+  /** 설문 참여 보상 (1회) */
+  claimSurveyReward: () => boolean;
   missingFor: (design: Pick<Design, "pearl" | "pieces">) => MaterialId[];
   consumeFor: (design: Pick<Design, "pearl" | "pieces">) => boolean;
   ensureCommissions: () => void;
@@ -96,6 +99,7 @@ const initial = {
   tutorialSeen: false,
   realCraftInterest: [] as string[],
   redeemedCoupons: [] as string[],
+  surveyClaimed: false,
   craftProgress: null as CraftProgress | null,
   npcRecent: [] as string[],
 };
@@ -103,6 +107,8 @@ const initial = {
 const COUPONS: Record<string, number> = {
   SAMUELKIHOON: 1911,
 };
+
+const SURVEY_REWARD = 100;
 
 export const useSave = create<SaveState>()(
   persist(
@@ -125,6 +131,13 @@ export const useSave = create<SaveState>()(
         if (redeemedCoupons.includes(code)) return "used";
         set({ money: money + reward, redeemedCoupons: [...redeemedCoupons, code] });
         return "ok";
+      },
+
+      claimSurveyReward: () => {
+        const { surveyClaimed, money } = get();
+        if (surveyClaimed) return false;
+        set({ surveyClaimed: true, money: money + SURVEY_REWARD });
+        return true;
       },
 
       missingFor: (design) => {
@@ -248,6 +261,7 @@ export const useSave = create<SaveState>()(
         tutorialSeen: s.tutorialSeen,
         realCraftInterest: s.realCraftInterest,
         redeemedCoupons: s.redeemedCoupons,
+        surveyClaimed: s.surveyClaimed,
         craftProgress: s.craftProgress,
         npcRecent: s.npcRecent,
       }),
