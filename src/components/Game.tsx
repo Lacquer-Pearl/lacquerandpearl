@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import CutGuideGallery from "@/components/craft/CutGuideGallery";
 import CraftFlow from "@/components/craft/CraftFlow";
 import BoardScreen from "@/components/screens/BoardScreen";
 import GalleryScreen from "@/components/screens/GalleryScreen";
@@ -15,7 +16,14 @@ import { useSave, useUI } from "@/lib/store";
 
 export default function Game() {
   const [ready, setReady] = useState(false);
+  const [cutDebug, setCutDebug] = useState(false);
   const screen = useUI((s) => s.screen);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "development") return;
+    const query = new URLSearchParams(window.location.search);
+    if (query.get("cutdebug") === "1") setCutDebug(true);
+  }, []);
 
   useEffect(() => {
     void Promise.resolve(useSave.persist.rehydrate()).then(() => {
@@ -65,6 +73,14 @@ export default function Game() {
         </div>
       </div>
     );
+
+  if (process.env.NODE_ENV === "development" && cutDebug) {
+    return (
+      <div className="app-frame">
+        <CutGuideGallery />
+      </div>
+    );
+  }
 
   return (
     <div className="app-frame">

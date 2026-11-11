@@ -88,6 +88,7 @@ export {
   SHAPE_MOTIFS,
   PATTERN_MOTIFS,
   motifOutline,
+  motifCutRoutes,
   motifCutFit,
   motifLocalBox,
   motifParts,

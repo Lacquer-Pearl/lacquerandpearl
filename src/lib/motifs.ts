@@ -13,6 +13,7 @@ import {
   type Pt,
   type Stroke,
 } from "./motifArt";
+import { MOTIF_CUTS } from "./motifCuts";
 import { STAMP_MOTIFS } from "./motifStamps";
 
 export type MotifId =
@@ -242,7 +243,6 @@ function pngShape(id: keyof typeof STAMP_MOTIFS, name: string, meaning: string):
     meaning,
     path: "",
     stamp: { src: s.src, x: s.x, y: s.y, w: s.w, h: s.h },
-    cutPath: s.cut,
   };
 }
 
@@ -437,6 +437,16 @@ export const MOTIF_LIST: MotifDef[] = (
 
 export const SHAPE_MOTIFS = MOTIF_LIST.filter((m) => m.kind === "shape");
 export const PATTERN_MOTIFS = MOTIF_LIST.filter((m) => m.kind === "pattern");
+
+/** 줄음질에서 조각마다 따로 따라가는 절단선 */
+export function motifCutRoutes(id: MotifId) {
+  return MOTIF_CUTS[id] ?? [];
+}
+
+for (const motif of Object.values(MOTIFS)) {
+  const cuts = MOTIF_CUTS[motif.id];
+  if (cuts?.length) motif.cutPath = cuts.map((cut) => cut.d).join(" ");
+}
 
 /** 밑그림·선택 표시·자르기에 쓰는 바깥 윤곽 */
 export const motifOutline = (id: MotifId) => MOTIFS[id].cutPath ?? MOTIFS[id].path;

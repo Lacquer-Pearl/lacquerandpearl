@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MotifMasks, NacreDefs, NacrePiece, SheenGradient, motifMask } from "@/components/Artwork";
 import { TOOL_TIP, ToolGraphic } from "@/components/Tools";
 import { Btn, Meter } from "@/components/ui";
-import { MOTIFS, PEARLS, motifCutFit, motifOutline, type MotifId, type PearlId } from "@/lib/data";
+import { PEARLS, motifCutFit, motifCutRoutes, type MotifId, type PearlId } from "@/lib/data";
 import { cutJobs, type Design } from "@/lib/game";
 import { motifName, pearlName, t, tNode } from "@/lib/i18n";
 import { loopLevel, sfx, startLoop, stopLoop } from "@/lib/sound";
@@ -91,7 +91,13 @@ export default function CutStep({ design, onDone }: { design: Design; onDone: (s
     return (
       <div className="flex flex-col gap-3">
         {roundBanner}
-        <JulStep key={`${jobIdx}-jul`} motif={job.motif} pearl={job.pearl} onDone={finishJob} />
+        <JulStep
+          key={`${jobIdx}-jul`}
+          motif={job.motif}
+          pearl={job.pearl}
+          onDone={finishJob}
+          onAbort={() => setMethod(null)}
+        />
       </div>
     );
   if (method === "kkeun")
@@ -136,6 +142,7 @@ function ShellSheet({ pearl }: { pearl: PearlId }) {
 }
 
 function samplePath(d: string, scale: number, cx: number, cy: number, ox: number, oy: number, step = 3) {
+  if (typeof document === "undefined") return [];
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.style.position = "absolute";
   svg.style.visibility = "hidden";
@@ -158,54 +165,35 @@ function samplePath(d: string, scale: number, cx: number, cy: number, ox: number
   return pts;
 }
 
-/** 여러 획을 이어 붙일 때, 획과 획 사이에는 polyline을 끊기 위한 경계 인덱스 */
-function sampleCutGuide(ds: string[], scale: number, cx: number, cy: number, ox: number, oy: number, step = 4) {
-  const pts: { x: number; y: number }[] = [];
-  /** 이 인덱스 점 다음에 선을 이어 그리지 않음 (획의 끝) */
-  const gapAfter = new Set<number>();
-  for (const d of ds) {
-    if (!d) continue;
-    const seg = samplePath(d, scale, cx, cy, ox, oy, step);
-    if (seg.length < 2) continue;
-    if (pts.length) gapAfter.add(pts.length - 1);
-    pts.push(...seg);
-  }
-  return { pts, gapAfter };
-}
+type CutRoute = { id: string; d: string; pts: { x: number; y: number }[] };
 
-function cutPolylines(pts: { x: number; y: number }[], upTo: number, gapAfter: Set<number>) {
-  const parts: { x: number; y: number }[][] = [];
-  let cur: { x: number; y: number }[] = [];
-  const end = Math.min(upTo, pts.length - 1);
-  for (let i = 0; i <= end; i++) {
-    cur.push(pts[i]);
-    if (gapAfter.has(i) && i < end) {
-      if (cur.length > 1) parts.push(cur);
-      cur = [];
-    }
-  }
-  if (cur.length > 1) parts.push(cur);
-  return parts;
-}
-
-function cutGuidePaths(motif: MotifId) {
-  const m = MOTIFS[motif];
-  if (m.strokes?.length) return m.strokes.map((s) => s.d);
-  const outline = motifOutline(motif);
-  if (!outline) return [];
-  // 스탬프는 알파 외곽을 여러 폐곡선으로 저장한다. 사각형 테두리를 따라가지 않게 곡선마다 자른다.
-  if (m.stamp) return outline.split(/(?=M)/).map((s) => s.trim()).filter(Boolean);
-  return [outline];
-}
-
-function JulStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; onDone: (s: number) => void }) {
+export function JulStep({
+  motif,
+  pearl,
+  onDone,
+  onAbort,
+}: {
+  motif: MotifId;
+  pearl: PearlId;
+  onDone: (s: number) => void;
+  onAbort: () => void;
+}) {
   const lang = useSave((s) => s.lang);
-  const m = MOTIFS[motif];
   const fit = useMemo(() => motifCutFit(motif), [motif]);
-  const [{ pts, gapAfter }] = useState(() => {
-    const ds = cutGuidePaths(motif);
-    return sampleCutGuide(ds, fit.scale, 150, 150, fit.ox, fit.oy, 4);
-  });
+  const routes = useMemo<CutRoute[]>(
+    () =>
+      motifCutRoutes(motif)
+        .map((cut) => ({
+          id: cut.id,
+          d: cut.d,
+          pts: samplePath(cut.d, fit.scale, 150, 150, fit.ox, fit.oy, 4),
+        }))
+        .filter((route) => route.pts.length >= 2),
+    [motif, fit],
+  );
+  const [routeIdx, setRouteIdx] = useState(0);
+  const [phase, setPhase] = useState<"saw" | "hop">("saw");
+  const [debug, setDebug] = useState(false);
   const [idx, setIdx] = useState(0);
   const [stress, setStress] = useState(0);
   const [breaks, setBreaks] = useState(0);
@@ -217,7 +205,9 @@ function JulStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; onD
   const [skewLive, setSkewLive] = useState<{ x: number; y: number }[]>([]);
   const svgRef = useRef<SVGSVGElement>(null);
   const st = useRef({
+    route: 0,
     idx: 0,
+    phase: "saw" as "saw" | "hop",
     stress: 0,
     err: 0,
     errN: 0,
@@ -247,18 +237,11 @@ function JulStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; onD
   };
 
   useEffect(() => {
+    if (!routes.length) return;
     startLoop("saw");
     loopLevel(0);
     return () => stopLoop();
-  }, []);
-
-  // 가이드가 비면(빈 path) 바로 통과시키지 않고 최저점
-  useEffect(() => {
-    if (pts.length < 2) {
-      const id = setTimeout(() => onDone(40), 400);
-      return () => clearTimeout(id);
-    }
-  }, [pts.length, onDone]);
+  }, [routes.length]);
 
   const finish = () => {
     const s = st.current;
@@ -274,15 +257,20 @@ function JulStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; onD
   const crack = () => {
     const s = st.current;
     // 부러지기 직전까지 오려낸 선 + 빗나간 톱질을 잔상으로 남김
-    for (const part of cutPolylines(pts, s.idx, gapAfter)) commitScar(part, "crack");
+    for (let i = 0; i < s.route; i++) commitScar(routes[i]?.pts ?? [], "crack");
+    if (s.phase === "saw") commitScar((routes[s.route]?.pts ?? []).slice(0, s.idx + 1), "crack");
     flushSkewTrail();
 
     s.breaks++;
+    s.route = 0;
     s.idx = 0;
+    s.phase = "saw";
     s.stress = 0;
     s.off = 0;
     s.last = null;
     setBreaks(s.breaks);
+    setRouteIdx(0);
+    setPhase("saw");
     setIdx(0);
     setStress(0);
     sfx.crack();
@@ -323,7 +311,19 @@ function JulStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; onD
       s.idx = to;
       setIdx(to);
     }
-    if (s.idx >= pts.length - 2) finish();
+    const count = routes[s.route]?.pts.length ?? 0;
+    if (count > 1 && s.idx >= count - 2) {
+      if (s.route >= routes.length - 1) finish();
+      else {
+        s.route += 1;
+        s.idx = 0;
+        s.phase = "hop";
+        s.last = null;
+        setRouteIdx(s.route);
+        setIdx(0);
+        setPhase("hop");
+      }
+    }
   };
 
   const toLocal = (e: { clientX: number; clientY: number }) => {
@@ -331,11 +331,38 @@ function JulStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; onD
     return { x: ((e.clientX - r.left) / r.width) * 300, y: ((e.clientY - r.top) / r.height) * 300 };
   };
 
+  const enterRoute = (p: { x: number; y: number }) => {
+    const s = st.current;
+    const pts = routes[s.route]?.pts ?? [];
+    const start = pts[0];
+    if (!start || Math.hypot(start.x - p.x, start.y - p.y) >= 28) return false;
+    let best = 0;
+    let bestD = Infinity;
+    for (let k = 0; k < Math.min(pts.length, 12); k++) {
+      const dist = Math.hypot(pts[k].x - p.x, pts[k].y - p.y);
+      if (dist < bestD) {
+        bestD = dist;
+        best = k;
+      }
+    }
+    s.phase = "saw";
+    s.idx = bestD < 28 ? best : 0;
+    s.last = p;
+    setPhase("saw");
+    setIdx(s.idx);
+    return true;
+  };
+
   const onMove = (e: React.PointerEvent) => {
     const p = toLocal(e);
     setSaw(p);
     const s = st.current;
+    const pts = routes[s.route]?.pts ?? [];
     if (!s.down || s.done || pts.length === 0) return;
+    if (s.phase === "hop") {
+      enterRoute(p);
+      return;
+    }
     const now = performance.now();
     const dt = Math.max(1, now - s.lastT);
     const moved = s.last ? Math.hypot(p.x - s.last.x, p.y - s.last.y) : 0;
@@ -391,7 +418,8 @@ function JulStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; onD
 
   const onWheel = (e: React.WheelEvent) => {
     const s = st.current;
-    if (s.done || pts.length === 0) return;
+    const pts = routes[s.route]?.pts ?? [];
+    if (s.done || s.phase === "hop" || pts.length === 0) return;
     const now = performance.now();
     const dt = Math.max(8, now - s.lastT);
     s.lastT = now;
@@ -401,9 +429,29 @@ function JulStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; onD
     setSaw(pts[Math.min(pts.length - 1, st.current.idx)]);
   };
 
-  const cutParts = cutPolylines(pts, idx, gapAfter);
-  const next = pts[Math.min(pts.length - 1, idx + 1)];
-  const outline = motifOutline(motif);
+  if (!routes.length) {
+    return (
+      <div className="flex flex-col gap-3">
+        <StepHeader title={t(lang, "cut.julTitle")} icon="fretsaw">
+          {t(lang, "cut.guideError")}
+        </StepHeader>
+        <Btn variant="cream" onClick={onAbort}>
+          {t(lang, "cut.guideBack")}
+        </Btn>
+      </div>
+    );
+  }
+
+  const active = routes[Math.min(routeIdx, routes.length - 1)];
+  const sawn = [
+    ...routes.slice(0, routeIdx).map((route) => route.pts),
+    ...(phase === "saw" ? [active.pts.slice(0, idx + 1)] : []),
+  ].filter((part) => part.length > 1);
+  const next = phase === "hop" ? active.pts[0] : active.pts[Math.min(active.pts.length - 1, idx + 1)];
+  const total = routes.reduce((sum, route) => sum + Math.max(1, route.pts.length - 1), 0);
+  const done =
+    routes.slice(0, routeIdx).reduce((sum, route) => sum + Math.max(1, route.pts.length - 1), 0) +
+    (phase === "saw" ? idx : 0);
 
   return (
     <div className="flex flex-col gap-3">
@@ -413,6 +461,16 @@ function JulStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; onD
           snap: <b>{t(lang, "cut.snap")}</b>,
         })}
       </StepHeader>
+      {process.env.NODE_ENV === "development" && (
+        <button type="button" className="self-end text-xs text-[var(--brown)] underline" onClick={() => setDebug((on) => !on)}>
+          {t(lang, "cut.debug")}
+        </button>
+      )}
+      {phase === "hop" && (
+        <p className="text-center text-sm text-[var(--brown)]">
+          {t(lang, "cut.hop", { n: routeIdx + 1, max: routes.length })}
+        </p>
+      )}
       <div className={`workbench relative ${shake ? "shake" : ""}`}>
         <svg
           ref={svgRef}
@@ -421,9 +479,11 @@ function JulStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; onD
           style={{ touchAction: "none" }}
           onPointerDown={(e) => {
             e.currentTarget.setPointerCapture(e.pointerId);
+            const p = toLocal(e);
             st.current.down = true;
-            st.current.last = toLocal(e);
+            st.current.last = p;
             st.current.lastT = performance.now();
+            if (st.current.phase === "hop") enterRoute(p);
           }}
           onPointerMove={onMove}
           onPointerUp={() => {
@@ -451,36 +511,32 @@ function JulStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; onD
               mask={motifMask("cut-piece-mask", motif)}
               light={0.15}
             />
-            {!m.stamp && outline && (
-              <>
-                <path
-                  d={outline}
-                  fill="none"
-                  stroke="#fffaf0"
-                  strokeWidth={2.6 / fit.scale}
-                  opacity="0.45"
-                />
-                <path
-                  d={outline}
-                  fill="none"
-                  stroke="#4a3c38"
-                  strokeWidth={1.3 / fit.scale}
-                  strokeDasharray={`${4 / fit.scale} ${3 / fit.scale}`}
-                  opacity="0.75"
-                />
-              </>
-            )}
-            {m.stamp && outline && (
+            {routes.map((route, i) => (
               <path
-                d={outline}
+                key={route.id}
+                d={route.d}
                 fill="none"
-                stroke="#4a3c38"
-                strokeWidth={1.1 / fit.scale}
-                strokeDasharray={`${5 / fit.scale} ${3.5 / fit.scale}`}
-                opacity="0.7"
+                stroke={i === routeIdx ? "#d9b25f" : "#4a3c38"}
+                strokeWidth={(i === routeIdx ? 1.7 : 1.15) / fit.scale}
+                strokeDasharray={`${4.5 / fit.scale} ${3 / fit.scale}`}
+                opacity={i === routeIdx ? 0.95 : 0.62}
               />
-            )}
+            ))}
           </g>
+          {debug &&
+            routes.map((route, i) => {
+              const start = route.pts[0];
+              const end = route.pts[route.pts.length - 1];
+              return (
+                <g key={`dbg-${route.id}`} className="pointer-events-none">
+                  <circle cx={start.x} cy={start.y} r="5" fill="#3ddc7a" stroke="#173222" strokeWidth="1" />
+                  <circle cx={end.x} cy={end.y} r="4" fill="#ffb15a" stroke="#3a2412" strokeWidth="1" />
+                  <text x={start.x + 7} y={start.y - 6} fontSize="10" fill="#ffe27a">
+                    {i + 1} {route.id}
+                  </text>
+                </g>
+              );
+            })}
           {/* 심각한 실수·부러짐 잔상 */}
           {scars.map((scar, i) => (
             <polyline
@@ -507,7 +563,7 @@ function JulStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; onD
               strokeDasharray="3 2"
             />
           )}
-          {cutParts.map((part, i) => (
+          {sawn.map((part, i) => (
             <polyline
               key={i}
               points={part.map((p) => `${p.x},${p.y}`).join(" ")}
@@ -519,8 +575,17 @@ function JulStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; onD
               strokeLinejoin="round"
             />
           ))}
-          {next && (
+          {next && phase === "saw" && (
             <circle cx={next.x} cy={next.y} r="7" fill="#d9b25f" stroke="#fff" strokeWidth="1.5" className="pulse" />
+          )}
+          {phase === "hop" && next && (
+            <g className="pointer-events-none">
+              <circle cx={next.x} cy={next.y} r="14" fill="none" stroke="#3ddc7a" strokeWidth="2" className="pulse" />
+              <circle cx={next.x} cy={next.y} r="5" fill="#3ddc7a" stroke="#fff" strokeWidth="1.5" />
+              <text x={next.x + 16} y={next.y + 4} fontSize="12" fill="#e7ffe8">
+                {routeIdx + 1}
+              </text>
+            </g>
           )}
           {saw && (
             <g
@@ -535,12 +600,14 @@ function JulStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; onD
       </div>
       <div className="panel flex flex-col gap-2 py-3">
         <Meter
-          value={pts.length > 1 ? idx / (pts.length - 1) : 0}
+          value={total > 0 ? done / total : 0}
           color="var(--pink)"
           label={
             <>
-              <span>{t(lang, "cut.progress")}</span>
-              <span>{pts.length > 1 ? Math.round((idx / (pts.length - 1)) * 100) : 0}%</span>
+              <span>
+                {t(lang, "cut.progress")} · {t(lang, "cut.piece", { n: Math.min(routes.length, routeIdx + 1), max: routes.length })}
+              </span>
+              <span>{total > 0 ? Math.round((done / total) * 100) : 0}%</span>
             </>
           }
         />
