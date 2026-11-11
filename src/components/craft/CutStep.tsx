@@ -4,20 +4,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MotifMasks, NacreDefs, NacrePiece, SheenGradient, motifMask } from "@/components/Artwork";
 import { TOOL_TIP, ToolGraphic } from "@/components/Tools";
 import { Btn, Meter } from "@/components/ui";
-import { PEARLS, motifCutFit, motifCutRoutes, type MotifId, type PearlId } from "@/lib/data";
+import { MOTIFS, PEARLS, motifCutFit, motifCutRoutes, type CuttingMethod, type MotifId, type PearlId } from "@/lib/data";
 import { cutJobs, type Design } from "@/lib/game";
 import { motifName, pearlName, t, tNode } from "@/lib/i18n";
 import { loopLevel, sfx, startLoop, stopLoop } from "@/lib/sound";
 import { useSave } from "@/lib/store";
+import MotifIcon from "@/components/MotifIcon";
 import UiIcon from "@/components/UiIcon";
 import { StepHeader } from "./common";
 
 type Method = "jul" | "kkeun" | "auto";
+type Choice = Method | "each";
 
 export default function CutStep({ design, onDone }: { design: Design; onDone: (score: number) => void }) {
   const lang = useSave((s) => s.lang);
   const jobs = useMemo(() => cutJobs(design), [design]);
-  const [method, setMethod] = useState<Method | null>(null);
+  const [choice, setChoice] = useState<Choice | null>(null);
   const [jobIdx, setJobIdx] = useState(0);
   const scores = useRef<number[]>([]);
   const job = jobs[Math.min(jobIdx, jobs.length - 1)];
@@ -35,7 +37,15 @@ export default function CutStep({ design, onDone }: { design: Design; onDone: (s
     [jobs.length, onDone],
   );
 
-  if (!method)
+  const prefs = [...new Set(jobs.map((item) => MOTIFS[item.motif].cutting.preferredMethod))];
+  const known = prefs.filter((item): item is CuttingMethod => item != null);
+  const allKnown = jobs.every((item) => MOTIFS[item.motif].cutting.preferredMethod);
+  const recommended = allKnown && known.length === 1 ? known[0] : null;
+  const openNames = [
+    ...new Set(jobs.filter((item) => !MOTIFS[item.motif].cutting.preferredMethod).map((item) => motifName(lang, item.motif))),
+  ];
+
+  if (!choice)
     return (
       <div className="flex flex-col gap-3">
         <StepHeader title={t(lang, "cut.title")} icon="fretsaw">
@@ -51,29 +61,49 @@ export default function CutStep({ design, onDone }: { design: Design; onDone: (s
             })}
           </div>
         )}
-        <button className="method-card" onClick={() => (sfx.click(), setMethod("jul"))}>
-          <UiIcon id="fretsaw" />
-          <span className="flex flex-col text-left">
-            <b className="text-lg">{t(lang, "cut.jul")}</b>
-            <span className="text-sm opacity-80">{t(lang, "cut.julDesc")}</span>
-          </span>
-        </button>
-        <button className="method-card" onClick={() => (sfx.click(), setMethod("kkeun"))}>
-          <UiIcon id="knife" />
-          <span className="flex flex-col text-left">
-            <b className="text-lg">{t(lang, "cut.kkeun")}</b>
-            <span className="text-sm opacity-80">{t(lang, "cut.kkeunDesc")}</span>
-          </span>
-        </button>
-        <button className="method-card" onClick={() => (sfx.click(), setMethod("auto"))}>
-          <UiIcon id="cutter" />
-          <span className="flex flex-col text-left">
-            <b className="text-lg">{t(lang, "cut.auto")}</b>
-            <span className="text-sm opacity-80">{t(lang, "cut.autoDesc")}</span>
-          </span>
-        </button>
+        {recommended && (
+          <p className="panel py-2 text-center text-sm text-[var(--brown)]">
+            {t(lang, "cut.recommendOne", { method: t(lang, recommended === "jul" ? "cut.jul" : "cut.kkeun") })}
+          </p>
+        )}
+        {allKnown && known.length > 1 && (
+          <p className="panel py-2 text-center text-sm text-[var(--brown)]">{t(lang, "cut.recommendMixed")}</p>
+        )}
+        {openNames.length > 0 && (
+          <p className="panel py-2 text-center text-sm text-[var(--brown)]">{t(lang, "cut.recommendOpen", { names: openNames.join(", ") })}</p>
+        )}
+        {allKnown && (
+          <Btn
+            variant="pink"
+            onClick={() => {
+              sfx.click();
+              setChoice(recommended ?? "each");
+            }}
+          >
+            {t(lang, "cut.recommendStart")}
+          </Btn>
+        )}
+        {(["jul", "kkeun", "auto"] as Method[])
+          .sort((a, b) => Number(b === recommended) - Number(a === recommended))
+          .map((id) => (
+            <button key={id} className={`method-card ${id === recommended ? "outline outline-2 outline-[var(--gold)]" : ""}`} onClick={() => (sfx.click(), setChoice(id))}>
+              <UiIcon id={id === "jul" ? "fretsaw" : id === "kkeun" ? "knife" : "cutter"} />
+              <span className="flex flex-col text-left">
+                <b className="text-lg">
+                  {t(lang, id === "jul" ? "cut.jul" : id === "kkeun" ? "cut.kkeun" : "cut.auto")}
+                  {id === recommended && <span className="ml-2 text-sm text-[var(--gold)]">{t(lang, "cut.recommend")}</span>}
+                </b>
+                <span className="text-sm opacity-80">
+                  {t(lang, id === "jul" ? "cut.julDesc" : id === "kkeun" ? "cut.kkeunDesc" : "cut.autoDesc")}
+                </span>
+              </span>
+            </button>
+          ))}
       </div>
     );
+
+  const method: Method | null =
+    choice === "each" ? (MOTIFS[job.motif].cutting.preferredMethod ?? null) : choice;
 
   const roundBanner =
     jobs.length > 1 ? (
@@ -96,7 +126,7 @@ export default function CutStep({ design, onDone }: { design: Design; onDone: (s
           motif={job.motif}
           pearl={job.pearl}
           onDone={finishJob}
-          onAbort={() => setMethod(null)}
+          onAbort={() => setChoice(null)}
         />
       </div>
     );
@@ -104,9 +134,10 @@ export default function CutStep({ design, onDone }: { design: Design; onDone: (s
     return (
       <div className="flex flex-col gap-3">
         {roundBanner}
-        <KkeunStep key={`${jobIdx}-kkeun`} pearl={job.pearl} onDone={finishJob} />
+        <KkeunStep key={`${jobIdx}-kkeun`} motif={job.motif} pearl={job.pearl} onDone={finishJob} />
       </div>
     );
+  if (method !== "auto") return null;
   return (
     <div className="flex flex-col gap-3">
       {roundBanner}
@@ -627,29 +658,46 @@ export function JulStep({
   );
 }
 
-const MARKS = 8;
 const KNIFE = 150;
 
-function makeMarks() {
-  const arr: number[] = [];
-  let x = 340;
-  for (let i = 0; i < MARKS; i++) {
-    x += 70 + Math.random() * 70;
-    arr.push(x);
+/** 문양의 자개 띠 길이에 맞춘 끊음질 간격. 패턴은 육각 한 변, 띠는 중심선 길이를 토막 낸다. */
+function buildKkeun(motif: MotifId) {
+  const spec = MOTIFS[motif];
+  let total = 0;
+  if (spec.kind === "pattern" && spec.tile && spec.cutting.preferredMethod === "kkeun") {
+    const side = Math.hypot(spec.tile.a[0], spec.tile.a[1]) / Math.sqrt(3);
+    total = side * 6;
+  } else {
+    const paths = spec.strokes?.length ? spec.strokes.map((stroke) => stroke.d) : motifCutRoutes(motif).map((cut) => cut.d);
+    for (const d of paths) {
+      const pts = samplePath(d, 1, 0, 0, 0, 0, 2);
+      for (let i = 1; i < pts.length; i++) total += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+    }
   }
-  return arr;
+  if (!Number.isFinite(total) || total < 1) total = 72;
+  const count = spec.kind === "pattern" ? 6 : Math.max(4, Math.min(9, Math.round(total / 14)));
+  const piece = total / count;
+  const gap = 52 + Math.min(36, piece * 1.4);
+  const marks: number[] = [];
+  let x = 248;
+  for (let i = 0; i < count; i++) {
+    x += gap;
+    marks.push(Math.round(x));
+  }
+  return { count, piece, marks };
 }
 
-function KkeunStep({ pearl, onDone }: { pearl: PearlId; onDone: (s: number) => void }) {
+function KkeunStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; onDone: (s: number) => void }) {
   const lang = useSave((s) => s.lang);
-  const [marks] = useState(makeMarks);
+  const layout = useMemo(() => buildKkeun(motif), [motif]);
+  const marks = layout.marks;
   const [offset, setOffset] = useState(0);
-  const [results, setResults] = useState<(number | null | undefined)[]>(Array(MARKS).fill(undefined));
+  const [results, setResults] = useState<(number | null | undefined)[]>(() => Array(layout.count).fill(undefined));
   const [flash, setFlash] = useState<string | null>(null);
   const [chop, setChop] = useState(false);
   const st = useRef({
     offset: 0,
-    results: Array(MARKS).fill(undefined) as (number | null | undefined)[],
+    results: Array(layout.count).fill(undefined) as (number | null | undefined)[],
     wasted: 0,
     done: false,
   });
@@ -663,7 +711,7 @@ function KkeunStep({ pearl, onDone }: { pearl: PearlId; onDone: (s: number) => v
       const s = st.current;
       const doneCount = s.results.filter((r) => r !== undefined).length;
       s.offset += dt * (0.09 + doneCount * 0.012);
-      for (let i = 0; i < MARKS; i++) {
+      for (let i = 0; i < marks.length; i++) {
         if (s.results[i] === undefined && marks[i] - s.offset < KNIFE - 22) {
           s.results[i] = null;
           setResults([...s.results]);
@@ -676,7 +724,7 @@ function KkeunStep({ pearl, onDone }: { pearl: PearlId; onDone: (s: number) => v
       if (!s.done && s.results.every((r) => r !== undefined)) {
         s.done = true;
         const vals = s.results.map((r) => (r == null ? 0 : r));
-        const score = vals.reduce((a, b) => a + b, 0) / MARKS - s.wasted * 4;
+        const score = vals.reduce((a, b) => a + b, 0) / marks.length - s.wasted * 4;
         setTimeout(() => {
           sfx.success();
           onDone(Math.round(Math.max(5, Math.min(100, score))));
@@ -696,7 +744,7 @@ function KkeunStep({ pearl, onDone }: { pearl: PearlId; onDone: (s: number) => v
     setTimeout(() => setChop(false), 120);
     let best = -1;
     let bestD = Infinity;
-    for (let i = 0; i < MARKS; i++) {
+    for (let i = 0; i < marks.length; i++) {
       if (s.results[i] !== undefined) continue;
       const d = Math.abs(marks[i] - s.offset - KNIFE);
       if (d < bestD) {
@@ -724,6 +772,12 @@ function KkeunStep({ pearl, onDone }: { pearl: PearlId; onDone: (s: number) => v
       <StepHeader title={t(lang, "cut.kkeunTitle")} icon="knife">
         {tNode(lang, "cut.kkeunTip", { b: <b>{t(lang, "cut.kkeunTipB")}</b> })}
       </StepHeader>
+      <div className="panel flex items-center gap-3 py-2">
+        <MotifIcon motif={motif} pearl={pearl} className="h-14 w-14 shrink-0" />
+        <p className="text-sm text-[var(--brown)]">
+          {t(lang, "cut.kkeunLen", { name: motifName(lang, motif), n: layout.count, len: Math.round(layout.piece) })}
+        </p>
+      </div>
       <div
         className="workbench relative cursor-pointer select-none"
         style={{ touchAction: "manipulation" }}
@@ -736,9 +790,23 @@ function KkeunStep({ pearl, onDone }: { pearl: PearlId; onDone: (s: number) => v
           <rect x="0" y="118" width="300" height="62" fill="#5c3f2c" rx="6" />
           <rect x="0" y="118" width="300" height="3" fill="#8a6748" />
           <g transform={`translate(${-offset} 0)`}>
-            <rect x="300" y="101" width={marks[MARKS - 1] + 100} height="18" rx="1" fill="#2a2420" />
-            <rect x="300" y="100" width={marks[MARKS - 1] + 100} height="17" rx="1" fill="url(#kk-nacre)" />
-            <rect x="300" y="100" width={marks[MARKS - 1] + 100} height="1.5" fill="#fff" opacity="0.5" />
+            {(() => {
+              const bounds = [300, ...marks, marks[marks.length - 1] + 64];
+              return bounds.slice(0, -1).map((from, i) => {
+                const to = bounds[i + 1];
+                const splitLeft = i > 0 && results[i - 1] !== undefined;
+                const splitRight = i < marks.length && results[i] !== undefined;
+                const x = from + (splitLeft ? 8 : 0);
+                const width = Math.max(6, to - from - (splitLeft ? 8 : 0) - (splitRight ? 8 : 0));
+                return (
+                  <g key={`piece-${i}`}>
+                    <rect x={x} y="101" width={width} height="18" rx="1" fill="#2a2420" />
+                    <rect x={x} y="100" width={width} height="17" rx="1" fill="url(#kk-nacre)" />
+                    <rect x={x} y="100" width={width} height="1.5" fill="#fff" opacity="0.5" />
+                  </g>
+                );
+              });
+            })()}
             {marks.map((mx, i) => (
               <g key={i}>
                 <rect
@@ -766,7 +834,7 @@ function KkeunStep({ pearl, onDone }: { pearl: PearlId; onDone: (s: number) => v
         {flash && <div className="event-toast pop-in">{flash}</div>}
       </div>
       <div className="panel py-3 text-center text-[var(--brown)]">
-        {t(lang, "cut.pieces", { n: results.filter((r) => r != null).length, max: MARKS })}
+        {t(lang, "cut.pieces", { n: results.filter((r) => r != null).length, max: layout.count })}
       </div>
       <Btn variant="pink" size="lg" sound={false} onClick={tap}>
         {t(lang, "cut.cutBtn")}

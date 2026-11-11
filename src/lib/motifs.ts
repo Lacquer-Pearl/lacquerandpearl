@@ -44,6 +44,19 @@ export type MotifId =
 /** shape: 하나로 완결된 모양, pattern: 이웃과 이어 붙여 면을 채우는 반복 단위 */
 export type MotifKind = "shape" | "pattern";
 
+/** jul: 줄음질(실톱), kkeun: 끊음질(자개 띠를 토막). 직선 테두리를 나중에 넣으면 kkeun으로 둔다. */
+export type CuttingMethod = "jul" | "kkeun";
+
+/** outer-silhouette: 톱질 가이드만 바깥 윤곽. geometry: 조각·띠의 실제 경계. */
+export type GuideMode = "outer-silhouette" | "geometry";
+
+export interface CuttingMetadata {
+  /** 비우면 권장 공법을 아직 정하지 않은 문양 */
+  preferredMethod?: CuttingMethod;
+  supportedMethods: CuttingMethod[];
+  guideMode: GuideMode;
+}
+
 export interface MotifDef {
   id: MotifId;
   kind: MotifKind;
@@ -69,6 +82,14 @@ export interface MotifDef {
    * path 대신 PNG 알파로 자개 모양을 마스크합니다 (투명 = 선각·빈 곳).
    */
   stamp?: { src: string; x: number; y: number; w: number; h: number };
+  /** 권장 세공법과 톱질 가이드 방식. 저장 데이터에는 넣지 않는다. */
+  cutting: CuttingMetadata;
+}
+
+const BOTH_METHODS: CuttingMethod[] = ["jul", "kkeun"];
+
+function cutting(guideMode: GuideMode, preferredMethod?: CuttingMethod): CuttingMetadata {
+  return { preferredMethod, supportedMethods: BOTH_METHODS, guideMode };
 }
 
 const f = (n: number) => +n.toFixed(2);
@@ -234,7 +255,12 @@ const vn = vine();
 const gl = grapeLeaf();
 const gr = grapes();
 
-function pngShape(id: keyof typeof STAMP_MOTIFS, name: string, meaning: string): MotifDef {
+function pngShape(
+  id: keyof typeof STAMP_MOTIFS,
+  name: string,
+  meaning: string,
+  cut: CuttingMetadata,
+): MotifDef {
   const s = STAMP_MOTIFS[id];
   return {
     id,
@@ -243,6 +269,7 @@ function pngShape(id: keyof typeof STAMP_MOTIFS, name: string, meaning: string):
     meaning,
     path: "",
     stamp: { src: s.src, x: s.x, y: s.y, w: s.w, h: s.h },
+    cutting: cut,
   };
 }
 
@@ -256,6 +283,7 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
     detail: plum.detail,
     holes: plum.holes,
     detailWidth: 0.42,
+    cutting: cutting("geometry", "jul"),
   },
   butterfly: {
     id: "butterfly",
@@ -270,6 +298,7 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
       "C-10 -19 -3 -10 0 -4 Z",
     detail: `${both(BF_CUTS)} M-1 1 L1 1 M-1 3.6 L1 3.6 M-1 6.2 L1 6.2 M-0.9 8.8 L0.9 8.8`,
     detailWidth: 0.45,
+    cutting: cutting("geometry", "jul"),
   },
   cloud: {
     id: "cloud",
@@ -279,8 +308,9 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
     path: CLOUD,
     detail: CLOUD_CUTS,
     detailWidth: 0.85,
+    cutting: cutting("geometry", "jul"),
   },
-  peony: pngShape("peony", "모란", "부귀"),
+  peony: pngShape("peony", "모란", "부귀", cutting("outer-silhouette", "jul")),
   crane: {
     id: "crane",
     kind: "shape",
@@ -293,6 +323,7 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
       "L10.6 8.6 C4 8 -3 6 -7.5 3.4 C-13 1 -19 -2.4 -25 -5.4 Z",
     detail: CRANE1_CUTS,
     detailWidth: 0.42,
+    cutting: cutting("geometry", "jul"),
   },
   crane2: {
     id: "crane2",
@@ -306,6 +337,7 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
       "C-15 4.2 -20 2.6 -25.4 0.6 Z",
     detail: CRANE2_CUTS,
     detailWidth: 0.42,
+    cutting: cutting("geometry", "jul"),
   },
   diamond: {
     id: "diamond",
@@ -316,6 +348,7 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
     holes: geo.holes,
     tile: geo.tile,
     cost: 0.5,
+    cutting: cutting("geometry", "kkeun"),
   },
   kiku: {
     id: "kiku",
@@ -327,6 +360,7 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
     cutPath: `M${KIKU_STAMP.x} ${KIKU_STAMP.y} H${KIKU_STAMP.x + KIKU_STAMP.w} V${KIKU_STAMP.y + KIKU_STAMP.h} H${KIKU_STAMP.x} Z`,
     tile: { a: [112, 0], b: [0, 74.59] },
     cost: 0.5,
+    cutting: cutting("outer-silhouette", "jul"),
   },
   orb: {
     id: "orb",
@@ -334,6 +368,7 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
     name: "해·달",
     meaning: "광명",
     path: circle(0, 0, 20),
+    cutting: cutting("geometry", "jul"),
   },
   cloudLine: {
     id: "cloudLine",
@@ -342,6 +377,7 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
     meaning: "길상",
     path: "",
     ...cloud2,
+    cutting: cutting("geometry", "kkeun"),
   },
   mountain: {
     id: "mountain",
@@ -350,6 +386,7 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
     meaning: "굳건함",
     path: "",
     ...mtn,
+    cutting: cutting("geometry", "kkeun"),
   },
   rock: {
     id: "rock",
@@ -358,8 +395,9 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
     meaning: "불변",
     path: "",
     ...rk,
+    cutting: cutting("geometry", "kkeun"),
   },
-  wave: pngShape("wave", "물결", "평안"),
+  wave: pngShape("wave", "물결", "평안", cutting("geometry", "jul")),
   vine: {
     id: "vine",
     kind: "shape",
@@ -367,6 +405,7 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
     meaning: "번성",
     path: "",
     ...vn,
+    cutting: cutting("geometry", "jul"),
   },
   grapeLeaf: {
     id: "grapeLeaf",
@@ -375,6 +414,7 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
     meaning: "풍요",
     ...gl,
     detailWidth: 0.5,
+    cutting: cutting("geometry", "jul"),
   },
   grapes: {
     id: "grapes",
@@ -382,6 +422,7 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
     name: "포도송이",
     meaning: "다산",
     ...gr,
+    cutting: cutting("geometry", "jul"),
   },
   moon: {
     id: "moon",
@@ -389,6 +430,7 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
     name: "초승달",
     meaning: "소망",
     path: "M0 -20 A20 20 0 0 0 0 20 A24 24 0 0 1 0 -20 Z",
+    cutting: cutting("geometry", "jul"),
   },
   leaf: {
     id: "leaf",
@@ -399,12 +441,13 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
     detail:
       "M-22 1.8 C-8 -0.6 8 -2.2 22 -2 M-14 0.6 L-8.4 -4.6 M-5 -0.4 L0.6 -5.6 M4 -1.2 L9.6 -5.2 M11.6 -1.7 L16 -4 " +
       "M-11.4 0.3 L-5.8 4.6 M-2.4 -0.6 L3.4 4 M6.4 -1.5 L11.6 2.2",
+    cutting: cutting("geometry", "kkeun"),
   },
-  turtle: pngShape("turtle", "거북이", "무병장수"),
-  lotus: pngShape("lotus", "연꽃", "청정"),
-  pine: pngShape("pine", "소나무", "장수"),
-  bamboo: pngShape("bamboo", "대나무", "지조"),
-  deer: pngShape("deer", "사슴", "길상"),
+  turtle: pngShape("turtle", "거북이", "무병장수", cutting("outer-silhouette", "jul")),
+  lotus: pngShape("lotus", "연꽃", "청정", cutting("geometry", "jul")),
+  pine: pngShape("pine", "소나무", "장수", cutting("outer-silhouette", "jul")),
+  bamboo: pngShape("bamboo", "대나무", "지조", cutting("outer-silhouette", "jul")),
+  deer: pngShape("deer", "사슴", "길상", cutting("geometry", "jul")),
 };
 
 /** 문양 고르기에 보이는 목록 (댓잎은 예전 작품 표시용으로만 남김) */

@@ -19,6 +19,17 @@ const VIEW = { x: -84, y: -84, w: 168, h: 168 };
 /** 모티프 좌표에서 이보다 덜 벗어나면 점을 버린다. 화면에서 1px 안쪽. */
 const EPS = 0.11;
 const MIN_AREA = 0.28;
+/**
+ * 바깥 실루엣 전용. close 픽셀 이하의 홈·잎맥·솔잎 틈은 메우고,
+ * open 픽셀보다 가는 돌기는 가이드에서 덜어 낸다. 자개 PNG는 건드리지 않는다.
+ */
+const OUTER_TUNE = {
+  turtle: { close: 5, open: 1, eps: 0.42 },
+  pine: { close: 8, open: 2, eps: 0.72 },
+  peony: { close: 5, open: 1, eps: 0.4 },
+  kiku: { close: 12, open: 2, eps: 0.7 },
+  bamboo: { close: 4, open: 1, eps: 0.42 },
+};
 
 function loadMotifs() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "motif-cuts-"));
@@ -158,12 +169,82 @@ function rdp(pts, eps) {
   return open.filter((_, i) => keep[i]);
 }
 
+function distTo(mask, width, height, solid) {
+  const inf = 1e7;
+  const d = new Float32Array(width * height);
+  for (let i = 0; i < d.length; i++) d[i] = mask[i] === solid ? 0 : inf;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = y * width + x;
+      if (x > 0) d[i] = Math.min(d[i], d[i - 1] + 1);
+      if (y > 0) d[i] = Math.min(d[i], d[i - width] + 1);
+      if (x > 0 && y > 0) d[i] = Math.min(d[i], d[i - width - 1] + 1.414);
+      if (y > 0 && x + 1 < width) d[i] = Math.min(d[i], d[i - width + 1] + 1.414);
+    }
+  }
+  for (let y = height - 1; y >= 0; y--) {
+    for (let x = width - 1; x >= 0; x--) {
+      const i = y * width + x;
+      if (x + 1 < width) d[i] = Math.min(d[i], d[i + 1] + 1);
+      if (y + 1 < height) d[i] = Math.min(d[i], d[i + width] + 1);
+      if (x + 1 < width && y + 1 < height) d[i] = Math.min(d[i], d[i + width + 1] + 1.414);
+      if (y + 1 < height && x > 0) d[i] = Math.min(d[i], d[i + width - 1] + 1.414);
+    }
+  }
+  return d;
+}
+
+function thresholdMask(alpha) {
+  const mask = new Uint8Array(alpha.length);
+  for (let i = 0; i < alpha.length; i++) mask[i] = alpha[i] >= ISO ? 1 : 0;
+  return mask;
+}
+
+/** 좁은 틈을 메운 뒤 같은 반지름만큼 외곽을 되돌린다. */
+function closeMask(mask, width, height, radius) {
+  if (radius <= 0) return mask;
+  const nearSolid = distTo(mask, width, height, 1);
+  const dilated = new Uint8Array(mask.length);
+  for (let i = 0; i < mask.length; i++) dilated[i] = nearSolid[i] <= radius ? 1 : 0;
+  const nearEmpty = distTo(dilated, width, height, 0);
+  const closed = new Uint8Array(mask.length);
+  for (let i = 0; i < mask.length; i++) closed[i] = nearEmpty[i] > radius ? 1 : 0;
+  return closed;
+}
+
+/** 반지름보다 가는 돌기를 가이드에서 덜어 낸다. */
+function openMask(mask, width, height, radius) {
+  if (radius <= 0) return mask;
+  const nearEmpty = distTo(mask, width, height, 0);
+  const eroded = new Uint8Array(mask.length);
+  for (let i = 0; i < mask.length; i++) eroded[i] = nearEmpty[i] > radius ? 1 : 0;
+  const nearSolid = distTo(eroded, width, height, 1);
+  const opened = new Uint8Array(mask.length);
+  for (let i = 0; i < mask.length; i++) opened[i] = nearSolid[i] <= radius ? 1 : 0;
+  return opened;
+}
+
+function smoothLoop(pts) {
+  let cur = pts;
+  for (let pass = 0; pass < 2; pass++) {
+    const next = [];
+    for (let i = 0; i < cur.length; i++) {
+      const a = cur[(i - 1 + cur.length) % cur.length];
+      const b = cur[i];
+      const c = cur[(i + 1) % cur.length];
+      next.push({ x: (a.x + b.x * 2 + c.x) / 4, y: (a.y + b.y * 2 + c.y) / 4 });
+    }
+    cur = next;
+  }
+  return cur;
+}
+
 /**
  * alpha: Uint8Array row-major.
  * mapPoint(px, py)는 픽셀 중심 격자 좌표(원본 이미지의 열·행)를 모티프 좌표로 보낸다.
  * keepHoles: 획으로만 된 리본의 안쪽 경계도 남긴다.
  */
-function traceAlpha(alpha, width, height, mapPoint, keepHoles) {
+function traceAlpha(alpha, width, height, mapPoint, keepHoles, eps = EPS, smooth = false) {
   const W = width + 2;
   const H = height + 2;
   const grid = new Float32Array(W * H);
@@ -197,14 +278,18 @@ function traceAlpha(alpha, width, height, mapPoint, keepHoles) {
   });
   if (!mapped.length) return [];
   const outerSign = mapped.reduce((s, l) => s + l.area, 0) >= 0 ? 1 : -1;
-  return mapped
+  const kept = mapped
     .filter((l) => keepHoles || Math.sign(l.area) === outerSign || l.area === 0)
     .map((l) => {
-      const simplified = rdp(l.pts, EPS);
+      const shaped = smooth ? smoothLoop(l.pts) : l.pts;
+      const simplified = rdp(shaped, eps);
       const area = Math.abs(signedArea(simplified));
       return { pts: simplified, area };
     })
-    .filter((l) => l.pts.length >= 3 && l.area >= MIN_AREA)
+    .filter((l) => l.pts.length >= 3 && l.area >= MIN_AREA);
+  const maxArea = kept.reduce((m, l) => Math.max(m, l.area), 0);
+  return kept
+    .filter((l) => !smooth || l.area >= Math.max(MIN_AREA, maxArea * 0.015))
     .sort((a, b) => a.pts.reduce((m, p) => Math.min(m, p.y), 1e9) - b.pts.reduce((m, p) => Math.min(m, p.y), 1e9)
       || a.pts.reduce((m, p) => Math.min(m, p.x), 1e9) - b.pts.reduce((m, p) => Math.min(m, p.x), 1e9));
 }
@@ -408,9 +493,27 @@ async function rasterContours(svg, size, keepHoles) {
 async function contoursOf(motif) {
   if (motif.stamp) {
     const file = path.join(root, "public", motif.stamp.src);
-    const { alpha, width, height } = await pngAlpha(file);
+    const loaded = await pngAlpha(file);
+    let { alpha, width, height } = loaded;
+    const outer = motif.cutting?.guideMode === "outer-silhouette";
+    const tune = OUTER_TUNE[motif.id] ?? { close: 4, open: 1, eps: 0.45 };
+    if (outer) {
+      let mask = thresholdMask(alpha);
+      mask = closeMask(mask, width, height, tune.close);
+      mask = openMask(mask, width, height, tune.open);
+      alpha = mask;
+      for (let i = 0; i < alpha.length; i++) alpha[i] = alpha[i] ? 255 : 0;
+    }
     const { x, y, w, h } = motif.stamp;
-    return traceAlpha(alpha, width, height, (gx, gy) => mapRaster(gx, gy, x, y, width, height, w, h), false);
+    return traceAlpha(
+      alpha,
+      width,
+      height,
+      (gx, gy) => mapRaster(gx, gy, x, y, width, height, w, h),
+      false,
+      outer ? tune.eps : EPS,
+      outer,
+    );
   }
   const loops = [];
   if (motif.path) {
@@ -450,6 +553,23 @@ function selfTest() {
   if (all.length !== 2) throw new Error(`구멍 포함 테스트 실패: ${all.length}`);
   const area = Math.abs(signedArea(loops[0].pts));
   if (area < 400 || area > 800) throw new Error(`원 면적 이상: ${area.toFixed(1)}`);
+
+  const gap = new Uint8Array(40 * 20);
+  const paint = (cx) => {
+    for (let y = 4; y < 16; y++) {
+      for (let x = cx - 4; x <= cx + 4; x++) gap[y * 40 + x] = 255;
+    }
+  };
+  paint(9);
+  paint(22);
+  const apart = traceAlpha(gap, 40, 20, (gx, gy) => ({ x: gx, y: gy }), false);
+  let bridged = thresholdMask(gap);
+  bridged = closeMask(bridged, 40, 20, 3);
+  const joinedAlpha = new Uint8Array(bridged.length);
+  for (let i = 0; i < bridged.length; i++) joinedAlpha[i] = bridged[i] ? 255 : 0;
+  const joined = traceAlpha(joinedAlpha, 40, 20, (gx, gy) => ({ x: gx, y: gy }), false);
+  if (apart.length !== 2) throw new Error(`떨어진 외곽 테스트 실패: ${apart.length}`);
+  if (joined.length !== 1) throw new Error(`좁은 틈 메움 테스트 실패: ${joined.length}`);
 }
 
 async function preview(motif, cuts, fit) {

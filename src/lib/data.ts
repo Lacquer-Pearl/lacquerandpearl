@@ -94,6 +94,9 @@ export {
   motifParts,
   type MotifDef,
   type MotifKind,
+  type CuttingMethod,
+  type CuttingMetadata,
+  type GuideMode,
 } from "./motifs";
 export const SHAPE_LIST = Object.values(SHAPES);
 export const LACQUER_LIST = Object.values(LACQUERS);

@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { MotifMasks, NacreDefs, NacrePiece, motifMask } from "@/components/Artwork";
-import { JulStep } from "@/components/craft/CutStep";
-import { MOTIF_LIST, PEARL_LIST, motifCutFit, motifCutRoutes, type MotifId, type PearlId } from "@/lib/data";
-import { motifName, pearlName } from "@/lib/i18n";
+import CutStep from "@/components/craft/CutStep";
+import { MOTIFS, MOTIF_LIST, PEARL_LIST, motifCutFit, motifCutRoutes, type MotifId, type PearlId } from "@/lib/data";
+import { motifName, pearlName, t } from "@/lib/i18n";
 import { useSave } from "@/lib/store";
 
 const EXTRA: MotifId[] = ["cloudLine", "leaf"];
@@ -13,11 +13,13 @@ function Preview({ motif, pearl }: { motif: MotifId; pearl: PearlId }) {
   const lang = useSave((s) => s.lang);
   const fit = motifCutFit(motif);
   const routes = motifCutRoutes(motif);
+  const pref = MOTIFS[motif].cutting.preferredMethod;
   const xf = `translate(150 150) scale(${fit.scale}) translate(${-fit.ox} ${-fit.oy})`;
   return (
-    <figure data-cut-preview={motif} className="panel flex flex-col gap-2 p-2">
+    <figure data-cut-preview={motif} data-cut-method={pref ?? "none"} className="panel flex flex-col gap-2 p-2">
       <figcaption className="text-sm text-[var(--brown)]">
-        {motifName(lang, motif)} · {routes.length}
+        {motifName(lang, motif)} · {routes.length} · {pref ? t(lang, pref === "jul" ? "cut.jul" : "cut.kkeun") : t(lang, "cut.noPref")}
+        {MOTIFS[motif].cutting.guideMode === "outer-silhouette" ? " · 바깥선" : ""}
       </figcaption>
       <svg viewBox="0 0 300 300" className="aspect-square w-full">
         <rect width="300" height="300" fill="#1c1416" />
@@ -77,7 +79,15 @@ export default function CutGuideGallery() {
           ))}
         </div>
         {play ? (
-          <JulStep motif={play} pearl={pearl} onDone={() => setPlay(null)} onAbort={() => setPlay(null)} />
+          <CutStep
+            design={{
+              shape: "round",
+              lacquer: "black",
+              pearl,
+              pieces: [{ id: "cut-preview", motif: play, x: 150, y: 150, s: 1, r: 0, pearl }],
+            }}
+            onDone={() => setPlay(null)}
+          />
         ) : (
           <div className="grid grid-cols-1 gap-3">
             {ids.map((id) => (
