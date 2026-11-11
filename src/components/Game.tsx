@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import BreakLab from "@/components/craft/BreakLab";
 import CutGuideGallery from "@/components/craft/CutGuideGallery";
 import CraftFlow from "@/components/craft/CraftFlow";
 import BoardScreen from "@/components/screens/BoardScreen";
@@ -17,12 +18,14 @@ import { useSave, useUI } from "@/lib/store";
 export default function Game() {
   const [ready, setReady] = useState(false);
   const [cutDebug, setCutDebug] = useState(false);
+  const [breakDebug, setBreakDebug] = useState(false);
   const screen = useUI((s) => s.screen);
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "development") return;
     const query = new URLSearchParams(window.location.search);
     if (query.get("cutdebug") === "1") setCutDebug(true);
+    if (query.get("breakdebug") === "1") setBreakDebug(true);
   }, []);
 
   useEffect(() => {
@@ -73,6 +76,14 @@ export default function Game() {
         </div>
       </div>
     );
+
+  if (process.env.NODE_ENV === "development" && breakDebug) {
+    return (
+      <div className="app-frame">
+        <BreakLab />
+      </div>
+    );
+  }
 
   if (process.env.NODE_ENV === "development" && cutDebug) {
     return (

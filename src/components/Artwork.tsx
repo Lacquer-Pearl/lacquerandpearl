@@ -2,6 +2,7 @@
 
 import { useId } from "react";
 import { LACQUERS, MOTIFS, PEARLS, SHAPES, motifOutline, motifParts, type MotifId } from "@/lib/data";
+import { hasBrokenShape, pointsToPath } from "@/lib/cutFragments";
 import { piecePearl, type Design, type PlacedPiece } from "@/lib/game";
 import { NACRE_TILE, useNacreTexture } from "@/lib/nacre";
 
@@ -280,6 +281,138 @@ export function NacrePiece({
   );
 }
 
+function ClipMask({ id, points }: { id: string; points: { x: number; y: number }[] }) {
+  return (
+    <mask id={id} maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" x="-180" y="-180" width="360" height="360">
+      <path d={pointsToPath(points)} fill="#fff" fillRule="evenodd" />
+    </mask>
+  );
+}
+
+function SilhouetteMask({ id, motif }: { id: string; motif: MotifId }) {
+  const stamp = MOTIFS[motif].stamp;
+  if (stamp) {
+    return (
+      <mask id={id} maskUnits="userSpaceOnUse" mask-type="alpha" x={stamp.x - 2} y={stamp.y - 2} width={stamp.w + 4} height={stamp.h + 4}>
+        <image href={stamp.src} x={stamp.x} y={stamp.y} width={stamp.w} height={stamp.h} preserveAspectRatio="xMidYMid meet" />
+      </mask>
+    );
+  }
+  return (
+    <mask id={id} maskUnits="userSpaceOnUse" x="-90" y="-90" width="180" height="180">
+      <MotifSilhouette motif={motif} color="#fff" />
+    </mask>
+  );
+}
+
+function CrackInk({ motif, lines, prefix }: { motif: MotifId; lines: { x: number; y: number }[][]; prefix: string }) {
+  const drawn = lines.filter((line) => line.length > 1);
+  if (!drawn.length) return null;
+  return (
+    <g pointerEvents="none">
+      <SilhouetteMask id={`${prefix}-ink`} motif={motif} />
+      <g mask={`url(#${prefix}-ink)`}>
+        {drawn.map((line, index) => (
+          <polyline
+            key={index}
+            points={line.map((point) => `${point.x},${point.y}`).join(" ")}
+            fill="none"
+            stroke="#24140f"
+            strokeWidth="0.9"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ))}
+        {drawn.map((line, index) => (
+          <polyline
+            key={`edge-${index}`}
+            points={line.map((point) => `${point.x},${point.y}`).join(" ")}
+            fill="none"
+            stroke="#f4e4c4"
+            strokeOpacity="0.8"
+            strokeWidth="0.28"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ))}
+      </g>
+    </g>
+  );
+}
+
+/** 온전한 자개와, 균열 클립으로 나뉜 자개를 같은 텍스처로 그린다. */
+export function PieceGraphics({
+  piece,
+  fill,
+  mask,
+  light = 0,
+  s = 1,
+  dull = 0,
+  onPointerDown,
+  style,
+  clipPrefix,
+  selected = false,
+}: {
+  piece: PlacedPiece;
+  fill: string;
+  mask?: string;
+  light?: number;
+  s?: number;
+  dull?: number;
+  onPointerDown?: (e: React.PointerEvent) => void;
+  style?: React.CSSProperties;
+  clipPrefix: string;
+  selected?: boolean;
+}) {
+  const state = piece.breakState;
+  const cracks = state ? [state.crack, ...(state.extraCracks ?? [])] : [];
+  if (!hasBrokenShape(piece) || !state) {
+    return (
+      <g opacity={state?.condition === "scrapped" ? 0.5 : 1}>
+        <NacrePiece
+          motif={piece.motif}
+          fill={fill}
+          mask={mask}
+          light={light}
+          s={s}
+          dull={dull}
+          onPointerDown={onPointerDown}
+          style={style}
+        />
+        {state?.condition === "scrapped" && <CrackInk motif={piece.motif} lines={cracks} prefix={`${clipPrefix}-ruin`} />}
+        {selected && (
+          <path d={motifOutline(piece.motif)} fill="none" stroke="#e2c27a" strokeWidth={2 / s} strokeLinejoin="round" className="pointer-events-none" />
+        )}
+      </g>
+    );
+  }
+  return (
+    <>
+      {state.fragments.map((frag, index) => (
+        <g key={frag.id} transform={`translate(${frag.dx} ${frag.dy}) rotate(${frag.r})`}>
+          <ClipMask id={`${clipPrefix}-${frag.id}`} points={state.clips[index]} />
+          <g mask={`url(#${clipPrefix}-${frag.id})`}>
+            <NacrePiece
+              motif={piece.motif}
+              fill={fill}
+              mask={mask}
+              light={light}
+              s={s}
+              dull={dull}
+              onPointerDown={onPointerDown}
+              style={style}
+            />
+            <CrackInk motif={piece.motif} lines={cracks} prefix={`${clipPrefix}-${frag.id}`} />
+            {selected && (
+              <path d={motifOutline(piece.motif)} fill="none" stroke="#e2c27a" strokeWidth={2 / s} strokeLinejoin="round" className="pointer-events-none" />
+            )}
+          </g>
+        </g>
+      ))}
+    </>
+  );
+}
+
 export default function Artwork({
   design,
   surface = "lacquer",
@@ -332,11 +465,13 @@ export default function Artwork({
           <>
             <MotifMasks id={ids.cuts} motifs={list.map((p) => p.motif)} />
             <mask id={ids.pieceMask} maskUnits="userSpaceOnUse" x="0" y="0" width="300" height="300">
-              {list.map((p) => (
-                <g key={p.id} transform={pieceTransform(p)} mask={motifMask(ids.cuts, p.motif)}>
-                  <MotifSilhouette motif={p.motif} color="#fff" />
-                </g>
-              ))}
+              {list.map((p) =>
+                hasBrokenShape(p) ? null : (
+                  <g key={p.id} transform={pieceTransform(p)} mask={motifMask(ids.cuts, p.motif)}>
+                    <MotifSilhouette motif={p.motif} color="#fff" />
+                  </g>
+                ),
+              )}
             </mask>
           </>
         )}
@@ -434,26 +569,18 @@ export default function Artwork({
         {showPieces &&
           list.map((p) => (
             <g key={p.id} transform={pieceTransform(p)}>
-              <NacrePiece
-                motif={p.motif}
+              <PieceGraphics
+                piece={p}
                 fill={nacreFill(`${ids.nacre}-${piecePearl(p, design)}`, p.id)}
                 mask={motifMask(ids.cuts, p.motif)}
                 light={pieceLight(p)}
                 s={p.s}
                 dull={dull}
+                clipPrefix={`${ids.clip}-${p.id}`}
+                selected={selectedId === p.id || !!selectedIds?.includes(p.id)}
                 onPointerDown={onPiecePointerDown ? (e) => onPiecePointerDown(e, p) : undefined}
                 style={onPiecePointerDown ? { cursor: "grab" } : undefined}
               />
-              {(selectedId === p.id || selectedIds?.includes(p.id)) && (
-                <path
-                  d={motifOutline(p.motif)}
-                  fill="none"
-                  stroke="#e2c27a"
-                  strokeWidth={2 / p.s}
-                  strokeLinejoin="round"
-                  className="pointer-events-none"
-                />
-              )}
             </g>
           ))}
         {showPieces && list.length > 0 && (

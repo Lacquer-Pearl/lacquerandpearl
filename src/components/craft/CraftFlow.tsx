@@ -23,6 +23,7 @@ import {
 import { artworkTitle, lacquerName, stepName, t, tNode, type Locale } from "@/lib/i18n";
 import { sfx } from "@/lib/sound";
 import { clearCraftBoot, takeCraftBoot, useSave, useUI } from "@/lib/store";
+import type { PieceCutResult } from "@/lib/cutFragments";
 import AttachStep from "./AttachStep";
 import ClothStep from "./ClothStep";
 import CutStep from "./CutStep";
@@ -218,6 +219,7 @@ export default function CraftFlow() {
       : null,
   );
   const placedRef = useRef<PlacedPiece[]>(resumed.current?.placed ?? []);
+  const cutResultsRef = useRef<PieceCutResult[]>(resumed.current?.cutResults ?? []);
 
   const step = STEPS[stepIdx];
   const built: Design = { ...design, pieces: placed.length ? placed : design.pieces };
@@ -273,6 +275,14 @@ export default function CraftFlow() {
       else setStepIdx((i) => i + 1);
     }, 1500);
   }, [lang]);
+
+  const onCutDone = useCallback(
+    (score: number, results: PieceCutResult[]) => {
+      cutResultsRef.current = results;
+      onStepDone(score);
+    },
+    [onStepDone],
+  );
 
   const onAttachDone = useCallback(
     (score: number, p: PlacedPiece[]) => {
@@ -337,8 +347,10 @@ export default function CraftFlow() {
           />
         )}
         {step === "dry" && <DryStep design={design} onDone={onStepDone} />}
-        {step === "cut" && <CutStep design={design} onDone={onStepDone} />}
-        {step === "attach" && <AttachStep design={design} onDone={onAttachDone} />}
+        {step === "cut" && (
+          <CutStep design={design} saved={cutResultsRef.current} onPiece={(results) => (cutResultsRef.current = results)} onDone={onCutDone} />
+        )}
+        {step === "attach" && <AttachStep design={design} cuts={cutResultsRef.current} onDone={onAttachDone} />}
         {step === "iron" && (
           <PaintStep
             def={defs.iron}
@@ -400,6 +412,7 @@ export default function CraftFlow() {
                     stepIdx,
                     scores: { ...scores.current },
                     placed: placedRef.current,
+                    cutResults: cutResultsRef.current,
                     sandOver: sandStats.current?.over,
                     savedAt: Date.now(),
                   });

@@ -270,6 +270,29 @@ button.chip:active {
   transform: translateY(2px);
   box-shadow: none;
 }
+.help-dot {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 999px;
+  background: #fffdf8;
+  border: 1.5px solid var(--line-deep);
+  box-shadow: 0 2px 0 var(--line-deep);
+  color: var(--brown);
+  font-family: var(--font-title), serif;
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.help-dot:active:not(:disabled) {
+  box-shadow: none;
+}
+.help-dot:disabled {
+  opacity: 0.35;
+}
 .icon-slash {
   position: absolute;
   inset: 50% 6px auto;

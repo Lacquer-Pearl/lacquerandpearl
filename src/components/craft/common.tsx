@@ -33,17 +33,22 @@ export function StepHeader({
   title,
   icon,
   children,
+  trailing,
 }: {
   title: string;
   icon: UiIconId;
   children?: React.ReactNode;
+  trailing?: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <h2 className="step-title">
-        <UiIcon id={icon} />
-        {title}
-      </h2>
+      <div className="flex items-center gap-2">
+        <h2 className="step-title min-w-0 flex-1">
+          <UiIcon id={icon} />
+          {title}
+        </h2>
+        {trailing}
+      </div>
       {children && <MasterTip>{children}</MasterTip>}
     </div>
   );

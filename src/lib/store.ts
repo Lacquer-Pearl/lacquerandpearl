@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { CRAFT_COST, MATERIALS, MOTIF_LIST, PEARLS, type MaterialId, type MotifId, type PearlId } from "./data";
+import type { PieceCutResult } from "./cutFragments";
 import {
   addCommissions,
   pearlCost,
@@ -24,6 +25,8 @@ export interface CraftProgress {
   stepIdx: number;
   scores: StepScores;
   placed: PlacedPiece[];
+  /** 조각마다의 절단 결과. 없으면 예전 저장처럼 모두 온전하다. */
+  cutResults?: PieceCutResult[];
   sandOver?: number;
   savedAt: number;
 }
@@ -224,6 +227,7 @@ export const useSave = create<SaveState>()(
           craftProgress: p?.craftProgress
             ? {
                 ...p.craftProgress,
+                cutResults: Array.isArray(p.craftProgress.cutResults) ? p.craftProgress.cutResults : undefined,
                 commission: p.craftProgress.commission
                   ? {
                       ...p.craftProgress.commission,

@@ -11,6 +11,7 @@ import {
   type PearlId,
   type ShapeId,
 } from "./data";
+import type { PieceBreakState } from "./cutFragments";
 import { pickPatron, rememberNpcs, type Patron, type PatronRequest } from "./npcs";
 
 export interface PlacedPiece {
@@ -26,6 +27,8 @@ export interface PlacedPiece {
   flipX?: boolean;
   /** 자개 종류 (없으면 예전 작품처럼 design.pearl) */
   pearl?: PearlId;
+  /** 절단에서 갈라진 형태. 없으면 온전한 예전 조각. */
+  breakState?: PieceBreakState;
 }
 
 export interface Design {
@@ -144,15 +147,20 @@ export function mainPearl(design: Pick<Design, "pearl" | "pieces">): PearlId {
   return (Object.entries(counts) as [PearlId, number][]).sort((a, b) => b[1] - a[1])[0]?.[0] ?? design.pearl;
 }
 
-/** 자개 종류별 자르기 라운드: 등장 순서 + 그 종류에서 가장 많이 쓴 문양 */
-export function cutJobs(design: Design): { pearl: PearlId; motif: MotifId }[] {
-  if (!design.pieces.length) return [{ pearl: design.pearl, motif: "plum" }];
-  const jobs: { pearl: PearlId; motif: MotifId }[] = [];
-  for (const p of design.pieces) {
-    const pearl = piecePearl(p, design);
-    if (!jobs.some((j) => j.pearl === pearl && j.motif === p.motif)) jobs.push({ pearl, motif: p.motif });
-  }
-  return jobs;
+export interface CutJob {
+  pieceId: string;
+  pearl: PearlId;
+  motif: MotifId;
+}
+
+/** 문양 인스턴스마다 한 번씩. 같은 모란 세 개도 절단 결과가 따로다. */
+export function cutJobs(design: Design): CutJob[] {
+  if (!design.pieces.length) return [{ pieceId: "fallback", pearl: design.pearl, motif: "plum" }];
+  return design.pieces.map((p) => ({
+    pieceId: p.id,
+    pearl: piecePearl(p, design),
+    motif: p.motif,
+  }));
 }
 
 /** 패턴 단위를 이웃 조각의 격자에 맞춤. 맞출 이웃이 없거나 너무 멀면 그대로 */

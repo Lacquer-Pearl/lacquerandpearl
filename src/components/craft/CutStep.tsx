@@ -1,10 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { MotifMasks, NacreDefs, NacrePiece, SheenGradient, motifMask } from "@/components/Artwork";
+import { MotifMasks, NacreDefs, NacrePiece, PieceGraphics, SheenGradient, motifMask } from "@/components/Artwork";
 import { TOOL_TIP, ToolGraphic } from "@/components/Tools";
 import { Btn, Meter } from "@/components/ui";
-import { MOTIFS, PEARLS, motifCutFit, motifCutRoutes, type CuttingMethod, type MotifId, type PearlId } from "@/lib/data";
+import {
+  breakStateFrom,
+  evaluateBreak,
+  hashSeed,
+  intactResult,
+  pathToPolygons,
+  screenToMotif,
+  shellThickness,
+  type PieceCutResult,
+} from "@/lib/cutFragments";
+import { MOTIFS, motifCutFit, motifCutRoutes, motifLocalBox, type CuttingMethod, type MotifId, type PearlId } from "@/lib/data";
 import { cutJobs, type Design } from "@/lib/game";
 import { motifName, pearlName, t, tNode } from "@/lib/i18n";
 import { loopLevel, sfx, startLoop, stopLoop } from "@/lib/sound";
@@ -16,25 +26,57 @@ import { StepHeader } from "./common";
 type Method = "jul" | "kkeun" | "auto";
 type Choice = Method | "each";
 
-export default function CutStep({ design, onDone }: { design: Design; onDone: (score: number) => void }) {
+export default function CutStep({
+  design,
+  onDone,
+  saved,
+  onPiece,
+}: {
+  design: Design;
+  onDone: (score: number, results: PieceCutResult[]) => void;
+  saved?: PieceCutResult[];
+  onPiece?: (results: PieceCutResult[]) => void;
+}) {
   const lang = useSave((s) => s.lang);
   const jobs = useMemo(() => cutJobs(design), [design]);
+  const prior = useMemo(
+    () =>
+      jobs.flatMap((job) => {
+        const found = saved?.find((item) => item.pieceId === job.pieceId);
+        return found ? [found] : [];
+      }),
+    [jobs, saved],
+  );
   const [choice, setChoice] = useState<Choice | null>(null);
-  const [jobIdx, setJobIdx] = useState(0);
-  const scores = useRef<number[]>([]);
-  const job = jobs[Math.min(jobIdx, jobs.length - 1)];
+  const [jobIdx, setJobIdx] = useState(prior.length);
+  const scores = useRef<number[]>(prior.map((item) => item.cutScore));
+  const results = useRef<PieceCutResult[]>(prior);
+  const sent = useRef(false);
+  const job = jobs[Math.min(jobIdx, Math.max(0, jobs.length - 1))];
+
+  useEffect(() => {
+    if (!jobs.length || prior.length < jobs.length || sent.current) return;
+    sent.current = true;
+    const avg = prior.reduce((sum, item) => sum + item.cutScore, 0) / prior.length;
+    onDone(Math.round(avg), prior);
+  }, [jobs.length, onDone, prior]);
 
   const finishJob = useCallback(
-    (score: number) => {
+    (score: number, result?: PieceCutResult) => {
+      const current = jobs[scores.current.length];
+      if (!current || results.current.some((item) => item.pieceId === current.pieceId)) return;
+      const made = result ?? intactResult(current.pieceId, current.motif, score);
+      results.current.push({ ...made, pieceId: current.pieceId, motifId: current.motif, cutScore: score });
       scores.current.push(score);
+      onPiece?.(results.current);
       if (scores.current.length < jobs.length) {
         setJobIdx(scores.current.length);
         return;
       }
       const avg = scores.current.reduce((a, b) => a + b, 0) / scores.current.length;
-      onDone(Math.round(avg));
+      onDone(Math.round(avg), results.current);
     },
-    [jobs.length, onDone],
+    [jobs, onDone, onPiece],
   );
 
   const prefs = [...new Set(jobs.map((item) => MOTIFS[item.motif].cutting.preferredMethod))];
@@ -44,6 +86,8 @@ export default function CutStep({ design, onDone }: { design: Design; onDone: (s
   const openNames = [
     ...new Set(jobs.filter((item) => !MOTIFS[item.motif].cutting.preferredMethod).map((item) => motifName(lang, item.motif))),
   ];
+
+  if (jobs.length > 0 && prior.length >= jobs.length) return null;
 
   if (!choice)
     return (
@@ -125,6 +169,7 @@ export default function CutStep({ design, onDone }: { design: Design; onDone: (s
           key={`${jobIdx}-jul`}
           motif={job.motif}
           pearl={job.pearl}
+          pieceId={job.pieceId}
           onDone={finishJob}
           onAbort={() => setChoice(null)}
         />
@@ -201,16 +246,21 @@ type CutRoute = { id: string; d: string; pts: { x: number; y: number }[] };
 export function JulStep({
   motif,
   pearl,
+  pieceId,
   onDone,
   onAbort,
 }: {
   motif: MotifId;
   pearl: PearlId;
-  onDone: (s: number) => void;
+  pieceId: string;
+  onDone: (score: number, result: PieceCutResult) => void;
   onAbort: () => void;
 }) {
   const lang = useSave((s) => s.lang);
   const fit = useMemo(() => motifCutFit(motif), [motif]);
+  const bounds = useMemo(() => motifLocalBox(motif), [motif]);
+  const polygons = useMemo(() => motifCutRoutes(motif).flatMap((cut) => pathToPolygons(cut.d)), [motif]);
+  const thickness = MOTIFS[motif].kind === "pattern" ? shellThickness("pattern", false) : shellThickness(MOTIFS[motif].kind, !!MOTIFS[motif].stamp);
   const routes = useMemo<CutRoute[]>(
     () =>
       motifCutRoutes(motif)
@@ -231,6 +281,7 @@ export function JulStep({
   const [saw, setSaw] = useState<{ x: number; y: number } | null>(null);
   const [warn, setWarn] = useState<string | null>(null);
   const [shake, setShake] = useState(false);
+  const [breakFx, setBreakFx] = useState<null | { result: PieceCutResult; gap: number }>(null);
   /** 심각한 실수·부러짐으로 남은 톱질 잔상 */
   const [scars, setScars] = useState<{ points: { x: number; y: number }[]; kind: "skew" | "crack" }[]>([]);
   const [skewLive, setSkewLive] = useState<{ x: number; y: number }[]>([]);
@@ -248,12 +299,22 @@ export function JulStep({
     down: false,
     done: false,
     breaks: 0,
+    breaking: false,
+    waste: 0,
+    lastErr: 0,
   });
+  const pending = useRef<PieceCutResult | null>(null);
+  const timers = useRef<number[]>([]);
   const scarsRef = useRef(scars);
   const skewTrail = useRef<{ x: number; y: number }[]>([]);
-  const inventory = useSave((s) => s.inventory);
-  const pearlMat = PEARLS[pearl].material;
   const motifXf = `translate(150 150) scale(${fit.scale}) translate(${-fit.ox} ${-fit.oy})`;
+
+  useEffect(() => {
+    const pendingTimers = timers.current;
+    return () => {
+      for (const id of pendingTimers) window.clearTimeout(id);
+    };
+  }, []);
 
   const commitScar = (points: { x: number; y: number }[], kind: "skew" | "crack") => {
     if (points.length < 2) return;
@@ -278,47 +339,83 @@ export function JulStep({
     const s = st.current;
     if (s.done) return;
     s.done = true;
+    s.breaking = false;
     loopLevel(0);
     const avgErr = s.errN ? s.err / s.errN : 0;
-    const score = 100 - avgErr * 3.2 - s.breaks * 18 - Math.min(20, s.off * 0.15);
-    sfx.success();
-    onDone(Math.round(Math.max(10, Math.min(100, score))));
+    const score = Math.round(Math.max(10, Math.min(100, 100 - avgErr * 3.2 - s.breaks * 18 - Math.min(20, s.off * 0.15))));
+    if (pending.current?.condition === "scrapped") sfx.fail();
+    else sfx.success();
+    const result = pending.current
+      ? { ...pending.current, cutScore: score, shellWaste: s.waste }
+      : intactResult(pieceId, motif, score, s.waste);
+    onDone(score, result);
   };
 
   const crack = () => {
     const s = st.current;
-    // 부러지기 직전까지 오려낸 선 + 빗나간 톱질을 잔상으로 남김
+    if (s.done || s.breaking) return;
+    // 재고는 여기서 깎지 않는다. shellWaste 만 남기고, 자개패 구획이 나중에 한 번만 읽는다.
     for (let i = 0; i < s.route; i++) commitScar(routes[i]?.pts ?? [], "crack");
     if (s.phase === "saw") commitScar((routes[s.route]?.pts ?? []).slice(0, s.idx + 1), "crack");
     flushSkewTrail();
 
+    s.breaking = true;
     s.breaks++;
-    s.route = 0;
-    s.idx = 0;
-    s.phase = "saw";
-    s.stress = 0;
-    s.off = 0;
-    s.last = null;
+    s.waste++;
     setBreaks(s.breaks);
-    setRouteIdx(0);
-    setPhase("saw");
-    setIdx(0);
-    setStress(0);
+    const pts = routes[s.route]?.pts ?? [];
+    const at = pts[Math.min(pts.length - 1, Math.max(0, s.idx))] ?? { x: 150, y: 150 };
+    const prev = pts[Math.max(0, s.idx - 4)] ?? at;
+    const origin = screenToMotif(at, fit);
+    const before = screenToMotif(prev, fit);
+    const result = evaluateBreak({
+      pieceId,
+      motifId: motif,
+      polygons,
+      bounds,
+      origin,
+      direction: { x: origin.x - before.x, y: origin.y - before.y },
+      stress: s.stress,
+      error: s.lastErr,
+      thickness,
+      seed: hashSeed(`${pieceId}:${s.route}:${s.idx}:${Math.round(origin.x * 10)}:${Math.round(origin.y * 10)}`),
+      cutScore: 0,
+      shellWaste: s.waste,
+    });
     sfx.crack();
+    loopLevel(0);
     setShake(true);
-    setTimeout(() => setShake(false), 400);
+    timers.current.push(window.setTimeout(() => setShake(false), 400));
 
-    // 부러질 때마다 여분 자개 1조각을 낭비(소모)
-    const inv = { ...useSave.getState().inventory };
-    if (inv[pearlMat] > 0) {
-      inv[pearlMat] -= 1;
-      useSave.setState({ inventory: inv });
-      setWarn(t(lang, "cut.brokeNew", { left: inv[pearlMat] }));
-    } else {
-      setWarn(t(lang, "cut.brokeNeed"));
+    const reusable = result.condition === "reusable-broken";
+    if (reusable || s.breaks >= 3) {
+      pending.current = result;
+      setBreakFx({ result, gap: reusable ? 2.6 : 1.45 });
+      setWarn(t(lang, reusable ? "cut.reusable" : "cut.scrapped"));
+      timers.current.push(window.setTimeout(() => setBreakFx({ result, gap: 1 }), 420));
+      timers.current.push(window.setTimeout(() => finish(), 780));
+      return;
     }
-    setTimeout(() => setWarn(null), 2200);
-    if (s.breaks >= 3) finish();
+
+    setBreakFx({ result, gap: 1.7 });
+    setWarn(t(lang, "cut.recut"));
+    timers.current.push(
+      window.setTimeout(() => {
+        s.route = 0;
+        s.idx = 0;
+        s.phase = "saw";
+        s.stress = 0;
+        s.off = 0;
+        s.last = null;
+        s.breaking = false;
+        setBreakFx(null);
+        setWarn(null);
+        setRouteIdx(0);
+        setPhase("saw");
+        setIdx(0);
+        setStress(0);
+      }, 640),
+    );
   };
 
   const advance = (to: number, err: number, speed: number) => {
@@ -326,6 +423,7 @@ export function JulStep({
     if (s.done) return;
     s.err += err;
     s.errN++;
+    s.lastErr = err;
     // 빠른 톱질 + 선에서 살짝 빗나간 오차도 힘을 키움
     s.stress = Math.max(
       0,
@@ -386,10 +484,11 @@ export function JulStep({
 
   const onMove = (e: React.PointerEvent) => {
     const p = toLocal(e);
-    setSaw(p);
     const s = st.current;
+    if (s.breaking || s.done) return;
+    setSaw(p);
     const pts = routes[s.route]?.pts ?? [];
-    if (!s.down || s.done || pts.length === 0) return;
+    if (!s.down || pts.length === 0) return;
     if (s.phase === "hop") {
       enterRoute(p);
       return;
@@ -436,6 +535,7 @@ export function JulStep({
       }
     }
 
+    s.lastErr = bestD;
     if (s.stress > 1) {
       crack();
       return;
@@ -450,7 +550,7 @@ export function JulStep({
   const onWheel = (e: React.WheelEvent) => {
     const s = st.current;
     const pts = routes[s.route]?.pts ?? [];
-    if (s.done || s.phase === "hop" || pts.length === 0) return;
+    if (s.done || s.breaking || s.phase === "hop" || pts.length === 0) return;
     const now = performance.now();
     const dt = Math.max(8, now - s.lastT);
     s.lastT = now;
@@ -509,6 +609,7 @@ export function JulStep({
           className="aspect-square w-full"
           style={{ touchAction: "none" }}
           onPointerDown={(e) => {
+            if (st.current.breaking || st.current.done) return;
             e.currentTarget.setPointerCapture(e.pointerId);
             const p = toLocal(e);
             st.current.down = true;
@@ -535,14 +636,34 @@ export function JulStep({
             <MotifMasks id="cut-piece-mask" motifs={[motif]} />
           </defs>
           <g transform={motifXf} opacity="0.95">
-            {/* 실제로 오려낼 문양 — 스탬프/패턴도 판 크기에 맞춰 보임 */}
-            <NacrePiece
-              motif={motif}
-              fill="url(#cut-piece-nacre)"
-              mask={motifMask("cut-piece-mask", motif)}
-              light={0.15}
-            />
-            {routes.map((route, i) => (
+            {breakFx ? (
+              <PieceGraphics
+                piece={{
+                  id: pieceId,
+                  motif,
+                  x: 0,
+                  y: 0,
+                  s: 1,
+                  r: 0,
+                  pearl,
+                  breakState: {
+                    ...breakStateFrom(breakFx.result),
+                    fragments: breakFx.result.fragments.map((frag) => ({
+                      ...frag,
+                      dx: frag.dx * breakFx.gap,
+                      dy: frag.dy * breakFx.gap,
+                    })),
+                  },
+                }}
+                fill="url(#cut-piece-nacre)"
+                mask={motifMask("cut-piece-mask", motif)}
+                light={0.15}
+                clipPrefix={`cut-break-${pieceId}`}
+              />
+            ) : (
+              <NacrePiece motif={motif} fill="url(#cut-piece-nacre)" mask={motifMask("cut-piece-mask", motif)} light={0.15} />
+            )}
+            {!breakFx && routes.map((route, i) => (
               <path
                 key={route.id}
                 d={route.d}
@@ -649,7 +770,7 @@ export function JulStep({
           label={
             <>
               <span>{t(lang, "cut.force")}</span>
-              <span>{t(lang, "cut.breaks", { n: breaks, left: inventory[pearlMat] })}</span>
+              <span>{t(lang, "cut.breaks", { n: breaks })}</span>
             </>
           }
         />
