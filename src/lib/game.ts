@@ -12,6 +12,7 @@ import {
   type ShapeId,
 } from "./data";
 import type { PieceBreakState } from "./cutFragments";
+import type { ShellPlacement } from "./shellNest";
 import { pickPatron, rememberNpcs, type Patron, type PatronRequest } from "./npcs";
 
 export interface PlacedPiece {
@@ -125,7 +126,10 @@ export function turnPiece(r: number, dir: -1 | 1) {
   return (((Math.round(r / step) * step + dir * step) % 360) + 360) % 360;
 }
 
-/** 자개 종류별로 드는 조각 수 */
+/**
+ * 문양 개수로 환산한 예전 자개 수량. 재고 차감에는 쓰지 않는다.
+ * 실제 소비는 자개패 구획이 연 장수다.
+ */
 export function pearlCost(design: Pick<Design, "pearl" | "pieces">) {
   const sum: Partial<Record<PearlId, number>> = {};
   for (const p of design.pieces) {
@@ -151,15 +155,18 @@ export interface CutJob {
   pieceId: string;
   pearl: PearlId;
   motif: MotifId;
+  /** 자개패 위 절단 위치. 줄음질 화면 좌표와는 별개다. */
+  placement?: ShellPlacement;
 }
 
 /** 문양 인스턴스마다 한 번씩. 같은 모란 세 개도 절단 결과가 따로다. */
-export function cutJobs(design: Design): CutJob[] {
+export function cutJobs(design: Design, placements: ShellPlacement[] = []): CutJob[] {
   if (!design.pieces.length) return [{ pieceId: "fallback", pearl: design.pearl, motif: "plum" }];
   return design.pieces.map((p) => ({
     pieceId: p.id,
     pearl: piecePearl(p, design),
     motif: p.motif,
+    placement: placements.find((item) => item.pieceId === p.id),
   }));
 }
 

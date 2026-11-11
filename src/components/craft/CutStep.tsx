@@ -16,6 +16,7 @@ import {
 } from "@/lib/cutFragments";
 import { MOTIFS, motifCutFit, motifCutRoutes, motifLocalBox, type CuttingMethod, type MotifId, type PearlId } from "@/lib/data";
 import { cutJobs, type Design } from "@/lib/game";
+import type { ShellPlacement } from "@/lib/shellNest";
 import { motifName, pearlName, t, tNode } from "@/lib/i18n";
 import { loopLevel, sfx, startLoop, stopLoop } from "@/lib/sound";
 import { useSave } from "@/lib/store";
@@ -31,14 +32,18 @@ export default function CutStep({
   onDone,
   saved,
   onPiece,
+  placements = [],
+  onPieceCut,
 }: {
   design: Design;
   onDone: (score: number, results: PieceCutResult[]) => void;
   saved?: PieceCutResult[];
   onPiece?: (results: PieceCutResult[]) => void;
+  placements?: ShellPlacement[];
+  onPieceCut?: (pieceId: string) => void;
 }) {
   const lang = useSave((s) => s.lang);
-  const jobs = useMemo(() => cutJobs(design), [design]);
+  const jobs = useMemo(() => cutJobs(design, placements), [design, placements]);
   const prior = useMemo(
     () =>
       jobs.flatMap((job) => {
@@ -68,6 +73,7 @@ export default function CutStep({
       const made = result ?? intactResult(current.pieceId, current.motif, score);
       results.current.push({ ...made, pieceId: current.pieceId, motifId: current.motif, cutScore: score });
       scores.current.push(score);
+      if (current.pieceId !== "fallback") onPieceCut?.(current.pieceId);
       onPiece?.(results.current);
       if (scores.current.length < jobs.length) {
         setJobIdx(scores.current.length);
@@ -76,7 +82,7 @@ export default function CutStep({
       const avg = scores.current.reduce((a, b) => a + b, 0) / scores.current.length;
       onDone(Math.round(avg), results.current);
     },
-    [jobs, onDone, onPiece],
+    [jobs, onDone, onPiece, onPieceCut],
   );
 
   const prefs = [...new Set(jobs.map((item) => MOTIFS[item.motif].cutting.preferredMethod))];
@@ -95,6 +101,7 @@ export default function CutStep({
         <StepHeader title={t(lang, "cut.title")} icon="fretsaw">
           {tNode(lang, "cut.tip", { b: <b>{t(lang, "cut.tipB")}</b> })}
         </StepHeader>
+        {jobs.some((job) => job.placement) && <p className="panel py-2 text-sm text-[var(--brown)]">{t(lang, "cut.fromSheet")}</p>}
         {jobs.length > 1 && (
           <div className="panel py-2 text-center text-sm text-[var(--brown)]">
             {t(lang, "cut.round", {

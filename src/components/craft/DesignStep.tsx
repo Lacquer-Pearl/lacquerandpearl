@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Artwork from "@/components/Artwork";
 import UiIcon, { MATERIAL_ICONS } from "@/components/UiIcon";
 import { Btn, Coin } from "@/components/ui";
@@ -13,6 +13,7 @@ import {
   PATTERN_MOTIFS,
   PEARL_LIST,
   SHAPE_LIST,
+  type PearlId,
   SHAPE_MOTIFS,
   motifLocalBox,
   type MaterialId,
@@ -40,8 +41,10 @@ import {
   t,
 } from "@/lib/i18n";
 import { sfx } from "@/lib/sound";
+import { sheetUse, type ShellLedger, type ShellPlan } from "@/lib/shellNest";
 import { costFor, useSave } from "@/lib/store";
 import { StepHeader } from "./common";
+import NestStep from "./NestStep";
 
 const MAX_PIECES = 32;
 const MIN_S = 0.5;
@@ -75,18 +78,41 @@ function angleAt(cx: number, cy: number, x: number, y: number) {
   return (Math.atan2(y - cy, x - cx) * 180) / Math.PI;
 }
 
+function keepPlan(plan: ShellPlan, design: Design, ledger: ShellLedger): ShellPlan {
+  const pearlOf = new Map<string, PearlId>();
+  for (const sheet of ledger.sheets) pearlOf.set(sheet.id, sheet.pearl);
+  for (const sheet of plan.sheets) pearlOf.set(sheet.id, sheet.pearl);
+  const live = new Map(design.pieces.map((piece) => [piece.id, piece]));
+  const placements = plan.placements.filter((item) => {
+    const piece = live.get(item.pieceId);
+    return !!piece && piece.motif === item.motifId && piece.s === item.s && pearlOf.get(item.sheetId) === piecePearl(piece, design);
+  });
+  if (placements.length === plan.placements.length) return plan;
+  const used = new Set(placements.map((item) => item.sheetId));
+  return { ...plan, placements, sheets: plan.sheets.filter((sheet) => used.has(sheet.id)) };
+}
+
 export default function DesignStep({
   design,
   setDesign,
   commission,
+  ledger,
+  stock,
+  initialPlan,
   onStart,
 }: {
   design: Design;
   setDesign: (d: Design) => void;
   commission?: Commission;
-  onStart: () => void;
+  ledger: ShellLedger;
+  stock: Partial<Record<PearlId, number>>;
+  initialPlan?: ShellPlan;
+  onStart: (plan: ShellPlan) => { ok: true } | { ok: false; missing: PearlId };
 }) {
   const [selected, setSelectedIds] = useState<string[]>([]);
+  const [view, setView] = useState<"art" | "shell">("art");
+  const [plan, setPlan] = useState<ShellPlan>(initialPlan ?? { sheets: [], placements: [] });
+  const [shellMsg, setShellMsg] = useState<string | null>(null);
   const [marquee, setMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const drag = useRef<DragState | null>(null);
@@ -102,6 +128,19 @@ export default function DesignStep({
 
   const counts = countMotifs(design.pieces);
   const missing = missingFor(design);
+  const pieceKey = design.pieces.map((piece) => `${piece.id}:${piece.motif}:${piece.s}:${piecePearl(piece, design)}`).join("|");
+  useEffect(() => {
+    setPlan((prev) => keepPlan(prev, design, ledger));
+  }, [pieceKey, design, ledger]);
+  const opened = useMemo(() => sheetUse(plan, ledger), [plan, ledger]);
+  const usedTotal = Object.values(opened.used).reduce((sum, n) => sum + (n ?? 0), 0);
+  const nestLeft = design.pieces.filter((piece) => !plan.placements.some((item) => item.pieceId === piece.id)).length;
+  const short = PEARL_LIST.find((pearl) => (opened.fresh[pearl.id] ?? 0) > (stock[pearl.id] ?? 0));
+  const readyPlan = (): ShellPlan => {
+    const known = new Set(ledger.sheets.map((sheet) => sheet.id));
+    const used = new Set(plan.placements.map((item) => item.sheetId));
+    return { sheets: plan.sheets.filter((sheet) => used.has(sheet.id) && !known.has(sheet.id)), placements: plan.placements };
+  };
   const selPieces = design.pieces.filter((p) => selected.includes(p.id));
   const sel = selPieces.length === 1 ? selPieces[0] : undefined;
   const cost = costFor(design);
@@ -216,6 +255,33 @@ export default function DesignStep({
         </div>
       )}
 
+      <div className="grid grid-cols-2 gap-2">
+        <Btn variant={view === "art" ? "gold" : "cream"} onClick={() => setView("art")}>
+          {t(lang, "design.arrange")}
+        </Btn>
+        <Btn variant={view === "shell" ? "gold" : "cream"} disabled={design.pieces.length === 0} onClick={() => setView("shell")}>
+          {t(lang, "design.nestTab")}
+        </Btn>
+      </div>
+
+      {view === "shell" ? (
+        <NestStep
+          embedded
+          design={design}
+          ledger={ledger}
+          stock={stock}
+          initial={plan}
+          confirmLabel={t(lang, "design.nestDone")}
+          onChange={setPlan}
+          onConfirm={(next) => {
+            setPlan(next);
+            setView("art");
+            setShellMsg(null);
+            return { ok: true };
+          }}
+        />
+      ) : (
+        <>
       <div className="workbench sketch-paper">
         <svg
           ref={svgRef}
@@ -548,6 +614,8 @@ export default function DesignStep({
           </div>
         </div>
       </div>
+        </>
+      )}
 
       <div className="panel py-3">
         <div className="label">{t(lang, "design.materials")}</div>
@@ -570,17 +638,60 @@ export default function DesignStep({
               </button>
             </div>
           ))}
+          {design.pieces.length > 0 &&
+            [...new Set(design.pieces.map((piece) => piecePearl(piece, design)))].map((pearl) => {
+              const fresh = opened.fresh[pearl] ?? 0;
+              const owned = stock[pearl] ?? 0;
+              return (
+                <div key={pearl} className={`mat flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 ${fresh > owned ? "lack" : ""}`}>
+                  <span className="flex min-w-0 items-center gap-1">
+                    <NacreSwatch pearl={pearl} className="swatch shrink-0" />
+                    {pearlName(lang, pearl)}
+                  </span>
+                  <span className="text-xs leading-snug">
+                    {t(lang, "design.expected", { n: opened.used[pearl] ?? 0 })}
+                    {" · "}
+                    {t(lang, "design.fresh", { n: fresh })}
+                    {" · "}
+                    {t(lang, "design.owned", { n: owned })}
+                  </span>
+                </div>
+              );
+            })}
         </div>
+        <p className="mt-2 text-sm text-[var(--brown)]">{t(lang, "design.shellNote")}</p>
         {missing.length > 0 && <div className="mt-2 text-sm text-[var(--red)]">{t(lang, "design.lack")}</div>}
+        {nestLeft > 0 && design.pieces.length > 0 && <div className="mt-2 text-sm text-[var(--red)]">{t(lang, "design.needNest")}</div>}
+        {short && (
+          <div className="mt-2 text-sm text-[var(--red)]">
+            {t(lang, "design.shellShort", {
+              name: pearlName(lang, short.id),
+              n: (opened.fresh[short.id] ?? 0) - (stock[short.id] ?? 0),
+            })}
+          </div>
+        )}
+        {shellMsg && <div className="mt-2 text-sm text-[var(--red)]">{shellMsg}</div>}
       </div>
 
       <Btn
         variant="pink"
         size="lg"
-        disabled={design.pieces.length === 0 || missing.length > 0}
-        onClick={onStart}
+        disabled={design.pieces.length === 0 || missing.length > 0 || nestLeft > 0 || !!short}
+        onClick={() => {
+          const result = onStart(readyPlan());
+          if (!result.ok) {
+            sfx.fail();
+            setShellMsg(t(lang, "design.shellShort", { name: pearlName(lang, result.missing), n: 1 }));
+            return;
+          }
+          setShellMsg(null);
+        }}
       >
-        {design.pieces.length === 0 ? t(lang, "design.needMotif") : t(lang, "design.start")}
+        {design.pieces.length === 0
+          ? t(lang, "design.needMotif")
+          : nestLeft > 0
+            ? t(lang, "design.needNest")
+            : t(lang, "design.startSheets", { n: usedTotal })}
       </Btn>
     </div>
   );

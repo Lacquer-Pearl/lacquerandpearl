@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import BreakLab from "@/components/craft/BreakLab";
+import { NestLab } from "@/components/craft/NestStep";
 import CutGuideGallery from "@/components/craft/CutGuideGallery";
 import CraftFlow from "@/components/craft/CraftFlow";
 import BoardScreen from "@/components/screens/BoardScreen";
@@ -19,6 +20,7 @@ export default function Game() {
   const [ready, setReady] = useState(false);
   const [cutDebug, setCutDebug] = useState(false);
   const [breakDebug, setBreakDebug] = useState(false);
+  const [nestDebug, setNestDebug] = useState(false);
   const screen = useUI((s) => s.screen);
 
   useEffect(() => {
@@ -26,11 +28,16 @@ export default function Game() {
     const query = new URLSearchParams(window.location.search);
     if (query.get("cutdebug") === "1") setCutDebug(true);
     if (query.get("breakdebug") === "1") setBreakDebug(true);
+    if (query.get("nestdebug") === "1") setNestDebug(true);
   }, []);
 
   useEffect(() => {
+    const lab = new URLSearchParams(window.location.search);
+    const debugLab =
+      process.env.NODE_ENV === "development" &&
+      ["cutdebug", "breakdebug", "nestdebug"].some((key) => lab.get(key) === "1");
     void Promise.resolve(useSave.persist.rehydrate()).then(() => {
-      useSave.getState().ensureCommissions();
+      if (!debugLab) useSave.getState().ensureCommissions();
       setReady(true);
     });
     const unlock = () => unlockAudio();
@@ -76,6 +83,14 @@ export default function Game() {
         </div>
       </div>
     );
+
+  if (process.env.NODE_ENV === "development" && nestDebug) {
+    return (
+      <div className="app-frame">
+        <NestLab />
+      </div>
+    );
+  }
 
   if (process.env.NODE_ENV === "development" && breakDebug) {
     return (

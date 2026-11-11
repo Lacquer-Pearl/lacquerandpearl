@@ -731,12 +731,14 @@ button.chip:active {
   justify-content: space-between;
   gap: 2px;
   padding: 10px 12px 2px;
+  overflow-x: auto;
 }
 .step-dot {
   display: grid;
   place-items: center;
-  height: 30px;
-  width: 30px;
+  height: 26px;
+  width: 26px;
+  flex: none;
   border-radius: 999px;
   background: rgba(255, 236, 205, 0.1);
   border: 1px solid rgba(196, 156, 96, 0.35);

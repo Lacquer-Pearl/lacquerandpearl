@@ -6,13 +6,22 @@ import { CRAFT_COST, MATERIALS, MOTIF_LIST, PEARLS, type MaterialId, type MotifI
 import type { PieceCutResult } from "./cutFragments";
 import {
   addCommissions,
-  pearlCost,
   type Artwork,
   type Commission,
   type Design,
   type PlacedPiece,
   type StepScores,
 } from "./game";
+import {
+  commitNest,
+  emptyLedger,
+  markCut,
+  reconcileProgress,
+  sanitizeLedger,
+  type ShellLedger,
+  type ShellPlacement,
+  type ShellPlan,
+} from "./shellNest";
 import type { Locale } from "./i18n";
 import { rememberNpcs, sanitizePatron } from "./npcs";
 
@@ -27,6 +36,12 @@ export interface CraftProgress {
   placed: PlacedPiece[];
   /** 조각마다의 절단 결과. 없으면 예전 저장처럼 모두 온전하다. */
   cutResults?: PieceCutResult[];
+  /** 자개패 구획. 없으면 구획 단계가 생기기 전의 저장이다. */
+  shellPlan?: ShellPlan;
+  legacyPearlPaid?: boolean;
+  stepModel?: "design-nest";
+  /** 구획 단계에 있다가 확정하지 않고 나간 제작. 줄음질 전에 구획을 마친다. */
+  nestPending?: boolean;
   sandOver?: number;
   savedAt: number;
 }
@@ -56,6 +71,8 @@ interface SaveState {
   redeemedCoupons: string[];
   surveyClaimed: boolean;
   craftProgress: CraftProgress | null;
+  /** 열어 둔 자개패와 이미 잘라 낸 영역. 미사용 장수는 inventory 에 있다. */
+  shellLedger: ShellLedger;
   /** 최근에 등장한 의뢰인 id. 새 의뢰가 같은 사람을 바로 다시 뽑지 않게 한다. */
   npcRecent: string[];
 
@@ -65,7 +82,15 @@ interface SaveState {
   /** 설문 참여 보상 (1회) */
   claimSurveyReward: () => boolean;
   missingFor: (design: Pick<Design, "pearl" | "pieces">) => MaterialId[];
+  /** 백골·삼베·옻칠·아교만 차감한다. 자개패는 구획을 확정할 때 연다. */
   consumeFor: (design: Pick<Design, "pearl" | "pieces">) => boolean;
+  commitShellPlan: (
+    plan: ShellPlan,
+    polygonsFor: (placement: ShellPlacement) => { x: number; y: number }[][],
+    legacyPrepaid?: boolean,
+    ownedPieceIds?: string[],
+  ) => { ok: true } | { ok: false; missing: PearlId };
+  markShellCut: (pieceId: string) => void;
   ensureCommissions: () => void;
   refreshCommissions: () => void;
   finishArtwork: (art: Artwork, repGain: number) => void;
@@ -80,14 +105,28 @@ interface SaveState {
   resetSave: () => void;
 }
 
-/** 제작에 드는 재료 (자개는 조각마다 고른 종류별로) */
-export function costFor(design: Pick<Design, "pearl" | "pieces">) {
-  const cost: Partial<Record<MaterialId, number>> = { ...CRAFT_COST };
-  for (const [pl, n] of Object.entries(pearlCost(design)) as [PearlId, number][]) {
-    const pm = PEARLS[pl].material;
-    cost[pm] = (cost[pm] ?? 0) + n;
-  }
-  return cost;
+/** 제작을 시작할 때 바로 드는 재료. 자개패는 포함하지 않는다. */
+export function costFor(_design: Pick<Design, "pearl" | "pieces">) {
+  return { ...CRAFT_COST };
+}
+
+function pearlStock(inventory: Inventory): Partial<Record<PearlId, number>> {
+  return {
+    white: inventory.pearlWhite,
+    abalone: inventory.pearlAbalone,
+    black: inventory.pearlBlack,
+    paua: inventory.pearlPaua,
+  };
+}
+
+function applyPearlStock(inventory: Inventory, stock: Partial<Record<PearlId, number>>): Inventory {
+  return {
+    ...inventory,
+    pearlWhite: stock.white ?? inventory.pearlWhite,
+    pearlAbalone: stock.abalone ?? inventory.pearlAbalone,
+    pearlBlack: stock.black ?? inventory.pearlBlack,
+    pearlPaua: stock.paua ?? inventory.pearlPaua,
+  };
 }
 
 const initial = {
@@ -104,6 +143,7 @@ const initial = {
   redeemedCoupons: [] as string[],
   surveyClaimed: false,
   craftProgress: null as CraftProgress | null,
+  shellLedger: emptyLedger(),
   npcRecent: [] as string[],
 };
 
@@ -157,6 +197,22 @@ export const useSave = create<SaveState>()(
         set({ inventory: inv });
         return true;
       },
+
+      commitShellPlan: (plan, polygonsFor, legacyPrepaid, ownedPieceIds) => {
+        const result = commitNest({
+          stock: pearlStock(get().inventory),
+          ledger: get().shellLedger,
+          plan,
+          legacyPrepaid,
+          ownedPieceIds,
+          polygonsFor,
+        });
+        if (!result.ok) return result;
+        set({ inventory: applyPearlStock(get().inventory, result.stock), shellLedger: result.ledger });
+        return { ok: true };
+      },
+
+      markShellCut: (pieceId) => set({ shellLedger: markCut(get().shellLedger, pieceId) }),
 
       ensureCommissions: () => {
         const { commissions, reputation, npcRecent } = get();
@@ -225,7 +281,7 @@ export const useSave = create<SaveState>()(
           ...p,
           lang,
           craftProgress: p?.craftProgress
-            ? {
+            ? reconcileProgress({
                 ...p.craftProgress,
                 cutResults: Array.isArray(p.craftProgress.cutResults) ? p.craftProgress.cutResults : undefined,
                 commission: p.craftProgress.commission
@@ -234,8 +290,9 @@ export const useSave = create<SaveState>()(
                       patron: sanitizePatron(p.craftProgress.commission.patron),
                     }
                   : undefined,
-              }
+              })
             : null,
+          shellLedger: sanitizeLedger(p?.shellLedger),
           inventory: { ...START_INVENTORY, ...p?.inventory },
           commissions: (p?.commissions ?? current.commissions)
             .filter((c) => Object.keys(c.motifs).every((m) => listed.has(m as MotifId)))
@@ -267,6 +324,7 @@ export const useSave = create<SaveState>()(
         redeemedCoupons: s.redeemedCoupons,
         surveyClaimed: s.surveyClaimed,
         craftProgress: s.craftProgress,
+        shellLedger: s.shellLedger,
         npcRecent: s.npcRecent,
       }),
     },

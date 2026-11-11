@@ -24,7 +24,10 @@ import { artworkTitle, lacquerName, stepName, t, tNode, type Locale } from "@/li
 import { sfx } from "@/lib/sound";
 import { clearCraftBoot, takeCraftBoot, useSave, useUI } from "@/lib/store";
 import type { PieceCutResult } from "@/lib/cutFragments";
+import type { PearlId } from "@/lib/data";
+import type { ShellPlan } from "@/lib/shellNest";
 import AttachStep from "./AttachStep";
+import NestStep, { motifPolygons } from "./NestStep";
 import ClothStep from "./ClothStep";
 import CutStep from "./CutStep";
 import DesignStep from "./DesignStep";
@@ -191,6 +194,10 @@ export default function CraftFlow() {
   const go = useUI((s) => s.go);
   const showResult = useUI((s) => s.showResult);
   const consumeFor = useSave((s) => s.consumeFor);
+  const inventory = useSave((s) => s.inventory);
+  const shellLedger = useSave((s) => s.shellLedger);
+  const commitShellPlan = useSave((s) => s.commitShellPlan);
+  const markShellCut = useSave((s) => s.markShellCut);
   const finishArtwork = useSave((s) => s.finishArtwork);
   const saveCraftProgress = useSave((s) => s.saveCraftProgress);
   const clearCraftProgress = useSave((s) => s.clearCraftProgress);
@@ -209,6 +216,7 @@ export default function CraftFlow() {
   );
 
   const [stepIdx, setStepIdx] = useState(() => resumed.current?.stepIdx ?? 0);
+  const [nestPending, setNestPending] = useState(() => !!resumed.current?.nestPending);
   const [placed, setPlaced] = useState<PlacedPiece[]>(() => resumed.current?.placed ?? []);
   const [toast, setToast] = useState<{ score: number; label: string } | null>(null);
   const [confirmExit, setConfirmExit] = useState(false);
@@ -220,6 +228,14 @@ export default function CraftFlow() {
   );
   const placedRef = useRef<PlacedPiece[]>(resumed.current?.placed ?? []);
   const cutResultsRef = useRef<PieceCutResult[]>(resumed.current?.cutResults ?? []);
+  const planRef = useRef<ShellPlan | undefined>(resumed.current?.shellPlan);
+  const legacyPearl = useRef(!!resumed.current?.legacyPearlPaid);
+  const shellStock: Partial<Record<PearlId, number>> = {
+    white: inventory.pearlWhite,
+    abalone: inventory.pearlAbalone,
+    black: inventory.pearlBlack,
+    paua: inventory.pearlPaua,
+  };
 
   const step = STEPS[stepIdx];
   const built: Design = { ...design, pieces: placed.length ? placed : design.pieces };
@@ -326,13 +342,28 @@ export default function CraftFlow() {
             design={design}
             setDesign={setDraft}
             commission={commission}
-            onStart={() => {
-              if (!consumeFor(design)) return;
+            ledger={shellLedger}
+            stock={shellStock}
+            initialPlan={planRef.current}
+            onStart={(plan) => {
+              if (useSave.getState().missingFor(design).length) return { ok: false, missing: design.pearl };
+              const result = commitShellPlan(
+                plan,
+                (placement) => motifPolygons(placement.motifId),
+                false,
+                design.pieces.map((piece) => piece.id),
+              );
+              if (!result.ok) return result;
+              if (!consumeFor(design)) return { ok: false, missing: design.pearl };
               sfx.success();
               clearCraftBoot();
               clearCraftProgress();
+              planRef.current = { ...plan, confirmed: true };
+              legacyPearl.current = false;
+              setNestPending(false);
               setDraft(design);
               setStepIdx(1);
+              return { ok: true };
             }}
           />
         )}
@@ -347,8 +378,39 @@ export default function CraftFlow() {
           />
         )}
         {step === "dry" && <DryStep design={design} onDone={onStepDone} />}
-        {step === "cut" && (
-          <CutStep design={design} saved={cutResultsRef.current} onPiece={(results) => (cutResultsRef.current = results)} onDone={onCutDone} />
+        {step === "cut" && nestPending && (
+          <NestStep
+            design={design}
+            ledger={shellLedger}
+            stock={shellStock}
+            legacyPrepaid={legacyPearl.current}
+            initial={planRef.current}
+            onChange={(plan) => {
+              planRef.current = plan;
+            }}
+            onConfirm={(plan) => {
+              const result = commitShellPlan(
+                plan,
+                (placement) => motifPolygons(placement.motifId),
+                legacyPearl.current,
+                design.pieces.map((piece) => piece.id),
+              );
+              if (!result.ok) return result;
+              planRef.current = { ...plan, confirmed: true };
+              setNestPending(false);
+              return { ok: true };
+            }}
+          />
+        )}
+        {step === "cut" && !nestPending && (
+          <CutStep
+            design={design}
+            placements={planRef.current?.placements}
+            saved={cutResultsRef.current}
+            onPiece={(results) => (cutResultsRef.current = results)}
+            onPieceCut={markShellCut}
+            onDone={onCutDone}
+          />
         )}
         {step === "attach" && <AttachStep design={design} cuts={cutResultsRef.current} onDone={onAttachDone} />}
         {step === "iron" && (
@@ -413,6 +475,10 @@ export default function CraftFlow() {
                     scores: { ...scores.current },
                     placed: placedRef.current,
                     cutResults: cutResultsRef.current,
+                    shellPlan: planRef.current,
+                    legacyPearlPaid: legacyPearl.current,
+                    stepModel: "design-nest",
+                    nestPending,
                     sandOver: sandStats.current?.over,
                     savedAt: Date.now(),
                   });

@@ -1,7 +1,7 @@
 /**
  * 줄음질 파손 — 균열 생성, 마스크 분할, 접합 점수.
  * DOM 없이 문양 좌표에서만 계산한다. 재고는 건드리지 않는다.
- * shellWaste 는 기록일 뿐이고, 자개패 구획이 생기면 그 시스템이 shellWasteApplied 로 한 번만 소비한다.
+ * shellWaste 는 기록일 뿐이고 재고를 깎지 않는다. 자개패는 구획을 확정할 때 장 단위로 연다.
  */
 
 export type FragmentCondition = "intact" | "reusable-broken" | "scrapped";

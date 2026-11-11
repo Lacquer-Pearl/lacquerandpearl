@@ -9,7 +9,7 @@
     "lint": "eslint",
     "icons": "node scripts/make-icons.mjs",
     "motif-cuts": "node scripts/generate-motif-cuts.mjs",
-    "test": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/cut-fragments.test.mjs",
+    "test": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/cut-fragments.test.mjs scripts/shell-nest.test.mjs",
     "android": "npm run build && npx cap sync android",
     "android:open": "npx cap open android",
     "android:apk": "npm run android && cd android && ./gradlew assembleDebug",
