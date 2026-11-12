@@ -4,6 +4,8 @@
  * shellWaste 는 기록일 뿐이고 재고를 깎지 않는다. 자개패는 구획을 확정할 때 장 단위로 연다.
  */
 
+import type { ShellPlan } from "./shellNest";
+
 export type FragmentCondition = "intact" | "reusable-broken" | "scrapped";
 
 export interface CrackPoint {
@@ -41,12 +43,60 @@ export interface PieceCutResult {
   /** 조각과 같은 순서의 클립 다각형. 그리기와 저장이 이 좌표를 그대로 쓴다. */
   clips: CrackPoint[][];
   cutScore: number;
+  /** 처음 자른 점수. 재절단 뒤에도 바꾸지 않는다. */
+  firstCutScore?: number;
+  /** 이 문양에서 난 파손 횟수. */
+  breaks?: number;
+  /** 다시 잘라 만든 횟수. 처음 절단은 0이다. */
+  recuts?: number;
+  /** 재절단 때문에 새로 연 자개패 수. */
+  extraSheets?: number;
+  /** 교체된 이전 절단. 부착에는 쓰지 않는다. */
+  replaced?: PieceCutArchive[];
   /** 재고에 반영하지 않는다. */
   shellWaste: number;
   shellWasteApplied?: boolean;
   /** 불투명 면적 중 각 조각이 차지하는 비율. */
   sideShare: number[];
   splitReason: "intact" | "split" | "miss" | "sliver" | "shard" | "empty";
+}
+
+/** 재절단 점수. 재료를 잃는 것이 주된 손해라, 감점은 작게 두고 상한을 둔다. */
+export const RECUT_PENALTY = { per: 3, cap: 8 };
+
+export type PieceCutArchive = Omit<PieceCutResult, "replaced">;
+
+/** 다시 자른 뒤의 점수. 톱질 정확도가 남고, 재절단 감점은 상한까지만 빠진다. */
+export function scoreAfterRecut(sawScore: number, recuts: number) {
+  const times = Math.max(0, recuts);
+  const penalty = Math.min(RECUT_PENALTY.cap, times * RECUT_PENALTY.per);
+  return Math.max(10, Math.round(sawScore - penalty));
+}
+
+/** 새 절단이 이전 시도를 교체한다. 부착에 쓰는 결과는 새 절단뿐이다. */
+export function nextCutAttempt(prev: PieceCutResult, next: PieceCutResult, extraSheets = 0): PieceCutResult {
+  const recuts = (prev.recuts ?? 0) + 1;
+  const { replaced: older, ...archived } = prev;
+  return {
+    ...next,
+    firstCutScore: prev.firstCutScore ?? prev.cutScore,
+    breaks: (prev.breaks ?? 0) + (next.breaks ?? 0),
+    recuts,
+    extraSheets: (prev.extraSheets ?? 0) + Math.max(0, extraSheets),
+    cutScore: scoreAfterRecut(next.cutScore, recuts),
+    replaced: [...(older ?? []), archived],
+  };
+}
+
+/** 재절단이 끝나기 전의 제작. 새로고침 뒤 같은 구획을 복구하고, 재료를 다시 깎지 않는다. */
+export interface RecutSession {
+  pieceId: string;
+  pending: PieceCutResult;
+  mode: "choose" | "manual" | "auto" | "fresh" | "saw";
+  sealed: boolean;
+  draft?: ShellPlan;
+  /** 이번 재절단에 새로 연 장. 톱질이 끝나면 pending.extraSheets 로 옮긴다. */
+  openSheets: number;
 }
 
 export interface PieceBreakState {

@@ -87,6 +87,7 @@ export default function CutGuideGallery() {
               pieces: [{ id: "cut-preview", motif: play, x: 150, y: 150, s: 1, r: 0, pearl }],
             }}
             onDone={() => setPlay(null)}
+            onPause={() => setPlay(null)}
           />
         ) : (
           <div className="grid grid-cols-1 gap-3">

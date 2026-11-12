@@ -268,7 +268,12 @@ export interface AutoNestResult {
  * 큰 문양부터, 이미 열린 자개패의 빈자리를 먼저 쓰고, 없을 때만 새 장을 연다.
  * 고정된 배치는 옮기지 않는다. 최적해를 보장하지 않는다.
  */
-export function autoNest(pieces: NestPiece[], sheets: ShellSheet[], unopened: Partial<Record<ShellPearl, number>>): AutoNestResult {
+export function autoNest(
+  pieces: NestPiece[],
+  sheets: ShellSheet[],
+  unopened: Partial<Record<ShellPearl, number>>,
+  obstaclePolygons?: (placement: ShellPlacement) => CrackPoint[][],
+): AutoNestResult {
   const cutIds = new Set(sheets.flatMap((sheet) => sheet.cutPieceIds));
   const queue = pieces
     .filter((piece) => !piece.locked && !cutIds.has(piece.id))
@@ -282,7 +287,8 @@ export function autoNest(pieces: NestPiece[], sheets: ShellSheet[], unopened: Pa
   const opened: ShellSheet[] = [];
   const stock = { ...unopened };
   const polygons = new Map(pieces.map((piece) => [piece.id, piece.polygons]));
-  const polygonsFor = (placement: ShellPlacement) => polygons.get(placement.pieceId) ?? rectPoly(8, 8);
+  const polygonsFor = (placement: ShellPlacement) =>
+    polygons.get(placement.pieceId) ?? obstaclePolygons?.(placement) ?? rectPoly(8, 8);
   const occupied = new Map<string, Set<string>>();
   for (const sheet of working) occupied.set(sheet.id, occupiedKeys(sheet, polygonsFor));
 
@@ -333,6 +339,16 @@ export function autoNest(pieces: NestPiece[], sheets: ShellSheet[], unopened: Pa
     sheet.status = sheetStatus(sheet, polygonsFor);
   }
   return { sheets: working, placements: [...placed.values()], unplaced, opened };
+}
+
+/** 이미 열린 같은 종류의 자개패에 이 문양이 들어가는지. 새 장은 열지 않는다. */
+export function fitsWithoutNewSheet(
+  piece: NestPiece,
+  sheets: ShellSheet[],
+  obstaclePolygons?: (placement: ShellPlacement) => CrackPoint[][],
+) {
+  const same = sheets.filter((sheet) => sheet.pearl === piece.pearl);
+  return autoNest([piece], same, { [piece.pearl]: 0 }, obstaclePolygons).unplaced.length === 0;
 }
 
 export function sheetStatus(sheet: ShellSheet, polygonsFor: (placement: ShellPlacement) => CrackPoint[][]): ShellSheet["status"] {
@@ -445,6 +461,37 @@ export function releaseReservation(ledger: ShellLedger, pieceId: string): ShellL
     sheets: ledger.sheets.map((sheet) => {
       if (sheet.cutPieceIds.includes(pieceId)) return sheet;
       return { ...sheet, placements: sheet.placements.filter((item) => item.pieceId !== pieceId) };
+    }),
+  };
+}
+
+let sealNonce = 0;
+
+/**
+ * 이미 잘라 낸 자리를 그 문양의 현재 배치에서 떼어 영구 점유로 남긴다.
+ * 같은 문양을 다시 구획할 수 있고, 잘라 낸 영역은 되살아나지 않는다.
+ * 한 번 봉인된 뒤에는 같은 호출이 아무 것도 바꾸지 않는다.
+ */
+export function sealCut(ledger: ShellLedger, pieceId: string): ShellLedger {
+  const live = ledger.sheets.some(
+    (sheet) => sheet.placements.some((item) => item.pieceId === pieceId) || sheet.cutPieceIds.includes(pieceId),
+  );
+  if (!live) return ledger;
+  const spentId = `${pieceId}#${(++sealNonce).toString(36)}`;
+  return {
+    sheets: ledger.sheets.map((sheet) => {
+      const hasPlacement = sheet.placements.some((item) => item.pieceId === pieceId);
+      const hasCut = sheet.cutPieceIds.includes(pieceId);
+      if (!hasPlacement && !hasCut) return sheet;
+      const cutPieceIds = sheet.cutPieceIds.filter((id) => id !== pieceId);
+      cutPieceIds.push(spentId);
+      return {
+        ...sheet,
+        cutPieceIds,
+        placements: sheet.placements.map((item) =>
+          item.pieceId === pieceId ? { ...item, pieceId: spentId, locked: true } : item,
+        ),
+      };
     }),
   };
 }

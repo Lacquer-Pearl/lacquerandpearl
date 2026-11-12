@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { CRAFT_COST, MATERIALS, MOTIF_LIST, PEARLS, type MaterialId, type MotifId, type PearlId } from "./data";
-import type { PieceCutResult } from "./cutFragments";
+import type { PieceCutResult, RecutSession } from "./cutFragments";
 import {
   addCommissions,
   type Artwork,
@@ -17,6 +17,7 @@ import {
   emptyLedger,
   markCut,
   reconcileProgress,
+  sealCut,
   sanitizeLedger,
   type ShellLedger,
   type ShellPlacement,
@@ -42,6 +43,8 @@ export interface CraftProgress {
   stepModel?: "design-nest";
   /** 구획 단계에 있다가 확정하지 않고 나간 제작. 줄음질 전에 구획을 마친다. */
   nestPending?: boolean;
+  /** 파손 뒤 다시 자르는 중. 없으면 절단이 확정된 상태다. */
+  recutSession?: RecutSession;
   sandOver?: number;
   savedAt: number;
 }
@@ -91,6 +94,8 @@ interface SaveState {
     ownedPieceIds?: string[],
   ) => { ok: true } | { ok: false; missing: PearlId };
   markShellCut: (pieceId: string) => void;
+  /** 파손된 문양의 잘린 자리를 남기고, 그 문양만 다시 구획할 수 있게 한다. */
+  sealShellPiece: (pieceId: string) => void;
   ensureCommissions: () => void;
   refreshCommissions: () => void;
   finishArtwork: (art: Artwork, repGain: number) => void;
@@ -213,6 +218,8 @@ export const useSave = create<SaveState>()(
       },
 
       markShellCut: (pieceId) => set({ shellLedger: markCut(get().shellLedger, pieceId) }),
+
+      sealShellPiece: (pieceId) => set({ shellLedger: sealCut(get().shellLedger, pieceId) }),
 
       ensureCommissions: () => {
         const { commissions, reputation, npcRecent } = get();
@@ -338,6 +345,10 @@ let craftBoot: CraftProgress | null = null;
 
 export function takeCraftBoot() {
   return craftBoot;
+}
+
+export function setCraftBoot(progress: CraftProgress | null) {
+  craftBoot = progress;
 }
 
 export function clearCraftBoot() {

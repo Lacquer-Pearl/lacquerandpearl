@@ -22,8 +22,8 @@ import {
 } from "@/lib/game";
 import { artworkTitle, lacquerName, stepName, t, tNode, type Locale } from "@/lib/i18n";
 import { sfx } from "@/lib/sound";
-import { clearCraftBoot, takeCraftBoot, useSave, useUI } from "@/lib/store";
-import type { PieceCutResult } from "@/lib/cutFragments";
+import { clearCraftBoot, setCraftBoot, takeCraftBoot, useSave, useUI, type CraftProgress } from "@/lib/store";
+import type { PieceCutResult, RecutSession } from "@/lib/cutFragments";
 import type { PearlId } from "@/lib/data";
 import type { ShellPlan } from "@/lib/shellNest";
 import AttachStep from "./AttachStep";
@@ -198,6 +198,7 @@ export default function CraftFlow() {
   const shellLedger = useSave((s) => s.shellLedger);
   const commitShellPlan = useSave((s) => s.commitShellPlan);
   const markShellCut = useSave((s) => s.markShellCut);
+  const sealShellPiece = useSave((s) => s.sealShellPiece);
   const finishArtwork = useSave((s) => s.finishArtwork);
   const saveCraftProgress = useSave((s) => s.saveCraftProgress);
   const clearCraftProgress = useSave((s) => s.clearCraftProgress);
@@ -230,6 +231,7 @@ export default function CraftFlow() {
   const cutResultsRef = useRef<PieceCutResult[]>(resumed.current?.cutResults ?? []);
   const planRef = useRef<ShellPlan | undefined>(resumed.current?.shellPlan);
   const legacyPearl = useRef(!!resumed.current?.legacyPearlPaid);
+  const recutRef = useRef<RecutSession | null>(resumed.current?.recutSession ?? null);
   const shellStock: Partial<Record<PearlId, number>> = {
     white: inventory.pearlWhite,
     abalone: inventory.pearlAbalone,
@@ -238,6 +240,21 @@ export default function CraftFlow() {
   };
 
   const step = STEPS[stepIdx];
+  const progressNow = (session: RecutSession | null): CraftProgress => ({
+    design,
+    commission,
+    stepIdx,
+    scores: { ...scores.current },
+    placed: placedRef.current,
+    cutResults: cutResultsRef.current,
+    shellPlan: planRef.current,
+    legacyPearlPaid: legacyPearl.current,
+    stepModel: "design-nest",
+    nestPending,
+    recutSession: session ?? undefined,
+    sandOver: sandStats.current?.over,
+    savedAt: Date.now(),
+  });
   const built: Design = { ...design, pieces: placed.length ? placed : design.pieces };
   const defs = paintDefs(design, lang);
 
@@ -407,8 +424,48 @@ export default function CraftFlow() {
             design={design}
             placements={planRef.current?.placements}
             saved={cutResultsRef.current}
+            ledger={shellLedger}
+            stock={shellStock}
+            session={recutRef.current}
             onPiece={(results) => (cutResultsRef.current = results)}
             onPieceCut={markShellCut}
+            onSeal={(pieceId) => {
+              sealShellPiece(pieceId);
+              if (!planRef.current) return;
+              planRef.current = {
+                ...planRef.current,
+                placements: planRef.current.placements.filter((item) => item.pieceId !== pieceId),
+              };
+            }}
+            onSession={(next) => {
+              recutRef.current = next;
+              saveCraftProgress(progressNow(next));
+            }}
+            onCommitPlan={(plan, pieceId) => {
+              const result = commitShellPlan(plan, (placement) => motifPolygons(placement.motifId), false, [pieceId]);
+              if (!result.ok) return result;
+              const kept = (planRef.current?.placements ?? []).filter((item) => item.pieceId !== pieceId);
+              const known = new Set((planRef.current?.sheets ?? []).map((sheet) => sheet.id));
+              planRef.current = {
+                sheets: [...(planRef.current?.sheets ?? []), ...plan.sheets.filter((sheet) => !known.has(sheet.id))],
+                placements: [...kept, ...plan.placements.filter((item) => item.pieceId === pieceId)],
+                confirmed: true,
+              };
+              return { ok: true };
+            }}
+            onShop={() => {
+              const payload = progressNow(recutRef.current);
+              saveCraftProgress(payload);
+              setCraftBoot(payload);
+              setDraft(design);
+              go("shop");
+            }}
+            onPause={() => {
+              saveCraftProgress(progressNow(recutRef.current));
+              clearCraftBoot();
+              setDraft(undefined);
+              go("title");
+            }}
             onDone={onCutDone}
           />
         )}
@@ -468,20 +525,7 @@ export default function CraftFlow() {
               <Btn
                 variant="pink"
                 onClick={() => {
-                  saveCraftProgress({
-                    design,
-                    commission,
-                    stepIdx,
-                    scores: { ...scores.current },
-                    placed: placedRef.current,
-                    cutResults: cutResultsRef.current,
-                    shellPlan: planRef.current,
-                    legacyPearlPaid: legacyPearl.current,
-                    stepModel: "design-nest",
-                    nestPending,
-                    sandOver: sandStats.current?.over,
-                    savedAt: Date.now(),
-                  });
+                  saveCraftProgress(progressNow(recutRef.current));
                   clearCraftBoot();
                   setDraft(undefined);
                   go("title");

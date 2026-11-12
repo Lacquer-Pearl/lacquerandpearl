@@ -10,10 +10,12 @@ import {
   fragmentTarget,
   generateCrackRays,
   intactResult,
+  nextCutAttempt,
   pathToPolygons,
   pointInPolygon,
   polygonsFromPaths,
   readBreak,
+  scoreAfterRecut,
   scoreSeamJoin,
   unappliedShellWaste,
 } from "../src/lib/cutFragments.ts";
@@ -230,4 +232,46 @@ test("path polygons cover the turtle shell", () => {
   }
   assert.ok(maxX - minX > 40);
   assert.ok(pointInPolygon({ x: 0, y: 0 }, shell));
+});
+
+test("recut score follows the latest saw and stops stacking", () => {
+  assert.equal(scoreAfterRecut(90, 0), 90);
+  assert.equal(scoreAfterRecut(90, 1), 87);
+  assert.equal(scoreAfterRecut(90, 2), 84);
+  assert.equal(scoreAfterRecut(90, 5), 82);
+  assert.equal(scoreAfterRecut(12, 4), 10);
+});
+
+test("a replacement cut keeps history and does not leave the broken mask active", () => {
+  const broken = { ...intactResult("p", "plum", 40), condition: "scrapped", breaks: 3, firstCutScore: 40 };
+  const made = nextCutAttempt(broken, intactResult("p", "plum", 88), 0);
+  assert.equal(made.condition, "intact");
+  assert.equal(made.recuts, 1);
+  assert.equal(made.extraSheets, 0);
+  assert.equal(made.firstCutScore, 40);
+  assert.equal(made.breaks, 3);
+  assert.equal(made.cutScore, 85);
+  assert.equal(made.replaced.length, 1);
+  assert.equal(made.replaced[0].condition, "scrapped");
+  assert.equal(made.replaced[0].replaced, undefined);
+  const again = nextCutAttempt(made, { ...intactResult("p", "plum", 91), breaks: 1 }, 1);
+  assert.equal(again.recuts, 2);
+  assert.equal(again.extraSheets, 1);
+  assert.equal(again.firstCutScore, 40);
+  assert.equal(again.breaks, 4);
+  assert.equal(again.cutScore, 85);
+  assert.equal(again.replaced.length, 2);
+  assert.equal(again.condition, "intact");
+  const saved = JSON.parse(JSON.stringify({
+    pieceId: "p",
+    pending: made,
+    mode: "nest",
+    sealed: true,
+    openSheets: 1,
+    draft: { sheets: [{ id: "sheet-a" }], placements: [{ pieceId: "p", sheetId: "sheet-a", x: 40, y: 30 }] },
+  }));
+  assert.equal(saved.pending.condition, "intact");
+  assert.equal(saved.openSheets, 1);
+  assert.equal(saved.draft.placements[0].sheetId, "sheet-a");
+  assert.equal(saved.draft.placements[0].x, 40);
 });

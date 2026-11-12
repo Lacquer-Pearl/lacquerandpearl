@@ -3,12 +3,14 @@ import test from "node:test";
 import {
   autoNest,
   commitNest,
+  fitsWithoutNewSheet,
   makeSheet,
   markCut,
   placementFits,
   poseKeys,
   reconcileProgress,
   rectPoly,
+  sealCut,
   sheetUse,
   releaseReservation,
   restoreSave,
@@ -194,6 +196,107 @@ test("a saved plan restores the same placements", () => {
   assert.equal(copy.placements[0].x, plan.placements[0].x);
   assert.equal(copy.placements[1].sheetId, plan.placements[1].sheetId);
   assert.equal(copy.sheets[0].id, plan.sheets[0].id);
+});
+
+test("sealing a cut keeps the spent region and frees that motif to be nested again", () => {
+  const pieces = [piece("peony-a", 40, 40), piece("peony-b", 40, 40), piece("peony-c", 40, 40)];
+  const packed = autoNest(pieces, [], { white: 1 });
+  let ledger = { sheets: packed.opened.map((sheet) => ({ ...sheet, cutPieceIds: pieces.map((item) => item.id) })) };
+  const beforeB = ledger.sheets[0].placements.find((item) => item.pieceId === "peony-b");
+  const beforeC = ledger.sheets[0].placements.find((item) => item.pieceId === "peony-c");
+  ledger = sealCut(ledger, "peony-a");
+  const sheet = ledger.sheets[0];
+  assert.equal(sheet.placements.some((item) => item.pieceId === "peony-a"), false);
+  assert.equal(sheet.cutPieceIds.includes("peony-a"), false);
+  assert.equal(sheet.cutPieceIds.some((id) => id.startsWith("peony-a#")), true);
+  assert.equal(sheet.placements.find((item) => item.pieceId === "peony-b").x, beforeB.x);
+  assert.equal(sheet.placements.find((item) => item.pieceId === "peony-c").y, beforeC.y);
+  assert.equal(sealCut(ledger, "peony-a"), ledger);
+
+  const again = piece("peony-a", 36, 36);
+  assert.equal(fitsWithoutNewSheet(again, ledger.sheets, () => rectPoly(40, 40)), true);
+  const nested = autoNest([again], ledger.sheets, { white: 3 }, () => rectPoly(40, 40));
+  assert.equal(nested.unplaced.length, 0);
+  assert.equal(nested.opened.length, 0);
+  const committed = commitNest({
+    stock: { white: 5 },
+    ledger,
+    plan: { sheets: nested.opened, placements: nested.placements },
+    ownedPieceIds: ["peony-a"],
+    polygonsFor: () => rectPoly(40, 40),
+  });
+  assert.equal(committed.ok, true);
+  if (!committed.ok) return;
+  assert.equal(committed.stock.white, 5);
+  assert.equal(committed.charged.white, undefined);
+  const after = committed.ledger.sheets[0];
+  assert.equal(after.placements.filter((item) => item.pieceId === "peony-b").length, 1);
+  assert.equal(after.placements.filter((item) => item.pieceId === "peony-c").length, 1);
+  assert.equal(after.placements.filter((item) => item.pieceId === "peony-a").length, 1);
+  assert.equal(after.placements.find((item) => item.pieceId === "peony-b").x, beforeB.x);
+});
+
+test("a recut with no leftover opens one new sheet and a second confirm does not charge again", () => {
+  const sheet = makeSheet("white", "full");
+  const blocker = { pieceId: "block", motifId: "block", sheetId: sheet.id, x: 84, y: 56, r: 0, s: 1 };
+  const ledger = { sheets: [{ ...sheet, placements: [blocker], cutPieceIds: ["block"] }] };
+  const motif = piece("again", 80, 80);
+  const blockPoly = () => rectPoly(150, 100);
+  assert.equal(fitsWithoutNewSheet(motif, ledger.sheets, blockPoly), false);
+  const packed = autoNest([motif], ledger.sheets, { white: 2 }, blockPoly);
+  assert.equal(packed.opened.length, 1);
+  assert.equal(packed.unplaced.length, 0);
+  const first = commitNest({
+    stock: { white: 2 },
+    ledger,
+    plan: { sheets: packed.opened, placements: packed.placements },
+    ownedPieceIds: ["again"],
+    polygonsFor: blockPoly,
+  });
+  assert.equal(first.ok, true);
+  if (!first.ok) return;
+  assert.equal(first.stock.white, 1);
+  assert.equal(first.charged.white, 1);
+  const second = commitNest({
+    stock: first.stock,
+    ledger: first.ledger,
+    plan: { sheets: packed.opened, placements: packed.placements },
+    ownedPieceIds: ["again"],
+    polygonsFor: blockPoly,
+  });
+  assert.equal(second.ok, true);
+  if (!second.ok) return;
+  assert.equal(second.stock.white, 1);
+  assert.equal(second.charged.white, undefined);
+  const old = second.ledger.sheets.find((item) => item.id === "full");
+  assert.equal(old.placements.some((item) => item.pieceId === "block"), true);
+  assert.equal(second.ledger.sheets.length, 2);
+});
+
+test("no open room and no stock refuses a new sheet without inventing one", () => {
+  const sheet = makeSheet("white", "full");
+  const ledger = {
+    sheets: [
+      {
+        ...sheet,
+        placements: [{ pieceId: "block", motifId: "block", sheetId: sheet.id, x: 84, y: 56, r: 0, s: 1 }],
+        cutPieceIds: ["block"],
+      },
+    ],
+  };
+  const motif = piece("again", 80, 80);
+  const packed = autoNest([motif], ledger.sheets, { white: 0 }, () => rectPoly(150, 100));
+  assert.equal(packed.unplaced.length, 1);
+  assert.equal(packed.opened.length, 0);
+  const refused = commitNest({
+    stock: { white: 0 },
+    ledger,
+    plan: { sheets: [makeSheet("white", "would-be-new")], placements: [] },
+    polygonsFor: () => rectPoly(80, 80),
+  });
+  assert.equal(refused.ok, false);
+  if (refused.ok) return;
+  assert.equal(refused.missing, "white");
 });
 
 test("not enough stock leaves pieces unplaced and commit refuses the new sheet", () => {

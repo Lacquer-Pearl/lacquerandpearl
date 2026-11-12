@@ -138,7 +138,7 @@ export default function NestStep({
     ...placements.map((item) => item.pieceId),
     ...[...cutIds].filter((id) => design.pieces.some((piece) => piece.id === id)),
   ]);
-  const unplaced = design.pieces.filter((piece) => !placedIds.has(piece.id));
+  const unplaced = design.pieces.filter((piece) => !placedIds.has(piece.id) && !cutIds.has(piece.id));
   const waiting = unplaced.filter((piece) => piecePearl(piece, design) === pearl);
   const mineOnSheet = placements.filter((item) => item.sheetId === active?.id);
   const selectedPlacement = placements.find((item) => item.pieceId === selected);
@@ -238,7 +238,7 @@ export default function NestStep({
       const openDrafts = sheets.filter((sheet) => sheet.pearl === kind && !ledgerIds.has(sheet.id)).length;
       unopened[kind] = legacyPrepaid ? 6 : Math.max(0, (stock[kind] ?? 0) - openDrafts);
     }
-    const result = autoNest(nestPieces, base, unopened);
+    const result = autoNest(nestPieces, base, unopened, (placement) => motifPolygons(placement.motifId));
     remember();
     const editable = new Set(design.pieces.map((piece) => piece.id));
     setSheets(

@@ -9,14 +9,17 @@ import {
   evaluateBreak,
   hashSeed,
   intactResult,
+  nextCutAttempt,
   pathToPolygons,
   screenToMotif,
   shellThickness,
   type PieceCutResult,
+  type RecutSession,
 } from "@/lib/cutFragments";
 import { MOTIFS, motifCutFit, motifCutRoutes, motifLocalBox, type CuttingMethod, type MotifId, type PearlId } from "@/lib/data";
 import { cutJobs, type Design } from "@/lib/game";
-import type { ShellPlacement } from "@/lib/shellNest";
+import type { ShellLedger, ShellPlacement, ShellPlan } from "@/lib/shellNest";
+import RecutPanel from "./RecutPanel";
 import { motifName, pearlName, t, tNode } from "@/lib/i18n";
 import { loopLevel, sfx, startLoop, stopLoop } from "@/lib/sound";
 import { useSave } from "@/lib/store";
@@ -34,6 +37,14 @@ export default function CutStep({
   onPiece,
   placements = [],
   onPieceCut,
+  ledger = { sheets: [] },
+  stock = {},
+  session = null,
+  onSession,
+  onSeal,
+  onCommitPlan,
+  onShop,
+  onPause,
 }: {
   design: Design;
   onDone: (score: number, results: PieceCutResult[]) => void;
@@ -41,6 +52,14 @@ export default function CutStep({
   onPiece?: (results: PieceCutResult[]) => void;
   placements?: ShellPlacement[];
   onPieceCut?: (pieceId: string) => void;
+  ledger?: ShellLedger;
+  stock?: Partial<Record<PearlId, number>>;
+  session?: RecutSession | null;
+  onSession?: (session: RecutSession | null) => void;
+  onSeal?: (pieceId: string) => void;
+  onCommitPlan?: (plan: ShellPlan, pieceId: string) => { ok: true } | { ok: false; missing: PearlId };
+  onShop?: () => void;
+  onPause?: () => void;
 }) {
   const lang = useSave((s) => s.lang);
   const jobs = useMemo(() => cutJobs(design, placements), [design, placements]);
@@ -52,11 +71,33 @@ export default function CutStep({
       }),
     [jobs, saved],
   );
+  const [boot] = useState<RecutSession | null>(() => {
+    if (!session || prior.length >= jobs.length) return null;
+    const id = jobs[prior.length]?.pieceId;
+    return session.pieceId === id ? session : null;
+  });
   const [choice, setChoice] = useState<Choice | null>(null);
   const [jobIdx, setJobIdx] = useState(prior.length);
+  const [hold, setHold] = useState<PieceCutResult | null>(boot?.pending ?? null);
+  const [phase, setPhase] = useState<"saw" | "choose" | "nest">(() => {
+    if (!boot) return "saw";
+    if (boot.mode === "saw" || boot.mode === "choose") return boot.mode;
+    return "nest";
+  });
+  const [nestMode, setNestMode] = useState<"manual" | "auto" | "fresh">(
+    boot?.mode === "auto" || boot?.mode === "fresh" || boot?.mode === "manual" ? boot.mode : "manual",
+  );
+  const [draft, setDraft] = useState<ShellPlan | undefined>(boot?.draft);
+  const [attempt, setAttempt] = useState(0);
   const scores = useRef<number[]>(prior.map((item) => item.cutScore));
   const results = useRef<PieceCutResult[]>(prior);
   const sent = useRef(false);
+  const holdRef = useRef<PieceCutResult | null>(boot?.pending ?? null);
+  const extraRef = useRef(boot?.openSheets ?? 0);
+  const sealedRef = useRef(!!boot?.sealed);
+  const nestModeRef = useRef(nestMode);
+  holdRef.current = hold;
+  nestModeRef.current = nestMode;
   const job = jobs[Math.min(jobIdx, Math.max(0, jobs.length - 1))];
 
   useEffect(() => {
@@ -85,6 +126,74 @@ export default function CutStep({
     [jobs, onDone, onPiece, onPieceCut],
   );
 
+  const publish = useCallback(
+    (next: RecutSession | null) => {
+      onSession?.(next);
+    },
+    [onSession],
+  );
+
+  const reviewCut = useCallback(
+    (score: number, result: PieceCutResult) => {
+      const stamped = { ...result, cutScore: score, breaks: result.breaks ?? 0 };
+      const prev = holdRef.current;
+      if (stamped.condition === "intact" && !prev) return false;
+      const combined = prev
+        ? nextCutAttempt(prev, stamped, extraRef.current)
+        : { ...stamped, firstCutScore: score, recuts: 0, extraSheets: 0 };
+      extraRef.current = 0;
+      if (stamped.condition === "intact") {
+        finishJob(combined.cutScore, combined);
+        holdRef.current = null;
+        setHold(null);
+        setPhase("saw");
+        publish(null);
+        return true;
+      }
+      if (stamped.condition === "scrapped") {
+        onSeal?.(stamped.pieceId);
+        sealedRef.current = true;
+      }
+      holdRef.current = combined;
+      setHold(combined);
+      setPhase("choose");
+      publish({
+        pieceId: stamped.pieceId,
+        pending: combined,
+        mode: "choose",
+        sealed: sealedRef.current,
+        openSheets: 0,
+      });
+      return true;
+    },
+    [finishJob, onSeal, publish],
+  );
+
+  const commitRecut = useCallback(
+    (plan: ShellPlan) => {
+      const pieceId = holdRef.current?.pieceId;
+      if (!pieceId || !holdRef.current) return { ok: false as const, missing: design.pearl };
+      const known = new Set(ledger.sheets.map((sheet) => sheet.id));
+      const fresh = plan.sheets.filter((sheet) => !known.has(sheet.id)).length;
+      const result = onCommitPlan?.(plan, pieceId) ?? { ok: true as const };
+      if (!result.ok) return result;
+      extraRef.current += fresh;
+      setDraft(plan);
+      setPhase("saw");
+      setAttempt((value) => value + 1);
+      publish({
+        pieceId,
+        pending: holdRef.current,
+        mode: "saw",
+        sealed: true,
+        draft: plan,
+        openSheets: extraRef.current,
+      });
+      return { ok: true as const };
+    },
+    [design.pearl, ledger.sheets, onCommitPlan, publish],
+  );
+
   const prefs = [...new Set(jobs.map((item) => MOTIFS[item.motif].cutting.preferredMethod))];
   const known = prefs.filter((item): item is CuttingMethod => item != null);
   const allKnown = jobs.every((item) => MOTIFS[item.motif].cutting.preferredMethod);
@@ -95,7 +204,76 @@ export default function CutStep({
 
   if (jobs.length > 0 && prior.length >= jobs.length) return null;
 
-  if (!choice)
+  const recutPiece = hold ? design.pieces.find((item) => item.id === hold.pieceId) : undefined;
+  if (hold && phase !== "saw" && recutPiece) {
+    return (
+      <RecutPanel
+        design={design}
+        piece={recutPiece}
+        pending={hold}
+        ledger={ledger}
+        stock={stock}
+        mode={phase === "nest" ? nestMode : "choose"}
+        draft={draft}
+        onMode={(next) => {
+          if (next !== "manual" && next !== "auto" && next !== "fresh") {
+            setPhase("choose");
+            publish({
+              pieceId: recutPiece.id,
+              pending: hold,
+              mode: "choose",
+              sealed: sealedRef.current,
+              draft,
+              openSheets: extraRef.current,
+            });
+            return;
+          }
+          if (!sealedRef.current) {
+            onSeal?.(recutPiece.id);
+            sealedRef.current = true;
+          }
+          setNestMode(next);
+          setDraft(undefined);
+          setPhase("nest");
+          publish({
+            pieceId: recutPiece.id,
+            pending: hold,
+            mode: next,
+            sealed: true,
+            openSheets: extraRef.current,
+          });
+        }}
+        onDraft={(plan) => {
+          setDraft(plan);
+          publish({
+            pieceId: recutPiece.id,
+            pending: hold,
+            mode: nestModeRef.current,
+            sealed: sealedRef.current,
+            draft: plan,
+            openSheets: extraRef.current,
+          });
+        }}
+        onJoin={
+          hold.condition === "reusable-broken"
+            ? () => {
+                finishJob(hold.cutScore, hold);
+                holdRef.current = null;
+                setHold(null);
+                setPhase("saw");
+                publish(null);
+              }
+            : undefined
+        }
+        onCommit={commitRecut}
+        onShop={onShop}
+        onPause={onPause}
+      />
+    );
+  }
+
+  const recutSaw = !!hold && phase === "saw";
+  if (!choice && !recutSaw)
     return (
       <div className="flex flex-col gap-3">
         <StepHeader title={t(lang, "cut.title")} icon="fretsaw">
@@ -153,8 +331,11 @@ export default function CutStep({
       </div>
     );
 
-  const method: Method | null =
-    choice === "each" ? (MOTIFS[job.motif].cutting.preferredMethod ?? null) : choice;
+  const method: Method | null = recutSaw
+    ? "jul"
+    : choice === "each"
+      ? (MOTIFS[job.motif].cutting.preferredMethod ?? null)
+      : choice;
 
   const roundBanner =
     jobs.length > 1 ? (
@@ -173,11 +354,12 @@ export default function CutStep({
       <div className="flex flex-col gap-3">
         {roundBanner}
         <JulStep
-          key={`${jobIdx}-jul`}
+          key={`${job.pieceId}-${attempt}`}
           motif={job.motif}
           pearl={job.pearl}
           pieceId={job.pieceId}
           onDone={finishJob}
+          onReview={reviewCut}
           onAbort={() => setChoice(null)}
         />
       </div>
@@ -255,12 +437,14 @@ export function JulStep({
   pearl,
   pieceId,
   onDone,
+  onReview,
   onAbort,
 }: {
   motif: MotifId;
   pearl: PearlId;
   pieceId: string;
   onDone: (score: number, result: PieceCutResult) => void;
+  onReview?: (score: number, result: PieceCutResult) => boolean;
   onAbort: () => void;
 }) {
   const lang = useSave((s) => s.lang);
@@ -353,15 +537,16 @@ export function JulStep({
     if (pending.current?.condition === "scrapped") sfx.fail();
     else sfx.success();
     const result = pending.current
-      ? { ...pending.current, cutScore: score, shellWaste: s.waste }
-      : intactResult(pieceId, motif, score, s.waste);
+      ? { ...pending.current, cutScore: score, shellWaste: s.waste, breaks: s.breaks }
+      : { ...intactResult(pieceId, motif, score, s.waste), breaks: s.breaks };
+    if (onReview?.(score, result)) return;
     onDone(score, result);
   };
 
   const crack = () => {
     const s = st.current;
     if (s.done || s.breaking) return;
-    // 재고는 여기서 깎지 않는다. shellWaste 만 남기고, 자개패 구획이 나중에 한 번만 읽는다.
+    // 재고는 여기서 깎지 않는다. 이어 붙일 수 있으면 자개패를 더 쓰지 않고, 못 쓰는 파손만 재절단한다.
     for (let i = 0; i < s.route; i++) commitScar(routes[i]?.pts ?? [], "crack");
     if (s.phase === "saw") commitScar((routes[s.route]?.pts ?? []).slice(0, s.idx + 1), "crack");
     flushSkewTrail();
