@@ -20,6 +20,7 @@ import { sfx } from "@/lib/sound";
 import { useSave } from "@/lib/store";
 import AttachBreakGuide from "./AttachBreakGuide";
 import { StepHeader } from "./common";
+import { claimCraftPointer, isForeignCraftPointer, releaseCraftPointer, useBlockCraftScroll } from "./craftTouch";
 
 const SNAP = 30;
 const GLUE_MS = 7000;
@@ -78,6 +79,9 @@ export default function AttachStep({
   const [heldPose, setHeldPose] = useState<FragmentPose | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const benchRef = useRef<HTMLDivElement>(null);
+  const gesture = useRef<number | null>(null);
+  useBlockCraftScroll(benchRef);
   const glueStart = useRef(0);
   const scores = useRef<number[]>([]);
   const regluePenalty = useRef(0);
@@ -218,15 +222,26 @@ export default function AttachStep({
         {tNode(lang, "attach.tip", { b: <b>{t(lang, "attach.tipB")}</b> })}
       </StepHeader>
       <div
-        className="workbench relative"
-        style={{ touchAction: "none" }}
-        onPointerMove={(e) => drag && setDrag(toLocal(e))}
+        ref={benchRef}
+        className="workbench craft-touch-area relative"
+        onPointerMove={(e) => {
+          if (!drag || isForeignCraftPointer(e, gesture)) return;
+          setDrag(toLocal(e));
+        }}
         onPointerUp={(e) => {
+          if (!releaseCraftPointer(e, gesture)) return;
           if (!drag) return;
           drop(toLocal(e));
           setDrag(null);
         }}
-        onPointerCancel={() => setDrag(null)}
+        onPointerCancel={(e) => {
+          if (!releaseCraftPointer(e, gesture)) return;
+          setDrag(null);
+        }}
+        onLostPointerCapture={(e) => {
+          if (!releaseCraftPointer(e, gesture)) return;
+          setDrag(null);
+        }}
       >
         <div ref={wrapRef} className="relative aspect-square w-full">
           <Artwork
@@ -305,8 +320,7 @@ export default function AttachStep({
           <div
             className={`tray-piece ${glue > 0 ? "glued" : ""}`}
             onPointerDown={(e) => {
-              if (!piece || task?.kind === "scrap") return;
-              e.currentTarget.parentElement?.parentElement?.setPointerCapture(e.pointerId);
+              if (!piece || task?.kind === "scrap" || !claimCraftPointer(e, gesture, benchRef.current)) return;
               sfx.pop();
               setDrag(toLocal(e));
             }}

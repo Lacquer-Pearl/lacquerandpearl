@@ -435,6 +435,34 @@ button.chip:active {
   letter-spacing: 0.02em;
 }
 
+/* 공예 작업 영역. 페이지 전체에는 쓰지 않는다. */
+.craft-touch-area,
+.craft-touch-area * {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.craft-touch-area {
+  overscroll-behavior: contain;
+  -webkit-user-drag: none;
+}
+.craft-touch-area img,
+.craft-touch-area canvas,
+.craft-touch-area .pointer-events-none,
+.craft-touch-area .pointer-events-none * {
+  pointer-events: none;
+  -webkit-user-drag: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+svg.craft-touch-area {
+  pointer-events: all;
+}
+svg.craft-touch-area * {
+  pointer-events: none;
+}
+
 /* 공방 작업대: 호두나무 */
 .workbench {
   border-radius: 20px;

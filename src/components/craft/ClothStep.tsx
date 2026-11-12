@@ -9,6 +9,7 @@ import { t, tNode } from "@/lib/i18n";
 import { loopLevel, sfx, startLoop, stopLoop } from "@/lib/sound";
 import { useSave } from "@/lib/store";
 import { StepHeader } from "./common";
+import { claimCraftPointer, isForeignCraftPointer, releaseCraftPointer, useBlockCraftScroll } from "./craftTouch";
 
 const N = 50;
 const CELL = 300 / N;
@@ -119,6 +120,8 @@ export default function ClothStep({ design, onDone }: { design: Design; onDone: 
   const [done, setDone] = useState(false);
   const act = useRef<Active | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const gesture = useRef<number | null>(null);
+  useBlockCraftScroll(svgRef);
   const stats = useMemo(() => coverage(strips, mask), [strips, mask]);
   const ready = stats.covered >= 0.5;
 
@@ -156,11 +159,9 @@ export default function ClothStep({ design, onDone }: { design: Design; onDone: 
         <svg
           ref={svgRef}
           viewBox="0 0 300 300"
-          className="aspect-square w-full select-none"
-          style={{ touchAction: "none" }}
+          className="craft-touch-area aspect-square w-full"
           onPointerDown={(e) => {
-            if (done) return;
-            e.currentTarget.setPointerCapture(e.pointerId);
+            if (done || !claimCraftPointer(e, gesture)) return;
             const p = toLocal(e);
             const a: Active = { x: p.x, y: p.y, a: null, len: 0, creases: [], wrinkle: 0, lastX: p.x, lastY: p.y };
             act.current = a;
@@ -168,6 +169,7 @@ export default function ClothStep({ design, onDone }: { design: Design; onDone: 
             sfx.tick();
           }}
           onPointerMove={(e) => {
+            if (isForeignCraftPointer(e, gesture)) return;
             const a = act.current;
             if (!a) return;
             const p = toLocal(e);
@@ -195,8 +197,18 @@ export default function ClothStep({ design, onDone }: { design: Design; onDone: 
             }
             setActive({ ...a, creases: [...a.creases] });
           }}
-          onPointerUp={finishStrip}
-          onPointerCancel={finishStrip}
+          onPointerUp={(e) => {
+            if (!releaseCraftPointer(e, gesture)) return;
+            finishStrip();
+          }}
+          onPointerCancel={(e) => {
+            if (!releaseCraftPointer(e, gesture)) return;
+            finishStrip();
+          }}
+          onLostPointerCapture={(e) => {
+            if (!releaseCraftPointer(e, gesture)) return;
+            finishStrip();
+          }}
         >
           <defs>
             <pattern id="hemp-weave" width="5" height="5" patternUnits="userSpaceOnUse">

@@ -9,6 +9,7 @@ import { t, tNode } from "@/lib/i18n";
 import { loopLevel, sfx, startLoop, stopLoop } from "@/lib/sound";
 import { useSave } from "@/lib/store";
 import { StepHeader } from "./common";
+import { claimCraftPointer, isForeignCraftPointer, releaseCraftPointer, useBlockCraftScroll } from "./craftTouch";
 
 export default function PeelStep({ design, onDone }: { design: Design; onDone: (score: number) => void }) {
   const lang = useSave((s) => s.lang);
@@ -18,6 +19,9 @@ export default function PeelStep({ design, onDone }: { design: Design; onDone: (
   const [msg, setMsg] = useState<string | null>(null);
   const [shake, setShake] = useState(false);
   const st = useRef({ down: false, lastY: 0, lastT: 0, p: 0, lifts: 0, cooldown: 0, done: false, speed: 0 });
+  const surfaceRef = useRef<HTMLDivElement>(null);
+  const gesture = useRef<number | null>(null);
+  useBlockCraftScroll(surfaceRef);
   const [speed, setSpeed] = useState(0);
   const limit = wet ? 1.1 : 0.55;
 
@@ -29,7 +33,7 @@ export default function PeelStep({ design, onDone }: { design: Design; onDone: (
 
   const onMove = (e: React.PointerEvent) => {
     const s = st.current;
-    if (!s.down || s.done) return;
+    if (isForeignCraftPointer(e, gesture) || !s.down || s.done) return;
     const r = e.currentTarget.getBoundingClientRect();
     const y = ((e.clientY - r.top) / r.height) * 300;
     const now = performance.now();
@@ -75,25 +79,34 @@ export default function PeelStep({ design, onDone }: { design: Design; onDone: (
       </StepHeader>
       <div className={`workbench relative ${shake ? "shake" : ""}`}>
         <div
-          className="relative aspect-square w-full"
-          style={{ touchAction: "none" }}
+          ref={surfaceRef}
+          className="craft-touch-area relative aspect-square w-full"
           onPointerDown={(e) => {
-            e.currentTarget.setPointerCapture(e.pointerId);
+            if (!claimCraftPointer(e, gesture)) return;
             const r = e.currentTarget.getBoundingClientRect();
             st.current.down = true;
             st.current.lastY = ((e.clientY - r.top) / r.height) * 300;
             st.current.lastT = performance.now();
           }}
           onPointerMove={onMove}
-          onPointerUp={() => {
+          onPointerUp={(e) => {
+            if (!releaseCraftPointer(e, gesture)) return;
             st.current.down = false;
             st.current.speed = 0;
             setSpeed(0);
             loopLevel(0);
           }}
-          onPointerCancel={() => (st.current.down = false)}
+          onPointerCancel={(e) => {
+            if (!releaseCraftPointer(e, gesture)) return;
+            st.current.down = false;
+          }}
+          onLostPointerCapture={(e) => {
+            if (!releaseCraftPointer(e, gesture)) return;
+            st.current.down = false;
+            loopLevel(0);
+          }}
         >
-          <Artwork design={design} className="absolute inset-0 h-full w-full" gloss={0.2} />
+          <Artwork design={design} className="pointer-events-none absolute inset-0 h-full w-full" gloss={0.2} />
           <svg viewBox="0 0 300 300" className="pointer-events-none absolute inset-0 h-full w-full">
             <defs>
               <clipPath id="peel-clip">

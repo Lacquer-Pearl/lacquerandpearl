@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { SHAPES, type ShapeId } from "@/lib/data";
 import { loopLevel, startLoop, stopLoop } from "@/lib/sound";
 import { ToolCursor, type ToolId } from "@/components/Tools";
+import { claimCraftPointer, isForeignCraftPointer, releaseCraftPointer, useBlockCraftScroll } from "./craftTouch";
 
 export interface PaintStats {
   /** 조금이라도 작업된 칸 비율 */
@@ -100,6 +101,7 @@ export default function PaintCanvas({
   inkRef,
   ink = 1,
   onInk,
+  forceDebug = false,
 }: {
   shape: ShapeId;
   config: PaintConfig;
@@ -111,6 +113,8 @@ export default function PaintCanvas({
   inkRef?: React.RefObject<number>;
   ink?: number;
   onInk?: (ink: number) => void;
+  /** 개발용 포인터 기록. 프로덕션 빌드에서는 보이지 않는다. */
+  forceDebug?: boolean;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<HTMLCanvasElement>(null);
@@ -124,8 +128,13 @@ export default function PaintCanvas({
   const raf = useRef(0);
   const dripFrame = useRef(0);
   const velocity = useRef(0);
-  const down = useRef(false);
+  const gesture = useRef<number | null>(null);
+  const recapture = useRef(0);
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
+  const [debug, setDebug] = useState(forceDebug);
+  const debugRef = useRef(forceDebug);
+  const lastMoveLog = useRef(0);
+  const [trace, setTrace] = useState<{ t: string; id: number; note: string }[]>([]);
   const cfgRef = useRef(config);
   const statsRef = useRef(onStats);
   const inkCb = useRef(onInk);
@@ -142,6 +151,18 @@ export default function PaintCanvas({
     cfgRef.current = config;
     statsRef.current = onStats;
     inkCb.current = onInk;
+    debugRef.current = debug;
+  });
+
+  useEffect(() => {
+    if (forceDebug || process.env.NODE_ENV !== "development") return;
+    const query = new URLSearchParams(window.location.search);
+    if (query.get("paintdebug") === "1") setDebug(true);
+  }, [forceDebug]);
+
+  useBlockCraftScroll(wrapRef, () => {
+    if (!debugRef.current) return;
+    setTrace((rows) => [...rows.slice(-14), { t: "touchmove", id: -1, note: "취소 불가. 브라우저가 스크롤로 가져감" }]);
   });
 
   useEffect(() => {
@@ -405,12 +426,31 @@ export default function PaintCanvas({
     });
   }
 
-  function toLocal(e: React.PointerEvent) {
-    const rect = wrapRef.current!.getBoundingClientRect();
+  function pointOf(clientX: number, clientY: number) {
+    const rect = wrapRef.current?.getBoundingClientRect();
+    const width = rect?.width || 1;
+    const height = rect?.height || 1;
     return {
-      x: ((e.clientX - rect.left) / rect.width) * 300,
-      y: ((e.clientY - rect.top) / rect.height) * 300,
+      x: ((clientX - (rect?.left ?? 0)) / width) * 300,
+      y: ((clientY - (rect?.top ?? 0)) / height) * 300,
     };
+  }
+
+  function logPointer(e: React.PointerEvent, note = "") {
+    if (!debugRef.current) return;
+    if (e.type === "pointermove" && performance.now() - lastMoveLog.current < 120) return;
+    if (e.type === "pointermove") lastMoveLog.current = performance.now();
+    setTrace((rows) => [...rows.slice(-14), { t: e.type, id: e.pointerId, note }]);
+  }
+
+  function stopStroke(e: React.PointerEvent) {
+    if (!releaseCraftPointer(e, gesture)) return false;
+    recapture.current = 0;
+    last.current = null;
+    velocity.current = 0;
+    endPress();
+    loopLevel(0);
+    return true;
   }
 
   function stroke(p: { x: number; y: number }) {
@@ -434,14 +474,6 @@ export default function PaintCanvas({
     report();
   }
 
-  function end() {
-    down.current = false;
-    last.current = null;
-    velocity.current = 0;
-    endPress();
-    loopLevel(0);
-  }
-
   const stamp = config.mode === "stamp";
   const toolAt = pressed ?? cursor;
   const brushColor =
@@ -449,16 +481,18 @@ export default function PaintCanvas({
   const pct = (v: number) => `${(v / 300) * 100}%`;
 
   return (
+    <>
     <div
       ref={wrapRef}
-      className="relative aspect-square w-full select-none"
-      style={{ touchAction: "none" }}
+      data-paint-canvas="1"
+      className="craft-touch-area relative aspect-square w-full"
       onPointerDown={(e) => {
-        if (disabled) return;
-        e.currentTarget.setPointerCapture(e.pointerId);
-        down.current = true;
+        const ignored = gesture.current != null;
+        logPointer(e, ignored ? "다른 손가락이라 무시" : "");
+        if (disabled || !claimCraftPointer(e, gesture)) return;
+        recapture.current = 0;
         last.current = null;
-        const p = toLocal(e);
+        const p = pointOf(e.clientX, e.clientY);
         setCursor(p);
         if (stamp) {
           startPress(p);
@@ -468,20 +502,62 @@ export default function PaintCanvas({
         report();
       }}
       onPointerMove={(e) => {
-        const p = toLocal(e);
+        if (isForeignCraftPointer(e, gesture)) return;
+        const native = e.nativeEvent;
+        const coalesced = typeof native.getCoalescedEvents === "function" ? native.getCoalescedEvents() : [];
+        const samples = coalesced.length ? coalesced : [native];
+        logPointer(e, samples.length > 1 ? `중간 점 ${samples.length}` : "");
+        if (gesture.current == null) {
+          setCursor(pointOf(e.clientX, e.clientY));
+          return;
+        }
+        if (disabled || stamp) {
+          setCursor(pointOf(samples[samples.length - 1].clientX, samples[samples.length - 1].clientY));
+          return;
+        }
+        let p = pointOf(e.clientX, e.clientY);
+        for (const sample of samples) {
+          p = pointOf(sample.clientX, sample.clientY);
+          stroke(p);
+        }
         setCursor(p);
-        if (down.current && !disabled && !stamp) stroke(p);
       }}
-      onPointerUp={end}
-      onPointerCancel={end}
-      onPointerLeave={() => {
+      onPointerUp={(e) => {
+        logPointer(e, gesture.current != null && gesture.current !== e.pointerId ? "다른 손가락이라 붓질 유지" : "");
+        stopStroke(e);
+      }}
+      onPointerCancel={(e) => {
+        logPointer(e, gesture.current != null && gesture.current !== e.pointerId ? "다른 손가락이라 붓질 유지" : "브라우저가 터치를 취소함");
+        stopStroke(e);
+      }}
+      onLostPointerCapture={(e) => {
+        if (e.pointerId !== gesture.current) {
+          logPointer(e, "");
+          return;
+        }
+        if (e.buttons > 0 && recapture.current < 1) {
+          recapture.current += 1;
+          try {
+            e.currentTarget.setPointerCapture(e.pointerId);
+            logPointer(e, "캡처가 풀려 다시 잡음");
+            return;
+          } catch {
+            logPointer(e, "캡처를 다시 잡지 못함");
+          }
+        } else {
+          logPointer(e, e.buttons > 0 ? "손가락이 눌린 채 캡처가 풀림" : "캡처 종료");
+        }
+        stopStroke(e);
+      }}
+      onPointerLeave={(e) => {
+        logPointer(e, gesture.current === e.pointerId ? "영역 밖이지만 붓질 유지" : "");
+        if (gesture.current != null) return;
         setCursor(null);
-        end();
       }}
     >
-      <div className="absolute inset-0">{background}</div>
-      <canvas ref={layerRef} className="absolute inset-0 h-full w-full" />
-      <canvas ref={overRef} className="absolute inset-0 h-full w-full" />
+      <div className="pointer-events-none absolute inset-0">{background}</div>
+      <canvas ref={layerRef} className="pointer-events-none absolute inset-0 h-full w-full" />
+      <canvas ref={overRef} className="pointer-events-none absolute inset-0 h-full w-full" />
       {foreground && <div className="pointer-events-none absolute inset-0">{foreground}</div>}
       {stamp && cursor && !pressed && !disabled && (
         <div
@@ -511,6 +587,61 @@ export default function PaintCanvas({
       {toolAt && !disabled && (
         <ToolCursor tool={config.tool} color={brushColor} x={pct(toolAt.x)} y={pct(toolAt.y)} />
       )}
+    </div>
+    {process.env.NODE_ENV === "development" && (
+      <div className="mt-2 flex flex-col gap-2">
+        <button type="button" className="self-end text-xs text-[var(--cream)] underline" onClick={() => setDebug((on) => !on)}>
+          {debug ? "터치 기록 숨기기" : "터치 기록"}
+        </button>
+        {debug && (
+          <ol data-paint-trace="1" className="panel max-h-40 overflow-y-auto py-2 text-xs text-[var(--brown)]">
+            {trace.length === 0 && <li>아직 포인터 이벤트가 없습니다.</li>}
+            {trace.map((row, index) => (
+              <li key={`${row.t}-${row.id}-${index}`}>
+                {row.t} #{row.id}
+                {row.note ? ` · ${row.note}` : ""}
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+    )}
+    </>
+  );
+}
+
+/** 개발용. 저장을 건드리지 않고 옻칠 터치만 확인한다. */
+export function PaintLab() {
+  return (
+    <div className="screen" data-paint-lab="1">
+      <div className="screen-body flex flex-col gap-3">
+        <div className="workbench">
+          <PaintCanvas
+            shape="round"
+            forceDebug
+            onStats={() => undefined}
+            background={<div className="h-full w-full bg-[#f3ead8]" />}
+            config={{
+              brushRadius: 22,
+              passAmount: 0.6,
+              range: [0.8, 1.9],
+              over: 2.5,
+              opaqueAt: 0.9,
+              mode: "paint",
+              color: "#1a120e",
+              overColor: "#1a120e",
+              overStyle: "drip",
+              sound: "brush",
+              tool: "brush",
+              inkDecay: 0.9887,
+            }}
+          />
+        </div>
+        <div className="panel py-3 text-sm text-[var(--brown)]">
+          이 칸 밖을 끌면 화면이 스크롤됩니다. 위 작업 칸을 끌면 스크롤되지 않아야 합니다.
+        </div>
+        <div className="h-[70vh]" />
+      </div>
     </div>
   );
 }

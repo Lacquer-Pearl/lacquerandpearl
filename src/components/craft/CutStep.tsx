@@ -26,6 +26,7 @@ import { useSave } from "@/lib/store";
 import MotifIcon from "@/components/MotifIcon";
 import UiIcon from "@/components/UiIcon";
 import { StepHeader } from "./common";
+import { claimCraftPointer, isForeignCraftPointer, releaseCraftPointer, useBlockCraftScroll } from "./craftTouch";
 
 type Method = "jul" | "kkeun" | "auto";
 type Choice = Method | "each";
@@ -477,6 +478,8 @@ export function JulStep({
   const [scars, setScars] = useState<{ points: { x: number; y: number }[]; kind: "skew" | "crack" }[]>([]);
   const [skewLive, setSkewLive] = useState<{ x: number; y: number }[]>([]);
   const svgRef = useRef<SVGSVGElement>(null);
+  const gesture = useRef<number | null>(null);
+  useBlockCraftScroll(svgRef);
   const st = useRef({
     route: 0,
     idx: 0,
@@ -798,28 +801,40 @@ export function JulStep({
         <svg
           ref={svgRef}
           viewBox="0 0 300 300"
-          className="aspect-square w-full"
-          style={{ touchAction: "none" }}
+          className="craft-touch-area aspect-square w-full"
           onPointerDown={(e) => {
-            if (st.current.breaking || st.current.done) return;
-            e.currentTarget.setPointerCapture(e.pointerId);
+            if (st.current.breaking || st.current.done || !claimCraftPointer(e, gesture)) return;
             const p = toLocal(e);
             st.current.down = true;
             st.current.last = p;
             st.current.lastT = performance.now();
             if (st.current.phase === "hop") enterRoute(p);
           }}
-          onPointerMove={onMove}
-          onPointerUp={() => {
+          onPointerMove={(e) => {
+            if (isForeignCraftPointer(e, gesture)) return;
+            onMove(e);
+          }}
+          onPointerUp={(e) => {
+            if (!releaseCraftPointer(e, gesture)) return;
             st.current.down = false;
             flushSkewTrail();
             loopLevel(0);
           }}
-          onPointerCancel={() => {
+          onPointerCancel={(e) => {
+            if (!releaseCraftPointer(e, gesture)) return;
             st.current.down = false;
             flushSkewTrail();
           }}
-          onPointerLeave={() => setSaw(null)}
+          onLostPointerCapture={(e) => {
+            if (!releaseCraftPointer(e, gesture)) return;
+            st.current.down = false;
+            flushSkewTrail();
+            loopLevel(0);
+          }}
+          onPointerLeave={() => {
+            if (st.current.down) return;
+            setSaw(null);
+          }}
           onWheel={onWheel}
         >
           <ShellSheet pearl={pearl} />
