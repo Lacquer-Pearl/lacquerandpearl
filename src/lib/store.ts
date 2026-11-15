@@ -15,6 +15,7 @@ import {
 import {
   commitNest,
   emptyLedger,
+  largeKey,
   markCut,
   reconcileProgress,
   sealCut,
@@ -22,6 +23,7 @@ import {
   type ShellLedger,
   type ShellPlacement,
   type ShellPlan,
+  type ShellStock,
 } from "./shellNest";
 import type { Locale } from "./i18n";
 import { rememberNpcs, sanitizePatron } from "./npcs";
@@ -58,6 +60,10 @@ const START_INVENTORY: Inventory = {
   pearlAbalone: 3,
   pearlBlack: 2,
   pearlPaua: 2,
+  pearlWhiteLarge: 0,
+  pearlAbaloneLarge: 0,
+  pearlBlackLarge: 0,
+  pearlPauaLarge: 0,
 };
 
 interface SaveState {
@@ -80,6 +86,8 @@ interface SaveState {
   npcRecent: string[];
 
   buy: (id: MaterialId) => boolean;
+  /** 엽전을 낸다. 모자라면 false */
+  payCoins: (amount: number) => boolean;
   /** "ok" | "used" | "invalid" */
   redeemCoupon: (code: string) => "ok" | "used" | "invalid";
   /** 설문 참여 보상 (1회) */
@@ -92,7 +100,7 @@ interface SaveState {
     polygonsFor: (placement: ShellPlacement) => { x: number; y: number }[][],
     legacyPrepaid?: boolean,
     ownedPieceIds?: string[],
-  ) => { ok: true } | { ok: false; missing: PearlId };
+  ) => { ok: true } | { ok: false; missing: PearlId; large?: boolean };
   markShellCut: (pieceId: string) => void;
   /** 파손된 문양의 잘린 자리를 남기고, 그 문양만 다시 구획할 수 있게 한다. */
   sealShellPiece: (pieceId: string) => void;
@@ -115,23 +123,23 @@ export function costFor(_design: Pick<Design, "pearl" | "pieces">) {
   return { ...CRAFT_COST };
 }
 
-function pearlStock(inventory: Inventory): Partial<Record<PearlId, number>> {
-  return {
-    white: inventory.pearlWhite,
-    abalone: inventory.pearlAbalone,
-    black: inventory.pearlBlack,
-    paua: inventory.pearlPaua,
-  };
+/** 미개봉 자개패 재고. 보통 자개패는 진주 종류 키, 대형은 `:large` 키에 담는다. */
+export function pearlStock(inventory: Inventory): ShellStock {
+  const stock: ShellStock = {};
+  for (const pearl of Object.values(PEARLS)) {
+    stock[pearl.id] = inventory[pearl.material] ?? 0;
+    stock[largeKey(pearl.id)] = inventory[pearl.largeMaterial] ?? 0;
+  }
+  return stock;
 }
 
-function applyPearlStock(inventory: Inventory, stock: Partial<Record<PearlId, number>>): Inventory {
-  return {
-    ...inventory,
-    pearlWhite: stock.white ?? inventory.pearlWhite,
-    pearlAbalone: stock.abalone ?? inventory.pearlAbalone,
-    pearlBlack: stock.black ?? inventory.pearlBlack,
-    pearlPaua: stock.paua ?? inventory.pearlPaua,
-  };
+function applyPearlStock(inventory: Inventory, stock: ShellStock): Inventory {
+  const next = { ...inventory };
+  for (const pearl of Object.values(PEARLS)) {
+    next[pearl.material] = stock[pearl.id] ?? inventory[pearl.material];
+    next[pearl.largeMaterial] = stock[largeKey(pearl.id)] ?? inventory[pearl.largeMaterial];
+  }
+  return next;
 }
 
 const initial = {
@@ -157,6 +165,8 @@ const COUPONS: Record<string, number> = {
 };
 
 const SURVEY_REWARD = 100;
+/** 기계 가공 한 조각 값 */
+export const MACHINE_CUT_COST = 10;
 
 export const useSave = create<SaveState>()(
   persist(
@@ -168,6 +178,13 @@ export const useSave = create<SaveState>()(
         const { money, inventory } = get();
         if (money < m.price) return false;
         set({ money: money - m.price, inventory: { ...inventory, [id]: inventory[id] + m.pack } });
+        return true;
+      },
+
+      payCoins: (amount) => {
+        const { money } = get();
+        if (money < amount) return false;
+        set({ money: money - amount });
         return true;
       },
 

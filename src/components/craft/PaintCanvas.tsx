@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { SHAPES, type ShapeId } from "@/lib/data";
 import { loopLevel, startLoop, stopLoop } from "@/lib/sound";
-import { ToolCursor, type ToolId } from "@/components/Tools";
-import { claimCraftPointer, isForeignCraftPointer, releaseCraftPointer, useBlockCraftScroll } from "./craftTouch";
+import { ToolCursor, WorkPoint, type ToolId } from "@/components/Tools";
+import { claimCraftPointer, isForeignCraftPointer, releaseCraftPointer, toolLift, useBlockCraftScroll } from "./craftTouch";
 
 export interface PaintStats {
   /** 조금이라도 작업된 칸 비율 */
@@ -39,6 +39,8 @@ export interface PaintConfig {
   stampRate?: number;
   /** stamp: 덜 붙음 · 잘 붙음 · 탐 */
   stampLabels?: [string, string, string];
+  /** 도구 끝(작업점)을 손가락 위로 띄워 손에 가리지 않게 한다 */
+  lift?: boolean;
 }
 
 /** 0 = 덜 됨, 1 = 알맞음, 2 = 지나침 */
@@ -49,6 +51,12 @@ function stageOf(v: number, cfg: PaintConfig) {
 const N = 50;
 const CELL = 300 / N;
 const RES = 2;
+/** stamp를 누른 채 이만큼(작품 좌표) 넘게 움직이면 미끄러진 것으로 본다 */
+const SLIDE_MIN = 0.8;
+/** 미끄러진 거리 중 자개가 따라 밀리는 비율 */
+const SLIDE_PUSH = 0.6;
+/** 작업하지 않는 칸은 종이를 더 두껍게 덮어 둔다 */
+const OFF_REGION: [number, number, number, number] = [236, 226, 206, 0.86];
 
 /** 삼베 대신 한지·유산지처럼 보이는 종이 질감 */
 function makeHempPattern(ctx: CanvasRenderingContext2D) {
@@ -101,6 +109,9 @@ export default function PaintCanvas({
   inkRef,
   ink = 1,
   onInk,
+  region,
+  regionMargin = 0,
+  onSlide,
   forceDebug = false,
 }: {
   shape: ShapeId;
@@ -113,6 +124,11 @@ export default function PaintCanvas({
   inkRef?: React.RefObject<number>;
   ink?: number;
   onInk?: (ink: number) => void;
+  /** 이 경로(와 regionMargin 둘레) 안만 작업 칸으로 센다 */
+  region?: Path2D | null;
+  regionMargin?: number;
+  /** stamp: 누른 채 미끄러질 때. at은 미끄러지기 전 작업점 */
+  onSlide?: (at: { x: number; y: number }, dx: number, dy: number) => void;
   /** 개발용 포인터 기록. 프로덕션 빌드에서는 보이지 않는다. */
   forceDebug?: boolean;
 }) {
@@ -130,7 +146,8 @@ export default function PaintCanvas({
   const velocity = useRef(0);
   const gesture = useRef<number | null>(null);
   const recapture = useRef(0);
-  const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
+  const [cursor, setCursor] = useState<{ x: number; y: number; lift?: number } | null>(null);
+  const slideCb = useRef(onSlide);
   const [debug, setDebug] = useState(forceDebug);
   const debugRef = useRef(forceDebug);
   const lastMoveLog = useRef(0);
@@ -151,6 +168,7 @@ export default function PaintCanvas({
     cfgRef.current = config;
     statsRef.current = onStats;
     inkCb.current = onInk;
+    slideCb.current = onSlide;
     debugRef.current = debug;
   });
 
@@ -176,15 +194,6 @@ export default function PaintCanvas({
       ctx.setTransform(RES, 0, 0, RES, 0, 0);
       ctx.clip(path);
     }
-    const probe = document.createElement("canvas").getContext("2d")!;
-    let count = 0;
-    for (let j = 0; j < N; j++)
-      for (let i = 0; i < N; i++) {
-        const inside = probe.isPointInPath(path, (i + 0.5) * CELL, (j + 0.5) * CELL);
-        mask.current[j * N + i] = inside ? 1 : 0;
-        if (inside) count++;
-      }
-    masked.current = count;
     grid.current.fill(0);
     flagged.current.fill(0);
     const ctx = layer.getContext("2d")!;
@@ -200,9 +209,34 @@ export default function PaintCanvas({
       cancelAnimationFrame(raf.current);
       cancelAnimationFrame(dripFrame.current);
       cancelAnimationFrame(holdFrame.current);
+      raf.current = 0;
+      dripFrame.current = 0;
       hold.current = null;
     };
   }, [shape]);
+
+  useEffect(() => {
+    const path = new Path2D(SHAPES[shape].path);
+    const probe = document.createElement("canvas").getContext("2d")!;
+    probe.lineWidth = regionMargin * 2;
+    probe.lineJoin = "round";
+    let count = 0;
+    for (let j = 0; j < N; j++)
+      for (let i = 0; i < N; i++) {
+        const x = (i + 0.5) * CELL;
+        const y = (j + 0.5) * CELL;
+        const inside =
+          probe.isPointInPath(path, x, y) &&
+          (!region || probe.isPointInPath(region, x, y) || (regionMargin > 0 && probe.isPointInStroke(region, x, y)));
+        mask.current[j * N + i] = inside ? 1 : 0;
+        if (inside) count++;
+      }
+    masked.current = count;
+    if (cfgRef.current.mode === "stamp" && region) redrawStamp();
+    report();
+    // redrawStamp/report는 ref만 읽는다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shape, region, regionMargin]);
 
   function report() {
     if (raf.current) return;
@@ -337,8 +371,9 @@ export default function PaintCanvas({
     const bctx = buf.getContext("2d")!;
     const img = bctx.createImageData(N, N);
     const g = grid.current;
+    const m = mask.current;
     for (let k = 0; k < g.length; k++) {
-      const [r, gg, b, a] = stampColor(g[k], cfg);
+      const [r, gg, b, a] = m[k] ? stampColor(g[k], cfg) : OFF_REGION;
       img.data[k * 4] = r;
       img.data[k * 4 + 1] = gg;
       img.data[k * 4 + 2] = b;
@@ -350,7 +385,7 @@ export default function PaintCanvas({
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
     ctx.save();
-    ctx.filter = "blur(1.5px)";
+    ctx.filter = "blur(2.5px)";
     ctx.drawImage(buf, 0, 0, 300, 300);
     ctx.restore();
   }
@@ -426,13 +461,15 @@ export default function PaintCanvas({
     });
   }
 
-  function pointOf(clientX: number, clientY: number) {
+  function pointOf(clientX: number, clientY: number, pointerType?: string) {
     const rect = wrapRef.current?.getBoundingClientRect();
     const width = rect?.width || 1;
     const height = rect?.height || 1;
+    const lift = cfgRef.current.lift ? toolLift(pointerType) : 0;
     return {
       x: ((clientX - (rect?.left ?? 0)) / width) * 300,
-      y: ((clientY - (rect?.top ?? 0)) / height) * 300,
+      y: ((clientY - lift - (rect?.top ?? 0)) / height) * 300,
+      lift: (lift / height) * 300,
     };
   }
 
@@ -492,10 +529,10 @@ export default function PaintCanvas({
         if (disabled || !claimCraftPointer(e, gesture)) return;
         recapture.current = 0;
         last.current = null;
-        const p = pointOf(e.clientX, e.clientY);
+        const p = pointOf(e.clientX, e.clientY, e.pointerType);
         setCursor(p);
         if (stamp) {
-          startPress(p);
+          startPress({ x: p.x, y: p.y });
           return;
         }
         stroke(p);
@@ -508,11 +545,23 @@ export default function PaintCanvas({
         const samples = coalesced.length ? coalesced : [native];
         logPointer(e, samples.length > 1 ? `중간 점 ${samples.length}` : "");
         if (gesture.current == null) {
-          setCursor(pointOf(e.clientX, e.clientY));
+          setCursor(pointOf(e.clientX, e.clientY, e.pointerType));
           return;
         }
         if (disabled || stamp) {
-          setCursor(pointOf(samples[samples.length - 1].clientX, samples[samples.length - 1].clientY));
+          const p = pointOf(samples[samples.length - 1].clientX, samples[samples.length - 1].clientY, e.pointerType);
+          setCursor(p);
+          const h = hold.current;
+          if (stamp && !disabled && h) {
+            const dx = p.x - h.x;
+            const dy = p.y - h.y;
+            if (Math.hypot(dx, dy) > SLIDE_MIN) {
+              slideCb.current?.({ x: h.x, y: h.y }, dx * SLIDE_PUSH, dy * SLIDE_PUSH);
+              h.x = p.x;
+              h.y = p.y;
+              setPressed((prev) => (prev ? { ...prev, x: p.x, y: p.y } : prev));
+            }
+          }
           return;
         }
         let p = pointOf(e.clientX, e.clientY);
@@ -586,6 +635,11 @@ export default function PaintCanvas({
       ))}
       {toolAt && !disabled && (
         <ToolCursor tool={config.tool} color={brushColor} x={pct(toolAt.x)} y={pct(toolAt.y)} />
+      )}
+      {config.lift && toolAt && !disabled && (
+        <svg viewBox="0 0 300 300" className="pointer-events-none absolute inset-0 h-full w-full overflow-visible">
+          <WorkPoint x={toolAt.x} y={toolAt.y} lift={cursor?.lift ?? 0} r={5} />
+        </svg>
       )}
     </div>
     {process.env.NODE_ENV === "development" && (

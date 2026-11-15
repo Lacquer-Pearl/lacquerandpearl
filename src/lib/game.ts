@@ -38,6 +38,8 @@ export interface Design {
   /** 새로 놓는 조각의 자개 종류 */
   pearl: PearlId;
   pieces: PlacedPiece[];
+  /** 의뢰에서 옻칠 색을 사용자가 직접 골랐는지. false면 아직 고르지 않았다. */
+  lacquerChosen?: boolean;
 }
 
 export interface Commission {
@@ -314,19 +316,14 @@ export function scoreDesign(design: Design, commission?: Commission) {
       Math.min(1, n / 6) * 45 + Math.min(1, variety / 3) * 30 + balanceScore(design.pieces) * 25,
     );
   }
-  const keys = new Set<MotifId>([
-    ...(Object.keys(commission.motifs) as MotifId[]),
-    ...(Object.keys(counts) as MotifId[]),
-  ]);
+  // 주문 문양을 채운 만큼 기본 점수. 그 밖의 문양은 깎지도 더하지도 않는다.
   let inter = 0;
-  let union = 0;
-  for (const k of keys) {
-    const a = commission.motifs[k] ?? 0;
-    const b = counts[k] ?? 0;
-    inter += Math.min(a, b);
-    union += Math.max(a, b);
+  let required = 0;
+  for (const [k, a] of Object.entries(commission.motifs) as [MotifId, number][]) {
+    inter += Math.min(a, counts[k] ?? 0);
+    required += a;
   }
-  const motifMatch = union === 0 ? 0 : inter / union;
+  const motifMatch = required === 0 ? 1 : inter / required;
   const colorMatch = design.lacquer === commission.lacquer ? 1 : 0;
   const pearlMatch = !commission.pearl ? 1 : 0.3 + 0.7 * pearlShare(design, commission.pearl);
   return Math.round(

@@ -1,29 +1,57 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { MotifSilhouette } from "@/components/Artwork";
 import MotifIcon from "@/components/MotifIcon";
-import { Btn, Meter } from "@/components/ui";
-import { PEARLS, motifCutRoutes, motifLocalBox, motifOutline, type MotifId, type PearlId } from "@/lib/data";
+import { Btn, Coin, Meter } from "@/components/ui";
+import {
+  MATERIALS,
+  PEARLS,
+  motifCutRoutes,
+  motifLocalBox,
+  motifOutline,
+  type MaterialId,
+  type MotifId,
+  type PearlId,
+} from "@/lib/data";
 import { polygonsFromPaths } from "@/lib/cutFragments";
 import { newPiece, piecePearl, turnPiece, type Design, type PlacedPiece } from "@/lib/game";
-import { pearlName, t } from "@/lib/i18n";
+import { motifName, pearlName, t } from "@/lib/i18n";
 import { sfx } from "@/lib/sound";
 import { useSave } from "@/lib/store";
 import {
+  AUTO_ROTATIONS,
+  SHELL_SPECS,
   autoNest,
   commitNest,
   freeRatio,
+  largeKey,
   makeSheet,
+  maxScaleOnSheet,
   placementFits,
   poseKeys,
+  sheetSize,
   type NestPiece,
   type ShellLedger,
   type ShellPlacement,
   type ShellPlan,
   type ShellSheet,
+  type ShellSize,
+  type ShellStock,
 } from "@/lib/shellNest";
 import { StepHeader } from "./common";
+import { toolLift } from "./craftTouch";
+
+/** 디자인 화면의 하단 버튼이 구획 편집기를 움직일 때 쓰는 손잡이 */
+export interface NestActions {
+  auto: () => void;
+  confirm: () => void;
+}
+
+export interface NestStatus {
+  unplaced: number;
+  total: number;
+}
 
 const polys = new Map<string, { x: number; y: number }[][]>();
 
@@ -61,6 +89,21 @@ function toNest(piece: PlacedPiece, design: Design, locked?: boolean): NestPiece
   };
 }
 
+const largeCache = new Map<string, boolean>();
+/** 빈 보통 자개패 한 장에 실제로 올려 보고, 안 들어가면 대형 자개패가 필요하다. */
+export function needsLargeSheet(piece: Pick<PlacedPiece, "motif" | "s">, pearl: PearlId) {
+  const key = `${piece.motif}:${piece.s}:${pearl}`;
+  let hit = largeCache.get(key);
+  if (hit === undefined) {
+    const polygons = motifPolygons(piece.motif);
+    hit =
+      piece.s > maxScaleOnSheet(polygons, SHELL_SPECS[pearl]) &&
+      autoNest([{ id: "probe", motifId: piece.motif, pearl, s: piece.s, polygons }], [], { [pearl]: 1 }).unplaced.length > 0;
+    largeCache.set(key, hit);
+  }
+  return hit;
+}
+
 function loadEditor(design: Design, ledger: ShellLedger, initial?: ShellPlan) {
   const pearls = new Set(design.pieces.map((piece) => piecePearl(piece, design)));
   const mine = new Set(design.pieces.map((piece) => piece.id));
@@ -78,6 +121,8 @@ function loadEditor(design: Design, ledger: ShellLedger, initial?: ShellPlan) {
   return { sheets, placements };
 }
 
+type TrayDrag = { id: string; pointerId: number; sx: number; sy: number; x: number; y: number; moving: boolean; unit: number };
+
 export default function NestStep({
   design,
   ledger,
@@ -88,19 +133,28 @@ export default function NestStep({
   onConfirm,
   embedded = false,
   confirmLabel,
+  actionRef,
+  onStatus,
+  hideConfirm = false,
 }: {
   design: Design;
   ledger: ShellLedger;
-  stock: Partial<Record<PearlId, number>>;
+  stock: ShellStock;
   legacyPrepaid?: boolean;
   initial?: ShellPlan;
   onChange: (plan: ShellPlan) => void;
-  onConfirm: (plan: ShellPlan) => { ok: true } | { ok: false; missing: PearlId };
+  onConfirm: (plan: ShellPlan) => { ok: true } | { ok: false; missing: PearlId; large?: boolean };
   /** 디자인 단계 안에 넣을 때 제목은 바깥에서 보여 준다. */
   embedded?: boolean;
   confirmLabel?: string;
+  actionRef?: RefObject<NestActions | null>;
+  onStatus?: (status: NestStatus) => void;
+  /** 확정 버튼을 바깥(하단 버튼 바)에서 보여 줄 때 */
+  hideConfirm?: boolean;
 }) {
   const lang = useSave((s) => s.lang);
+  const money = useSave((s) => s.money);
+  const buy = useSave((s) => s.buy);
   const boot = useMemo(() => loadEditor(design, ledger, initial), [design, initial, ledger]);
   const [sheets, setSheets] = useState<ShellSheet[]>(boot.sheets);
   const [placements, setPlacements] = useState<ShellPlacement[]>(boot.placements);
@@ -110,10 +164,16 @@ export default function NestStep({
   const [zoom, setZoom] = useState(1);
   const [msg, setMsg] = useState<string | null>(null);
   const [drag, setDrag] = useState<{ id: string; x: number; y: number; dx: number; dy: number } | null>(null);
+  const [trayDrag, setTrayDrag] = useState<TrayDrag | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const benchRef = useRef<HTMLDivElement>(null);
   const history = useRef<{ sheets: ShellSheet[]; placements: ShellPlacement[] }[]>([]);
   const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
+  const onStatusRef = useRef(onStatus);
+  useLayoutEffect(() => {
+    onChangeRef.current = onChange;
+    onStatusRef.current = onStatus;
+  });
 
   const ledgerIds = useMemo(() => new Set(ledger.sheets.map((sheet) => sheet.id)), [ledger.sheets]);
   const cutIds = useMemo(() => new Set(sheets.flatMap((sheet) => sheet.cutPieceIds)), [sheets]);
@@ -142,13 +202,24 @@ export default function NestStep({
   const waiting = unplaced.filter((piece) => piecePearl(piece, design) === pearl);
   const mineOnSheet = placements.filter((item) => item.sheetId === active?.id);
   const selectedPlacement = placements.find((item) => item.pieceId === selected);
-  const drafts = sheets.filter((sheet) => sheet.pearl === pearl && !ledgerIds.has(sheet.id)).length;
-  const room = legacyPrepaid ? 6 : Math.max(0, (stock[pearl] ?? 0) - drafts);
-  const fresh = sheets.filter((sheet) => !ledgerIds.has(sheet.id) && placements.some((item) => item.sheetId === sheet.id)).length;
-  const activeCount = ledger.sheets.filter((sheet) => sheet.pearl === pearl && sheet.status === "active").length;
+  const draftsOf = (size: ShellSize) =>
+    sheets.filter((sheet) => sheet.pearl === pearl && !ledgerIds.has(sheet.id) && sheetSize(sheet) === size).length;
+  const roomOf = (size: ShellSize) =>
+    legacyPrepaid && size === "standard"
+      ? 6
+      : Math.max(0, (stock[size === "large" ? largeKey(pearl) : pearl] ?? 0) - draftsOf(size));
+  const usedSheets = sheets.filter((sheet) => placements.some((item) => item.sheetId === sheet.id));
+  const reusedCount = usedSheets.filter((sheet) => ledgerIds.has(sheet.id)).length;
+  const freshCount = usedSheets.filter((sheet) => !ledgerIds.has(sheet.id) && sheetSize(sheet) === "standard").length;
+  const freshLargeCount = usedSheets.filter((sheet) => !ledgerIds.has(sheet.id) && sheetSize(sheet) === "large").length;
   const polyOf = (placement: ShellPlacement) => motifPolygons(placement.motifId);
+  const allPlaced = design.pieces.length > 0 && unplaced.length === 0;
 
-  const say = (key: "nest.outside" | "nest.overlap" | "nest.fit" | "nest.cutLocked") => {
+  useEffect(() => {
+    onStatusRef.current?.({ unplaced: unplaced.length, total: design.pieces.length });
+  }, [unplaced.length, design.pieces.length]);
+
+  const say = (key: "nest.outside" | "nest.overlap" | "nest.fit" | "nest.cutLocked" | "nest.needLarge") => {
     sfx.fail();
     setMsg(t(lang, key));
   };
@@ -172,16 +243,46 @@ export default function NestStep({
     return { x: ((e.clientX - rect.left) / rect.width) * active.width, y: ((e.clientY - rect.top) / rect.height) * active.height };
   };
 
+  const tooBig = (id: string) => {
+    const source = design.pieces.find((piece) => piece.id === id);
+    return !!source && needsLargeSheet(source, piecePearl(source, design));
+  };
+
+  /** 열린 장이 없거나 들어갈 자리가 없을 때, 새 장(보통 → 대형 순)을 열어 올린다. */
+  const openAndPlace = (id: string) => {
+    const source = design.pieces.find((piece) => piece.id === id);
+    if (!source) return false;
+    const kind = piecePearl(source, design);
+    const unopened: ShellStock = {
+      [kind]: Math.min(1, roomOf("standard")),
+      [largeKey(kind)]: Math.min(1, roomOf("large")),
+    };
+    const packed = autoNest([toNest(source, design)], [], unopened);
+    const sheet = packed.opened[0];
+    if (!sheet || !packed.placements.length) {
+      say(tooBig(id) ? "nest.needLarge" : "nest.fit");
+      return false;
+    }
+    remember();
+    sfx.pop();
+    setSheets([...sheets, { ...sheet, placements: [] }]);
+    setActiveId(sheet.id);
+    setPlacements([...placements.filter((item) => item.pieceId !== id), packed.placements[0]]);
+    setSelected(id);
+    setMsg(null);
+    return true;
+  };
+
   const placeWaiting = (id: string) => {
     if (!active) {
-      say("nest.fit");
+      openAndPlace(id);
       return;
     }
     const source = design.pieces.find((piece) => piece.id === id);
     if (!source || piecePearl(source, design) !== active.pearl) return;
-    const packed = autoNest([toNest(source, design)], [{ ...active, placements: blockers(active, id) }], { [active.pearl]: 0 });
+    const packed = autoNest([toNest(source, design)], [{ ...active, placements: blockers(active, id) }], {});
     if (!packed.placements.length) {
-      say("nest.fit");
+      say(tooBig(id) && sheetSize(active) === "standard" ? "nest.needLarge" : "nest.fit");
       return;
     }
     remember();
@@ -191,7 +292,7 @@ export default function NestStep({
     setMsg(null);
   };
 
-  const moveTo = (id: string, x: number, y: number, r: number) => {
+  const moveTo = (id: string, x: number, y: number, r: number, turns: number[] = [r]) => {
     if (!active) return false;
     if (cutIds.has(id)) {
       say("nest.cutLocked");
@@ -200,9 +301,17 @@ export default function NestStep({
     const source = design.pieces.find((piece) => piece.id === id);
     if (!source) return false;
     const current = placements.find((item) => item.pieceId === id);
-    const reason = placementFits(active, toNest(source, design), { x, y, r }, occupied(active, id));
+    const taken = occupied(active, id);
+    let reason: ReturnType<typeof placementFits> = "outside";
+    let turn = r;
+    for (const candidate of turns) {
+      reason = placementFits(active, toNest(source, design), { x, y, r: candidate }, taken);
+      turn = candidate;
+      if (reason === "ok") break;
+    }
     if (reason !== "ok") {
-      say(reason === "overlap" ? "nest.overlap" : "nest.outside");
+      if (reason === "outside" && tooBig(id) && sheetSize(active) === "standard") say("nest.needLarge");
+      else say(reason === "overlap" ? "nest.overlap" : "nest.outside");
       return false;
     }
     remember();
@@ -212,13 +321,14 @@ export default function NestStep({
       sheetId: active.id,
       x,
       y,
-      r,
+      r: turn,
       s: source.s,
       locked: current?.locked,
     };
     setPlacements([...placements.filter((item) => item.pieceId !== id), next]);
     setSelected(id);
     setMsg(null);
+    sfx.pop();
     return true;
   };
 
@@ -233,10 +343,11 @@ export default function NestStep({
         ...placements.filter((item) => item.sheetId === sheet.id && (item.locked || cutIds.has(item.pieceId))),
       ],
     }));
-    const unopened: Partial<Record<PearlId, number>> = {};
+    const unopened: ShellStock = {};
     for (const kind of pearls) {
-      const openDrafts = sheets.filter((sheet) => sheet.pearl === kind && !ledgerIds.has(sheet.id)).length;
-      unopened[kind] = legacyPrepaid ? 6 : Math.max(0, (stock[kind] ?? 0) - openDrafts);
+      const drafts = (size: ShellSize) => sheets.filter((sheet) => sheet.pearl === kind && !ledgerIds.has(sheet.id) && sheetSize(sheet) === size).length;
+      unopened[kind] = legacyPrepaid ? 6 : Math.max(0, (stock[kind] ?? 0) - drafts("standard"));
+      unopened[largeKey(kind)] = Math.max(0, (stock[largeKey(kind)] ?? 0) - drafts("large"));
     }
     const result = autoNest(nestPieces, base, unopened, (placement) => motifPolygons(placement.motifId));
     remember();
@@ -249,7 +360,9 @@ export default function NestStep({
     );
     setPlacements(result.placements.filter((item) => editable.has(item.pieceId) && !cutIds.has(item.pieceId)));
     sfx.pop();
-    setMsg(result.unplaced.length ? t(lang, "nest.fit") : t(lang, "nest.autoNote"));
+    if (!result.unplaced.length) setMsg(null);
+    else if (result.unplaced.some(tooBig)) say("nest.needLarge");
+    else say("nest.fit");
   };
 
   const confirm = () => {
@@ -265,10 +378,53 @@ export default function NestStep({
     const result = onConfirm(plan);
     if (!result.ok) {
       sfx.fail();
-      setMsg(t(lang, "nest.missing", { name: pearlName(lang, result.missing) }));
+      setMsg(t(lang, result.large ? "nest.noLarge" : "nest.missing", { name: pearlName(lang, result.missing) }));
       return;
     }
     sfx.success();
+  };
+
+  const actionsRef = useRef<NestActions>({ auto: runAuto, confirm });
+  useLayoutEffect(() => {
+    actionsRef.current = { auto: runAuto, confirm };
+  });
+  useEffect(() => {
+    if (!actionRef) return;
+    actionRef.current = {
+      auto: () => actionsRef.current.auto(),
+      confirm: () => actionsRef.current.confirm(),
+    };
+    return () => {
+      actionRef.current = null;
+    };
+  }, [actionRef]);
+
+  const openSheet = (size: ShellSize) => {
+    if (roomOf(size) <= 0) {
+      setMsg(t(lang, size === "large" ? "nest.noLarge" : "nest.missing", { name: pearlName(lang, pearl) }));
+      sfx.fail();
+      return;
+    }
+    const sheet = makeSheet(pearl, undefined, size);
+    remember();
+    setSheets([...sheets, sheet]);
+    setActiveId(sheet.id);
+    sfx.pop();
+  };
+
+  const dropTray = (drop: TrayDrag) => {
+    const lift = toolLift("touch");
+    const at = { clientX: drop.x, clientY: drop.y - lift };
+    const bench = benchRef.current?.getBoundingClientRect();
+    const svg = svgRef.current?.getBoundingClientRect();
+    if (svg && active && at.clientX >= svg.left && at.clientX <= svg.right && at.clientY >= svg.top && at.clientY <= svg.bottom) {
+      const point = pointOf(at);
+      if (point) moveTo(drop.id, point.x, point.y, 0, AUTO_ROTATIONS);
+      return;
+    }
+    if (!active && bench && at.clientX >= bench.left && at.clientX <= bench.right && at.clientY >= bench.top && at.clientY <= bench.bottom) {
+      openAndPlace(drop.id);
+    }
   };
 
   const shown = active
@@ -278,6 +434,9 @@ export default function NestStep({
       }
     : null;
   const free = shown ? Math.round(freeRatio(shown, polyOf) * 100) : 0;
+  const ghostPiece = trayDrag?.moving ? design.pieces.find((piece) => piece.id === trayDrag.id) : undefined;
+  const unitPx = trayDrag?.unit ?? 1.6;
+  const ghostBox = ghostPiece ? motifLocalBox(ghostPiece.motif) : null;
 
   return (
     <div className="flex flex-col gap-3" data-nest-step="1">
@@ -289,15 +448,44 @@ export default function NestStep({
         </StepHeader>
       )}
       {legacyPrepaid && <p className="panel py-2 text-sm text-[var(--brown)]">{t(lang, "nest.legacy")}</p>}
-      <div className="panel grid grid-cols-2 gap-1.5 py-2 text-sm text-[var(--brown)]">
-        <span>
-          {t(lang, "nest.pearl")} · {pearlName(lang, pearl)}
-        </span>
-        <span>{t(lang, "nest.unused", { n: stock[pearl] ?? 0 })}</span>
-        <span>{t(lang, "nest.active", { n: activeCount })}</span>
-        <span>{t(lang, "nest.extra", { n: legacyPrepaid ? 0 : fresh })}</span>
-        <span>{t(lang, "nest.placed", { n: design.pieces.length - unplaced.length, max: design.pieces.length })}</span>
-        <span>{t(lang, "nest.waiting", { n: unplaced.length })}</span>
+      <div className="panel flex flex-col gap-1 py-2 text-sm text-[var(--brown)]">
+        <div className="flex items-center justify-between gap-2">
+          <b>{t(lang, "nest.statusPlaced", { n: design.pieces.length - unplaced.length, max: design.pieces.length })}</b>
+          <span className={allPlaced ? "text-[var(--mint-deep)]" : ""}>
+            {allPlaced ? t(lang, "nest.statusAllDone") : t(lang, "nest.statusLeft", { n: unplaced.length })}
+          </span>
+        </div>
+        <div>
+          {t(lang, "nest.useLine", { n: legacyPrepaid ? reusedCount : reusedCount + freshCount + freshLargeCount })}{" "}
+          <span className="text-xs opacity-80">
+            {t(lang, "nest.useDetail", { reused: reusedCount, fresh: legacyPrepaid ? 0 : freshCount, large: freshLargeCount })}
+          </span>
+        </div>
+        <div className="text-xs opacity-80">
+          {t(lang, "nest.stockLine", {
+            name: pearlName(lang, pearl),
+            n: stock[pearl] ?? 0,
+            large: stock[largeKey(pearl)] ?? 0,
+          })}
+        </div>
+        {!legacyPrepaid && (
+          <div className="mt-1 grid grid-cols-2 gap-1.5">
+            {([PEARLS[pearl].material, PEARLS[pearl].largeMaterial] as MaterialId[]).map((id, i) => (
+              <button
+                key={id}
+                type="button"
+                className="mat-buy"
+                disabled={money < MATERIALS[id].price}
+                onClick={() => {
+                  if (buy(id)) sfx.coin();
+                  else sfx.fail();
+                }}
+              >
+                {t(lang, i === 0 ? "design.buyStandard" : "design.buyLarge")} +{MATERIALS[id].pack} · <Coin /> {MATERIALS[id].price}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       {pearls.length > 1 && (
         <div className="flex flex-wrap gap-1">
@@ -311,29 +499,17 @@ export default function NestStep({
       <div className="flex flex-wrap gap-1">
         {visible.map((sheet, index) => (
           <Btn key={sheet.id} size="sm" variant={sheet.id === active?.id ? "gold" : "cream"} onClick={() => setActiveId(sheet.id)}>
-            {t(lang, "nest.sheet", { n: index + 1 })}
+            {t(lang, sheetSize(sheet) === "large" ? "nest.sheetLarge" : "nest.sheet", { n: index + 1 })}
           </Btn>
         ))}
-        <Btn
-          size="sm"
-          variant="cream"
-          onClick={() => {
-            if (room <= 0) {
-              setMsg(t(lang, "nest.missing", { name: pearlName(lang, pearl) }));
-              sfx.fail();
-              return;
-            }
-            const sheet = makeSheet(pearl);
-            remember();
-            setSheets([...sheets, sheet]);
-            setActiveId(sheet.id);
-            sfx.pop();
-          }}
-        >
+        <Btn size="sm" variant="cream" onClick={() => openSheet("standard")}>
           {t(lang, "nest.newSheet")}
         </Btn>
+        <Btn size="sm" variant="cream" onClick={() => openSheet("large")}>
+          {t(lang, "nest.newLarge")}
+        </Btn>
       </div>
-      <div className="workbench overflow-auto" style={{ maxHeight: 440 }}>
+      <div ref={benchRef} className="workbench overflow-auto" style={{ maxHeight: 440 }}>
         {shown ? (
           <svg
             ref={svgRef}
@@ -352,6 +528,7 @@ export default function NestStep({
               if (!current) return;
               moveTo(next.id, next.x, next.y, current.r);
             }}
+            onPointerCancel={() => setDrag(null)}
           >
             <rect width={shown.width} height={shown.height} rx="6" fill={PEARLS[pearl].stops[0]} stroke="#5c4030" strokeWidth="1.5" />
             {shown.placements.map((item) => {
@@ -397,30 +574,70 @@ export default function NestStep({
             })}
           </svg>
         ) : (
-          <p className="p-4 text-center text-sm text-[var(--brown)]">{t(lang, "nest.empty")}</p>
+          <p className="flex aspect-[3/2] items-center justify-center p-4 text-center text-sm text-[var(--cream)]">{t(lang, "nest.empty")}</p>
         )}
       </div>
-      {shown && (
-        <div className="text-sm text-[var(--cream)]">
-          <div className="mb-1">{t(lang, "nest.free", { n: free })}</div>
-          <Meter value={free / 100} color="var(--gold)" />
-        </div>
-      )}
-      {waiting.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto">
-          {waiting.map((piece) => (
-            <button
-              key={piece.id}
-              type="button"
-              className={`tray-piece shrink-0 ${selected === piece.id ? "ring-2 ring-[var(--gold-deep)]" : ""}`}
-              onClick={() => setSelected(piece.id)}
-            >
-              <MotifIcon motif={piece.motif} className="h-10 w-10" />
-            </button>
-          ))}
-        </div>
-      )}
-      {msg && <p className="panel py-2 text-center text-sm text-[var(--brown)]">{msg}</p>}
+      <div className="text-sm text-[var(--cream)]">
+        <div className="mb-1">{shown ? t(lang, "nest.free", { n: free }) : "\u00a0"}</div>
+        <Meter value={free / 100} color="var(--gold)" />
+      </div>
+      <div className="nest-tray">
+        {waiting.length > 0 ? (
+          <>
+            <span className="nest-tray-label">{t(lang, "nest.dragHint")}</span>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {waiting.map((piece) => (
+                <button
+                  key={piece.id}
+                  type="button"
+                  aria-label={motifName(lang, piece.motif)}
+                  className={`tray-piece nest-tray-piece shrink-0 ${selected === piece.id ? "ring-2 ring-[var(--gold-deep)]" : ""}`}
+                  onPointerDown={(e) => {
+                    if (trayDrag) return;
+                    try {
+                      e.currentTarget.setPointerCapture(e.pointerId);
+                    } catch {
+                      // 붙잡지 못하면 탭 선택만 된다.
+                    }
+                    setSelected(piece.id);
+                    const box = svgRef.current?.getBoundingClientRect();
+                    setTrayDrag({
+                      id: piece.id,
+                      pointerId: e.pointerId,
+                      sx: e.clientX,
+                      sy: e.clientY,
+                      x: e.clientX,
+                      y: e.clientY,
+                      moving: false,
+                      unit: box && active ? box.width / active.width : 1.6,
+                    });
+                  }}
+                  onPointerMove={(e) => {
+                    if (!trayDrag || e.pointerId !== trayDrag.pointerId) return;
+                    const moving = trayDrag.moving || Math.hypot(e.clientX - trayDrag.sx, e.clientY - trayDrag.sy) > 8;
+                    setTrayDrag({ ...trayDrag, x: e.clientX, y: e.clientY, moving });
+                  }}
+                  onPointerUp={(e) => {
+                    if (!trayDrag || e.pointerId !== trayDrag.pointerId) return;
+                    const done = { ...trayDrag, x: e.clientX, y: e.clientY };
+                    setTrayDrag(null);
+                    if (done.moving) dropTray(done);
+                  }}
+                  onPointerCancel={() => setTrayDrag(null)}
+                >
+                  <MotifIcon motif={piece.motif} className="h-10 w-10" />
+                  {tooBig(piece.id) && <span className="nest-tray-badge">{t(lang, "nest.largeBadge")}</span>}
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <span className="nest-tray-label">{design.pieces.length ? t(lang, "nest.trayEmpty") : "\u00a0"}</span>
+        )}
+      </div>
+      <p className={`nest-msg ${allPlaced && !msg ? "done" : ""}`}>
+        {msg ?? (allPlaced ? t(lang, "nest.doneHint", { label: confirmLabel ?? t(lang, "nest.confirm") }) : "\u00a0")}
+      </p>
       <div className="grid grid-cols-2 gap-2">
         <Btn variant="gold" onClick={runAuto}>
           {t(lang, "nest.auto")}
@@ -490,10 +707,27 @@ export default function NestStep({
         >
           {selectedPlacement?.locked ? t(lang, "nest.unlock") : t(lang, "nest.lock")}
         </Btn>
-        <Btn variant="pink" disabled={unplaced.length > 0} onClick={confirm}>
-          {confirmLabel ?? t(lang, "nest.confirm")}
-        </Btn>
+        {!hideConfirm && (
+          <Btn variant="pink" className={allPlaced ? "cta-glow" : ""} disabled={unplaced.length > 0} onClick={confirm}>
+            {confirmLabel ?? t(lang, "nest.confirm")}
+          </Btn>
+        )}
       </div>
+      {ghostPiece && ghostBox && trayDrag && (
+        <svg
+          className="nest-drag-ghost"
+          viewBox={`${ghostBox.x} ${ghostBox.y} ${ghostBox.w} ${ghostBox.h}`}
+          style={{
+            left: trayDrag.x + ghostBox.x * ghostPiece.s * unitPx,
+            top: trayDrag.y - toolLift("touch") + ghostBox.y * ghostPiece.s * unitPx,
+            width: ghostBox.w * ghostPiece.s * unitPx,
+            height: ghostBox.h * ghostPiece.s * unitPx,
+          }}
+        >
+          <MotifSilhouette motif={ghostPiece.motif} color="#f4efe4" />
+          <path d={motifOutline(ghostPiece.motif)} fill="none" stroke="#4a2c1a" strokeWidth={0.9 / Math.max(0.5, ghostPiece.s)} />
+        </svg>
+      )}
     </div>
   );
 }

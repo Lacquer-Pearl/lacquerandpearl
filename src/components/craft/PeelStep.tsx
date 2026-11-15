@@ -23,7 +23,7 @@ export default function PeelStep({ design, onDone }: { design: Design; onDone: (
   const gesture = useRef<number | null>(null);
   useBlockCraftScroll(surfaceRef);
   const [speed, setSpeed] = useState(0);
-  const limit = wet ? 1.1 : 0.55;
+  const limit = wet ? 0.75 : 0.38;
 
   useEffect(() => {
     startLoop("peel");
@@ -146,6 +146,7 @@ export default function PeelStep({ design, onDone }: { design: Design; onDone: (
         <Meter
           value={Math.min(1, speed / (limit * 1.4))}
           zone={[0, 1 / 1.4]}
+          target={1 / 1.4}
           color={speed > limit ? "var(--red)" : "var(--mint-deep)"}
           label={
             <>

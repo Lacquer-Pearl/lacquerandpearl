@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  LARGE_SHELL_SPECS,
+  SHELL_SPECS,
   autoNest,
   commitNest,
   fitsWithoutNewSheet,
   makeSheet,
   markCut,
+  maxScaleOnSheet,
   placementFits,
   poseKeys,
   reconcileProgress,
@@ -313,4 +316,52 @@ test("not enough stock leaves pieces unplaced and commit refuses the new sheet",
   assert.equal(refused.ok, false);
   if (refused.ok) return;
   assert.equal(refused.missing, "white");
+});
+
+test("a motif too big for a standard sheet opens a large sheet and charges large stock", () => {
+  const big = piece("big", 200, 130);
+  const packed = autoNest([big], [], { white: 3, "white:large": 1 });
+  assert.equal(packed.unplaced.length, 0);
+  assert.equal(packed.opened.length, 1);
+  assert.equal(packed.opened[0].size, "large");
+  const done = commitNest({
+    stock: { white: 3, "white:large": 1 },
+    ledger: { sheets: [] },
+    plan: { sheets: packed.opened, placements: packed.placements },
+    polygonsFor: () => rectPoly(200, 130),
+  });
+  assert.equal(done.ok, true);
+  if (!done.ok) return;
+  assert.equal(done.charged["white:large"], 1);
+  assert.equal(done.charged.white ?? 0, 0);
+  assert.equal(done.stock.white, 3);
+  assert.equal(done.stock["white:large"], 0);
+});
+
+test("small motifs still use a standard sheet when large stock exists", () => {
+  const packed = autoNest([piece("a", 40, 40)], [], { white: 1, "white:large": 1 });
+  assert.equal(packed.opened.length, 1);
+  assert.notEqual(packed.opened[0].size, "large");
+});
+
+test("without large stock a too-big motif stays unplaced and commit names the large sheet", () => {
+  const packed = autoNest([piece("big", 200, 130)], [], { white: 3 });
+  assert.equal(packed.unplaced.length, 1);
+  const refused = commitNest({
+    stock: { white: 3 },
+    ledger: { sheets: [] },
+    plan: { sheets: [makeSheet("white", "big-sheet", "large")], placements: [] },
+    polygonsFor: () => rectPoly(200, 130),
+  });
+  assert.equal(refused.ok, false);
+  if (refused.ok) return;
+  assert.equal(refused.large, true);
+});
+
+test("the size cap keeps a scaled motif inside one sheet", () => {
+  const cap = maxScaleOnSheet(rectPoly(100, 50), LARGE_SHELL_SPECS.white);
+  assert.ok(cap > 1 && cap < 3, `cap ${cap}`);
+  const fit = autoNest([{ ...piece("cap", 100, 50), s: cap }], [], { "white:large": 1 });
+  assert.equal(fit.unplaced.length, 0);
+  assert.ok(maxScaleOnSheet(rectPoly(100, 50), SHELL_SPECS.white) < cap);
 });

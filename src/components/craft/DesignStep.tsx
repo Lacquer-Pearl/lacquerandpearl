@@ -39,16 +39,45 @@ import {
   pearlName,
   shapeName,
   t,
+  type Locale,
 } from "@/lib/i18n";
 import { sfx } from "@/lib/sound";
-import { sheetUse, type ShellLedger, type ShellPlan } from "@/lib/shellNest";
+import {
+  LARGE_SHELL_SPECS,
+  largeKey,
+  maxScaleOnSheet,
+  sheetUse,
+  type ShellLedger,
+  type ShellPlan,
+  type ShellStock,
+} from "@/lib/shellNest";
 import { costFor, useSave } from "@/lib/store";
 import { StepHeader } from "./common";
-import NestStep from "./NestStep";
+import NestStep, { motifPolygons, needsLargeSheet, type NestActions, type NestStatus } from "./NestStep";
 
 const MAX_PIECES = 32;
 const MIN_S = 0.5;
 const MAX_S = 2.5;
+
+type Stage = "art" | "shell" | "review";
+const STAGES: Stage[] = ["art", "shell", "review"];
+
+const capCache = new Map<string, number>();
+/** 대형 자개패 한 장에 들어가는 가장 큰 배율 */
+function maxScaleFor(motif: MotifId, pearl: PearlId) {
+  const key = `${motif}:${pearl}`;
+  let cap = capCache.get(key);
+  if (cap === undefined) {
+    cap = Math.min(MAX_S, Math.floor(maxScaleOnSheet(motifPolygons(motif), LARGE_SHELL_SPECS[pearl]) * 100) / 100);
+    capCache.set(key, cap);
+  }
+  return cap;
+}
+
+function capPiece(piece: PlacedPiece, pearl: PearlId): PlacedPiece {
+  const cap = maxScaleFor(piece.motif, pearl);
+  return piece.s > cap ? { ...piece, s: cap } : piece;
+}
 
 type DragState =
   | { kind: "move"; sx: number; sy: number; origins: { id: string; x: number; y: number }[] }
@@ -105,12 +134,14 @@ export default function DesignStep({
   setDesign: (d: Design) => void;
   commission?: Commission;
   ledger: ShellLedger;
-  stock: Partial<Record<PearlId, number>>;
+  stock: ShellStock;
   initialPlan?: ShellPlan;
-  onStart: (plan: ShellPlan) => { ok: true } | { ok: false; missing: PearlId };
+  onStart: (plan: ShellPlan) => { ok: true } | { ok: false; missing: PearlId; large?: boolean };
 }) {
   const [selected, setSelectedIds] = useState<string[]>([]);
-  const [view, setView] = useState<"art" | "shell">("art");
+  const [view, setView] = useState<Stage>("art");
+  const [nestStatus, setNestStatus] = useState<NestStatus | null>(null);
+  const nestActions = useRef<NestActions | null>(null);
   const [plan, setPlan] = useState<ShellPlan>(initialPlan ?? { sheets: [], placements: [] });
   const [shellMsg, setShellMsg] = useState<string | null>(null);
   const [marquee, setMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
@@ -135,7 +166,25 @@ export default function DesignStep({
   const opened = useMemo(() => sheetUse(plan, ledger), [plan, ledger]);
   const usedTotal = Object.values(opened.used).reduce((sum, n) => sum + (n ?? 0), 0);
   const nestLeft = design.pieces.filter((piece) => !plan.placements.some((item) => item.pieceId === piece.id)).length;
-  const short = PEARL_LIST.find((pearl) => (opened.fresh[pearl.id] ?? 0) > (stock[pearl.id] ?? 0));
+  const lackOf = (pearl: PearlId) => ({
+    standard: Math.max(0, (opened.fresh[pearl] ?? 0) - (stock[pearl] ?? 0)),
+    large: Math.max(0, (opened.freshLarge[pearl] ?? 0) - (stock[largeKey(pearl)] ?? 0)),
+  });
+  const short = PEARL_LIST.find((pearl) => {
+    const lack = lackOf(pearl.id);
+    return lack.standard + lack.large > 0;
+  });
+  const orderLeft = commission
+    ? (Object.entries(commission.motifs) as [MotifId, number][]).reduce((sum, [m, n]) => sum + Math.max(0, n - (counts[m] ?? 0)), 0)
+    : 0;
+  const lacquerReady = !commission || !!design.lacquerChosen;
+  const stageOpen = (stage: Stage) =>
+    stage === "art" || (design.pieces.length > 0 && (stage === "shell" || nestLeft === 0));
+  const goStage = (stage: Stage) => {
+    if (!stageOpen(stage)) return;
+    setView(stage);
+    window.scrollTo({ top: 0 });
+  };
   const readyPlan = (): ShellPlan => {
     const known = new Set(ledger.sheets.map((sheet) => sheet.id));
     const used = new Set(plan.placements.map((item) => item.sheetId));
@@ -173,8 +222,14 @@ export default function DesignStep({
           pearl: origin.pearl ?? design.pearl,
         };
     }
+    p = capPiece(p, piecePearl(p, design));
     update([...design.pieces, p]);
     setSelected(p.id);
+  };
+
+  const setPieceShell = (ids: string[], pearl: PearlId) => {
+    sfx.click();
+    update(design.pieces.map((pc) => (ids.includes(pc.id) ? capPiece({ ...pc, pearl }, pearl) : pc)));
   };
 
   const toLocal = (e: { clientX: number; clientY: number }) => {
@@ -225,7 +280,11 @@ export default function DesignStep({
 
   const capture = (e: React.PointerEvent) => {
     e.stopPropagation();
-    svgRef.current?.setPointerCapture(e.pointerId);
+    try {
+      svgRef.current?.setPointerCapture(e.pointerId);
+    } catch {
+      // 이미 끝난 포인터면 붙잡지 못한다. 드래그는 svg 안에서 계속된다.
+    }
   };
 
   return (
@@ -234,13 +293,38 @@ export default function DesignStep({
         {commission ? <>{t(lang, "design.tipCommission")}</> : <>{t(lang, "design.tipFree")}</>}
       </StepHeader>
 
+      <ol className="design-stepper">
+        {STAGES.map((stage, i) => {
+          const index = STAGES.indexOf(view);
+          return (
+            <li key={stage}>
+              <button
+                type="button"
+                className={i === index ? "now" : i < index ? "done" : ""}
+                disabled={!stageOpen(stage)}
+                onClick={() => {
+                  sfx.click();
+                  goStage(stage);
+                }}
+              >
+                <span className="design-stepper-num">{i < index ? "✓" : i + 1}</span>
+                <span>{t(lang, `design.stage${i + 1}`)}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+
       {commission && (
         <div className="panel flex flex-wrap items-center gap-2 py-2 text-sm">
           <b className="text-[var(--brown)]">{t(lang, "design.order")}</b>
           <span className="chip">{shapeName(lang, commission.shape)}</span>
-          <span className={`chip ${design.lacquer === commission.lacquer ? "chip-ok" : ""}`}>
+          <span className={`chip ${lacquerReady && design.lacquer === commission.lacquer ? "chip-ok" : ""}`}>
             <span className="swatch" style={{ background: LACQUERS[commission.lacquer].color }} />
             {lacquerName(lang, commission.lacquer)}
+            {lacquerReady && design.lacquer !== commission.lacquer && (
+              <small className="text-[var(--red)]"> · {t(lang, "design.lacquerOff")}</small>
+            )}
           </span>
           {commission.pearl && (
             <span className={`chip ${pearlShare(design, commission.pearl) >= 0.5 ? "chip-ok" : ""}`}>
@@ -255,32 +339,42 @@ export default function DesignStep({
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-2">
-        <Btn variant={view === "art" ? "gold" : "cream"} onClick={() => setView("art")}>
-          {t(lang, "design.arrange")}
-        </Btn>
-        <Btn variant={view === "shell" ? "gold" : "cream"} disabled={design.pieces.length === 0} onClick={() => setView("shell")}>
-          {t(lang, "design.nestTab")}
-        </Btn>
-      </div>
-
-      {view === "shell" ? (
+      {view === "shell" && (
         <NestStep
           embedded
           design={design}
           ledger={ledger}
           stock={stock}
           initial={plan}
-          confirmLabel={t(lang, "design.nestDone")}
+          confirmLabel={t(lang, "design.nextReview")}
+          hideConfirm
+          actionRef={nestActions}
+          onStatus={setNestStatus}
           onChange={setPlan}
           onConfirm={(next) => {
             setPlan(next);
-            setView("art");
             setShellMsg(null);
+            setView("review");
+            window.scrollTo({ top: 0 });
             return { ok: true };
           }}
         />
-      ) : (
+      )}
+      {view === "review" && (
+        <div className="panel flex flex-col items-center gap-2 py-3">
+          <div className="label self-start">{t(lang, "design.reviewTitle")}</div>
+          <Artwork
+            design={design}
+            surface={lacquerReady ? "lacquer" : "wood"}
+            className="pointer-events-none aspect-square w-3/5 max-w-[240px]"
+          />
+          <p className="text-center text-sm text-[var(--brown)]">{t(lang, "design.allNested")}</p>
+          <Btn size="sm" variant="cream" onClick={() => goStage("shell")}>
+            {t(lang, "design.editLayout")}
+          </Btn>
+        </div>
+      )}
+      {view === "art" && (
         <>
       <div className="workbench sketch-paper">
         <svg
@@ -319,7 +413,8 @@ export default function DesignStep({
             if (d.kind === "scale") {
               const dist = Math.hypot(p.x - piece.x, p.y - piece.y);
               if (d.startDist < 1) return;
-              const next = Math.max(MIN_S, Math.min(MAX_S, +((d.startS * dist) / d.startDist).toFixed(3)));
+              const cap = maxScaleFor(piece.motif, piecePearl(piece, design));
+              const next = Math.max(MIN_S, Math.min(cap, +((d.startS * dist) / d.startDist).toFixed(3)));
               patch(d.id, (pc) => ({ ...pc, s: next }));
               return;
             }
@@ -339,6 +434,7 @@ export default function DesignStep({
         >
           <Artwork
             design={design}
+            surface={lacquerReady ? "lacquer" : "wood"}
             selectedIds={selected}
             onPiecePointerDown={(e, p) => {
               capture(e);
@@ -400,6 +496,7 @@ export default function DesignStep({
         </svg>
       </div>
 
+      <div className="design-sel-slot">
       {sel ? (
         <div className="panel flex flex-col gap-2 py-2">
           <div className="flex items-center justify-between gap-1">
@@ -458,15 +555,13 @@ export default function DesignStep({
                 key={p.id}
                 className={`pearl-pick ${piecePearl(sel, design) === p.id ? "on" : ""}`}
                 title={pearlName(lang, p.id)}
-                onClick={() => {
-                  sfx.click();
-                  patch(sel.id, (pc) => ({ ...pc, pearl: p.id }));
-                }}
+                onClick={() => setPieceShell([sel.id], p.id)}
               >
                 <NacreSwatch pearl={p.id} className="swatch" />
               </button>
             ))}
           </div>
+          <SizeNote piece={sel} pearl={piecePearl(sel, design)} lang={lang} />
         </div>
       ) : selPieces.length > 1 ? (
         <div className="panel flex flex-col gap-2 py-2">
@@ -510,10 +605,7 @@ export default function DesignStep({
                 key={p.id}
                 className={`pearl-pick ${selPieces.every((pc) => piecePearl(pc, design) === p.id) ? "on" : ""}`}
                 title={pearlName(lang, p.id)}
-                onClick={() => {
-                  sfx.click();
-                  update(design.pieces.map((pc) => (selected.includes(pc.id) ? { ...pc, pearl: p.id } : pc)));
-                }}
+                onClick={() => setPieceShell(selected, p.id)}
               >
                 <NacreSwatch pearl={p.id} className="swatch" />
               </button>
@@ -521,10 +613,38 @@ export default function DesignStep({
           </div>
         </div>
       ) : (
-        <div className="text-center text-xs text-[var(--brown-light)]">{t(lang, "design.selectHint")}</div>
+        <div className="panel flex h-full items-center justify-center py-2 text-center text-xs text-[var(--brown-light)]">
+          {t(lang, "design.selectHint")}
+        </div>
       )}
+      </div>
 
       <div className="panel flex flex-col gap-3 py-3">
+        {commission && (
+          <div className="design-order-motifs">
+            <div className="label flex items-center justify-between gap-2">
+              <span>{t(lang, "design.orderMotifs")}</span>
+              <small className={orderLeft === 0 ? "text-[var(--mint-deep)]" : "text-[var(--red)]"}>
+                {orderLeft === 0 ? t(lang, "design.orderDone") : t(lang, "design.orderLeft", { n: orderLeft })}
+              </small>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              {(Object.entries(commission.motifs) as [MotifId, number][]).map(([m, n]) => (
+                <button
+                  key={m}
+                  className={`motif-btn ${(counts[m] ?? 0) >= n ? "on" : ""}`}
+                  onClick={() => addMotif(m)}
+                  title={motifMeaning(lang, m)}
+                >
+                  <MotifIcon motif={m} pearl={design.pearl} className="h-9 w-9" />
+                  <span>
+                    {motifName(lang, m)} {counts[m] ?? 0}/{n}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div>
           <div className="label">{t(lang, "design.motifs", { n: design.pieces.length, max: MAX_PIECES })}</div>
           <div className="grid grid-cols-4 gap-2">
@@ -572,16 +692,19 @@ export default function DesignStep({
           </div>
         )}
 
-        <div>
-          <div className="label">{t(lang, "design.lacquer")}</div>
+        <div id="design-lacquer">
+          <div className="label flex items-center justify-between gap-2">
+            <span>{t(lang, "design.lacquer")}</span>
+            {!lacquerReady && <small className="text-[var(--red)]">{t(lang, "design.pickLacquer")}</small>}
+          </div>
           <div className="grid grid-cols-4 gap-2">
             {LACQUER_LIST.map((l) => (
               <button
                 key={l.id}
-                className={`opt-btn ${design.lacquer === l.id ? "on" : ""}`}
+                className={`opt-btn ${lacquerReady && design.lacquer === l.id ? "on" : ""}`}
                 onClick={() => {
                   sfx.click();
-                  setDesign({ ...design, lacquer: l.id });
+                  setDesign({ ...design, lacquer: l.id, lacquerChosen: true });
                 }}
               >
                 <span className="swatch lg" style={{ background: `radial-gradient(circle at 35% 30%, ${l.light}, ${l.color})` }} />
@@ -607,7 +730,7 @@ export default function DesignStep({
                 <span className="text-left">
                   {pearlName(lang, p.id)}
                   <br />
-                  <small>{t(lang, "design.owned", { n: inventory[p.material] })}</small>
+                  <small>{t(lang, "design.shellStock", { n: inventory[p.material], large: inventory[p.largeMaterial] })}</small>
                 </span>
               </button>
             ))}
@@ -617,6 +740,7 @@ export default function DesignStep({
         </>
       )}
 
+      {view === "review" && (
       <div className="panel py-3">
         <div className="label">{t(lang, "design.materials")}</div>
         <div className="grid grid-cols-1 gap-1.5 text-sm sm:grid-cols-2">
@@ -640,61 +764,132 @@ export default function DesignStep({
           ))}
           {design.pieces.length > 0 &&
             [...new Set(design.pieces.map((piece) => piecePearl(piece, design)))].map((pearl) => {
-              const fresh = opened.fresh[pearl] ?? 0;
-              const owned = stock[pearl] ?? 0;
+              const lack = lackOf(pearl);
+              const def = PEARL_LIST.find((p) => p.id === pearl)!;
               return (
-                <div key={pearl} className={`mat flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 ${fresh > owned ? "lack" : ""}`}>
-                  <span className="flex min-w-0 items-center gap-1">
-                    <NacreSwatch pearl={pearl} className="swatch shrink-0" />
-                    {pearlName(lang, pearl)}
+                <div key={pearl} className={`mat shell-use flex flex-col gap-1 sm:col-span-2 ${lack.standard + lack.large > 0 ? "lack" : ""}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex min-w-0 items-center gap-1">
+                      <NacreSwatch pearl={pearl} className="swatch shrink-0" />
+                      <b>{pearlName(lang, pearl)}</b>
+                      <span>· {t(lang, "design.shellUse", { n: opened.used[pearl] ?? 0 })}</span>
+                    </span>
+                  </div>
+                  <span className="text-xs leading-snug">
+                    {t(lang, "design.shellUseDetail", {
+                      reused: opened.reused[pearl] ?? 0,
+                      fresh: opened.fresh[pearl] ?? 0,
+                      large: opened.freshLarge[pearl] ?? 0,
+                    })}
                   </span>
                   <span className="text-xs leading-snug">
-                    {t(lang, "design.expected", { n: opened.used[pearl] ?? 0 })}
-                    {" · "}
-                    {t(lang, "design.fresh", { n: fresh })}
-                    {" · "}
-                    {t(lang, "design.owned", { n: owned })}
+                    {t(lang, "design.shellStock", { n: stock[pearl] ?? 0, large: stock[largeKey(pearl)] ?? 0 })}
                   </span>
+                  {lack.standard + lack.large > 0 && (
+                    <span className="text-xs text-[var(--red)]">
+                      {lack.standard > 0 && t(lang, "design.shellShort", { name: pearlName(lang, pearl), n: lack.standard })}
+                      {lack.large > 0 && ` ${t(lang, "nest.noLarge", { name: pearlName(lang, pearl) })}`}
+                    </span>
+                  )}
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {([def.material, def.largeMaterial] as MaterialId[]).map((k, i) => (
+                      <button
+                        key={k}
+                        className="mat-buy"
+                        disabled={money < MATERIALS[k].price}
+                        title={t(lang, "design.buyPack", { n: MATERIALS[k].pack })}
+                        onClick={() => {
+                          if (buy(k)) sfx.coin();
+                          else sfx.fail();
+                        }}
+                      >
+                        {t(lang, i === 0 ? "design.buyStandard" : "design.buyLarge")} +{MATERIALS[k].pack} · <Coin /> {MATERIALS[k].price}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               );
             })}
         </div>
         <p className="mt-2 text-sm text-[var(--brown)]">{t(lang, "design.shellNote")}</p>
         {missing.length > 0 && <div className="mt-2 text-sm text-[var(--red)]">{t(lang, "design.lack")}</div>}
-        {nestLeft > 0 && design.pieces.length > 0 && <div className="mt-2 text-sm text-[var(--red)]">{t(lang, "design.needNest")}</div>}
-        {short && (
-          <div className="mt-2 text-sm text-[var(--red)]">
-            {t(lang, "design.shellShort", {
-              name: pearlName(lang, short.id),
-              n: (opened.fresh[short.id] ?? 0) - (stock[short.id] ?? 0),
-            })}
-          </div>
-        )}
         {shellMsg && <div className="mt-2 text-sm text-[var(--red)]">{shellMsg}</div>}
       </div>
+      )}
 
-      <Btn
-        variant="pink"
-        size="lg"
-        disabled={design.pieces.length === 0 || missing.length > 0 || nestLeft > 0 || !!short}
-        onClick={() => {
-          const result = onStart(readyPlan());
-          if (!result.ok) {
-            sfx.fail();
-            setShellMsg(t(lang, "design.shellShort", { name: pearlName(lang, result.missing), n: 1 }));
-            return;
-          }
-          setShellMsg(null);
-        }}
-      >
-        {design.pieces.length === 0
-          ? t(lang, "design.needMotif")
-          : nestLeft > 0
-            ? t(lang, "design.needNest")
-            : t(lang, "design.startSheets", { n: usedTotal })}
-      </Btn>
+      <div className="design-action-bar">
+        {view === "art" && (
+          <Btn
+            variant="pink"
+            size="lg"
+            className="w-full"
+            disabled={design.pieces.length === 0}
+            onClick={() => goStage("shell")}
+          >
+            {design.pieces.length === 0 ? t(lang, "design.needMotif") : t(lang, "design.nextShell")}
+          </Btn>
+        )}
+        {view === "shell" && (
+          <Btn
+            variant={nestStatus && nestStatus.unplaced === 0 ? "pink" : "gold"}
+            size="lg"
+            className={`w-full ${nestStatus && nestStatus.unplaced === 0 ? "cta-glow" : ""}`}
+            onClick={() => {
+              if (nestStatus && nestStatus.unplaced === 0) nestActions.current?.confirm();
+              else nestActions.current?.auto();
+            }}
+          >
+            {nestStatus && nestStatus.unplaced === 0
+              ? t(lang, "design.nextReview")
+              : `${t(lang, "design.autoNest")} (${nestStatus?.unplaced ?? nestLeft})`}
+          </Btn>
+        )}
+        {view === "review" && (
+          <Btn
+            variant="pink"
+            size="lg"
+            className={`w-full ${lacquerReady && !short && missing.length === 0 ? "cta-glow" : ""}`}
+            disabled={design.pieces.length === 0 || missing.length > 0 || nestLeft > 0 || !!short}
+            onClick={() => {
+              if (!lacquerReady) {
+                setView("art");
+                setTimeout(() => document.getElementById("design-lacquer")?.scrollIntoView({ block: "center" }), 0);
+                return;
+              }
+              const result = onStart(readyPlan());
+              if (!result.ok) {
+                sfx.fail();
+                setShellMsg(
+                  result.large
+                    ? t(lang, "nest.noLarge", { name: pearlName(lang, result.missing) })
+                    : t(lang, "design.shellShort", { name: pearlName(lang, result.missing), n: 1 }),
+                );
+                return;
+              }
+              setShellMsg(null);
+            }}
+          >
+            {!lacquerReady
+              ? t(lang, "design.pickLacquer")
+              : nestLeft > 0
+                ? t(lang, "design.needNest")
+                : t(lang, "design.startSheets", { n: usedTotal })}
+          </Btn>
+        )}
+      </div>
     </div>
   );
+}
+
+function SizeNote({ piece, pearl, lang }: { piece: PlacedPiece; pearl: PearlId; lang: Locale }) {
+  const cap = maxScaleFor(piece.motif, pearl);
+  const text =
+    cap < MAX_S && piece.s >= cap - 0.005
+      ? t(lang, "design.maxSize")
+      : needsLargeSheet(piece, pearl)
+        ? t(lang, "design.needLarge")
+        : "\u00a0";
+  return <div className="text-xs leading-snug text-[var(--brown)]">{text}</div>;
 }
 
 const CORNER_CURSORS = ["nwse-resize", "nesw-resize", "nwse-resize", "nesw-resize"] as const;

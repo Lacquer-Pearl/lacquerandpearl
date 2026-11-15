@@ -71,6 +71,25 @@ export function ToolGraphic({ tool, color = "#1c1416" }: { tool: ToolId; color?:
   }
 }
 
+/** 도구 끝 작업점 표시. lift 가 있으면 손가락 자리까지 점선으로 잇는다. 좌표는 감싼 svg 의 단위. */
+export function WorkPoint({ x, y, lift = 0, r = 6 }: { x: number; y: number; lift?: number; r?: number }) {
+  return (
+    <g className="pointer-events-none">
+      {lift > r * 2 && (
+        <>
+          <line x1={x} y1={y + r + 2} x2={x} y2={y + lift - 8} stroke="#1c1416" strokeOpacity="0.55" strokeWidth="2.6" strokeLinecap="round" />
+          <line x1={x} y1={y + r + 2} x2={x} y2={y + lift - 8} stroke="#fff" strokeOpacity="0.9" strokeWidth="1.2" strokeDasharray="3 3" strokeLinecap="round" />
+          <circle cx={x} cy={y + lift} r={r + 3} fill="#fff" fillOpacity="0.12" stroke="#fff" strokeOpacity="0.5" strokeWidth="1" />
+        </>
+      )}
+      <circle cx={x} cy={y} r={r} fill="none" stroke="#1c1416" strokeOpacity="0.7" strokeWidth="3.2" />
+      <circle cx={x} cy={y} r={r} fill="none" stroke="#fff" strokeWidth="1.5" />
+      <path d={`M${x - r - 4} ${y} H${x - r + 2} M${x + r - 2} ${y} H${x + r + 4} M${x} ${y - r - 4} V${y - r + 2}`} stroke="#fff" strokeWidth="1.3" strokeLinecap="round" />
+      <circle cx={x} cy={y} r="1.8" fill="#e8433a" stroke="#fff" strokeWidth="0.6" />
+    </g>
+  );
+}
+
 export function ToolCursor({ tool, x, y, color, size = 64 }: { tool: ToolId; x: string; y: string; color?: string; size?: number }) {
   const [tx, ty] = TOOL_TIP[tool];
   return (

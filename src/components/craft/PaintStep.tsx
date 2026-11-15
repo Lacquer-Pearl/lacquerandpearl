@@ -27,12 +27,18 @@ export default function PaintStep({
   shape,
   background,
   foreground,
+  region,
+  regionMargin,
+  onSlide,
   onDone,
 }: {
   def: PaintStepDef;
   shape: ShapeId;
   background: React.ReactNode;
   foreground?: React.ReactNode;
+  region?: Path2D | null;
+  regionMargin?: number;
+  onSlide?: (at: { x: number; y: number }, dx: number, dy: number) => void;
   onDone: (score: number, stats: PaintStats) => void;
 }) {
   const lang = useSave((s) => s.lang);
@@ -69,6 +75,9 @@ export default function PaintStep({
           inkRef={usesInk ? inkRef : undefined}
           ink={ink}
           onInk={setInk}
+          region={region}
+          regionMargin={regionMargin}
+          onSlide={onSlide}
         />
       </div>
       {usesInk && (
@@ -103,6 +112,21 @@ export default function PaintStep({
         </div>
       )}
       <div className="panel flex flex-col gap-2 py-3">
+        <Meter
+          value={stats.touched}
+          color="var(--gold-deep)"
+          target={def.minTouched}
+          label={
+            <>
+              <span>{t(lang, "paint.covered")}</span>
+              <span>
+                {ready
+                  ? t(lang, "paint.goalReached")
+                  : t(lang, "paint.toGoal", { n: Math.max(1, Math.ceil((def.minTouched - stats.touched) * 100)) })}
+              </span>
+            </>
+          }
+        />
         <Meter
           value={stats.inRange}
           color="var(--mint-deep)"

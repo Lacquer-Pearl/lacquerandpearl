@@ -9,7 +9,7 @@ import { materialDesc, materialName, t } from "@/lib/i18n";
 import { sfx } from "@/lib/sound";
 import { useSave, useUI } from "@/lib/store";
 
-const pearlOf = (m: MaterialId) => PEARL_LIST.find((p) => p.material === m)?.id;
+const pearlOf = (m: MaterialId) => PEARL_LIST.find((p) => p.material === m || p.largeMaterial === m)?.id;
 
 export default function ShopScreen() {
   const back = useUI((s) => s.back);

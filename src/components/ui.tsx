@@ -154,11 +154,14 @@ export function Meter({
   value,
   color = "var(--pink)",
   zone,
+  target,
   label,
 }: {
   value: number;
   color?: string;
   zone?: [number, number];
+  /** 이 선까지 채우면 된다는 표시(0~1) */
+  target?: number;
   label?: React.ReactNode;
 }) {
   return (
@@ -175,6 +178,7 @@ export function Meter({
           className="meter-fill"
           style={{ width: `${Math.max(0, Math.min(1, value)) * 100}%`, background: color }}
         />
+        {target !== undefined && <div className="meter-target" style={{ left: `${Math.max(0, Math.min(1, target)) * 100}%` }} />}
       </div>
     </div>
   );

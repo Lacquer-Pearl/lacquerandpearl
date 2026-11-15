@@ -60,6 +60,10 @@ export const MATERIAL_ICONS: Record<MaterialId, UiIconId> = {
   pearlAbalone: "frame",
   pearlBlack: "frame",
   pearlPaua: "frame",
+  pearlWhiteLarge: "frame",
+  pearlAbaloneLarge: "frame",
+  pearlBlackLarge: "frame",
+  pearlPauaLarge: "frame",
 };
 
 export function uiIconSrc(id: UiIconId) {

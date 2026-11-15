@@ -14,7 +14,11 @@ export type MaterialId =
   | "pearlWhite"
   | "pearlAbalone"
   | "pearlBlack"
-  | "pearlPaua";
+  | "pearlPaua"
+  | "pearlWhiteLarge"
+  | "pearlAbaloneLarge"
+  | "pearlBlackLarge"
+  | "pearlPauaLarge";
 
 export interface ShapeDef {
   id: ShapeId;
@@ -105,6 +109,8 @@ export interface PearlDef {
   id: PearlId;
   name: string;
   material: MaterialId;
+  /** 큰 문양용 대형 자개패 */
+  largeMaterial: MaterialId;
   /** 텍스처가 준비되기 전 대체 색 */
   stops: string[];
   bonus: number;
@@ -115,6 +121,7 @@ export const PEARLS: Record<PearlId, PearlDef> = {
     id: "white",
     name: "진주패 (백패)",
     material: "pearlWhite",
+    largeMaterial: "pearlWhiteLarge",
     stops: ["#e8e4dc", "#dccfd1", "#cfd8d8", "#e3dac8", "#d6d1dd"],
     bonus: 1,
   },
@@ -122,6 +129,7 @@ export const PEARLS: Record<PearlId, PearlDef> = {
     id: "abalone",
     name: "전복패",
     material: "pearlAbalone",
+    largeMaterial: "pearlAbaloneLarge",
     stops: ["#86b3ad", "#b597b0", "#8b9fc4", "#9fbd92", "#c8b88e"],
     bonus: 1.35,
   },
@@ -129,6 +137,7 @@ export const PEARLS: Record<PearlId, PearlDef> = {
     id: "black",
     name: "흑진주패",
     material: "pearlBlack",
+    largeMaterial: "pearlBlackLarge",
     stops: ["#4e4843", "#7d6a72", "#4f6f6c", "#6b6560", "#3a3532"],
     bonus: 1.55,
   },
@@ -136,6 +145,7 @@ export const PEARLS: Record<PearlId, PearlDef> = {
     id: "paua",
     name: "뉴질랜드 판자개",
     material: "pearlPaua",
+    largeMaterial: "pearlPauaLarge",
     stops: ["#2f6170", "#40518a", "#2f7564", "#6a5c96", "#7d8a4c"],
     bonus: 1.75,
   },
@@ -175,6 +185,10 @@ export const MATERIALS: Record<MaterialId, MaterialDef> = {
     pack: 5,
     desc: "파우아 전복의 짙은 청록·보랏빛 물결무늬, 최고급 (5조각)",
   },
+  pearlWhiteLarge: { id: "pearlWhiteLarge", name: "대형 진주패", emoji: "🤍", price: 25, pack: 2, desc: "큰 문양용 대형 자개패 (2장)" },
+  pearlAbaloneLarge: { id: "pearlAbaloneLarge", name: "대형 전복패", emoji: "🌈", price: 50, pack: 2, desc: "큰 문양용 대형 자개패 (2장)" },
+  pearlBlackLarge: { id: "pearlBlackLarge", name: "대형 흑진주패", emoji: "🖤", price: 75, pack: 2, desc: "큰 문양용 대형 자개패 (2장)" },
+  pearlPauaLarge: { id: "pearlPauaLarge", name: "대형 판자개", emoji: "🦚", price: 95, pack: 2, desc: "큰 문양용 대형 자개패 (2장)" },
 };
 
 export const MATERIAL_LIST = Object.values(MATERIALS);

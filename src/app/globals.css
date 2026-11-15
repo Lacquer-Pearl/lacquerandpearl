@@ -567,6 +567,79 @@ svg.craft-touch-area * {
     0 2px 0 var(--gold-deep),
     inset 0 0 0 1px #fff;
 }
+.motif-btn.on {
+  border-color: var(--mint-deep);
+  background: #eaf2ec;
+}
+
+.design-stepper {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.design-stepper button {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 12px;
+  border: 1.5px solid var(--line-deep);
+  background: #fffdf8;
+  padding: 4px 6px;
+  font-size: 13px;
+  line-height: 1.2;
+  color: var(--brown-light);
+}
+.design-stepper button.now {
+  border-color: var(--gold-deep);
+  background: #faf1dd;
+  color: var(--brown);
+  font-weight: 700;
+  box-shadow: 0 2px 0 var(--gold-deep);
+}
+.design-stepper button.done {
+  border-color: var(--mint-deep);
+  color: var(--brown);
+}
+.design-stepper button:disabled {
+  opacity: 0.5;
+}
+.design-stepper-num {
+  display: grid;
+  flex: none;
+  height: 22px;
+  width: 22px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--line-deep);
+  color: #fffdf8;
+  font-size: 12px;
+}
+.design-stepper button.now .design-stepper-num {
+  background: var(--gold-deep);
+}
+.design-stepper button.done .design-stepper-num {
+  background: var(--mint-deep);
+}
+/* 조각을 고르거나 풀어도 아래 목록이 밀리지 않도록 높이를 고정한다 */
+.design-sel-slot {
+  display: flex;
+  flex-direction: column;
+  min-height: 118px;
+}
+.design-sel-slot > .panel {
+  flex: 1;
+}
+.design-action-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 15;
+  margin: 0 -14px -28px;
+  padding: 10px 14px calc(12px + env(safe-area-inset-bottom));
+  background: linear-gradient(to bottom, rgba(244, 236, 222, 0), rgba(244, 236, 222, 0.96) 30%);
+}
 
 .swatch {
   display: inline-block;
@@ -697,13 +770,17 @@ svg.craft-touch-area * {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  justify-content: center;
+  gap: 4px;
+  min-height: 44px;
+  min-width: 76px;
   border-radius: 999px;
-  border: 1px solid var(--gold-deep);
+  border: 1.5px solid var(--gold-deep);
   background: #f6e7c4;
-  box-shadow: 0 2px 0 var(--gold-deep);
-  padding: 1px 8px;
-  font-size: 12px;
+  box-shadow: 0 3px 0 var(--gold-deep);
+  padding: 4px 14px;
+  font-size: 14px;
+  font-weight: 700;
   color: var(--brown);
 }
 .mat-buy:active {
@@ -1241,4 +1318,93 @@ svg.craft-touch-area * {
     transform: translate(-50%, -20px);
     opacity: 0;
   }
+}
+
+/* 문구가 바뀌어도 아래 내용이 밀리지 않도록 높이를 미리 잡아 둔다 */
+.craft-status-line {
+  min-height: 2.8em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--cream);
+}
+.nest-msg {
+  min-height: 2.8em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--cream);
+}
+.nest-msg.done {
+  color: var(--gold);
+  font-weight: 700;
+}
+.nest-tray {
+  min-height: 100px;
+  border-radius: 14px;
+  padding: 6px 8px;
+  background: rgba(44, 29, 20, 0.55);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+}
+.nest-tray-label {
+  font-size: 0.75rem;
+  color: var(--cream);
+  opacity: 0.85;
+}
+.nest-tray-piece {
+  position: relative;
+  touch-action: pan-x;
+}
+.nest-tray-badge {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  border-radius: 6px;
+  padding: 0 4px;
+  font-size: 10px;
+  background: var(--gold);
+  color: #2c1d14;
+}
+.nest-drag-ghost {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.85;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.4));
+}
+.cta-glow {
+  animation: cta-glow 1.4s ease-in-out infinite;
+}
+@keyframes cta-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(214, 180, 110, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(214, 180, 110, 0.55);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cta-glow {
+    animation: none;
+  }
+}
+.meter-target {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  margin-left: -1.5px;
+  background: #2c1d14;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8);
+  z-index: 2;
 }

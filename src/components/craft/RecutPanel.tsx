@@ -11,11 +11,13 @@ import {
   autoNest,
   commitNest,
   fitsWithoutNewSheet,
+  largeKey,
   makeSheet,
   type NestPiece,
   type ShellLedger,
   type ShellPlan,
   type ShellPlacement,
+  type ShellStock,
 } from "@/lib/shellNest";
 import { useSave } from "@/lib/store";
 import NestStep, { motifPolygons } from "./NestStep";
@@ -37,18 +39,19 @@ function suggestLayout(
   piece: PlacedPiece,
   design: Design,
   ledger: ShellLedger,
-  stock: Partial<Record<PearlId, number>>,
+  stock: ShellStock,
 ): ShellPlan | undefined {
   if (mode === "manual") return undefined;
   const nest = nestOf(piece, design);
+  const big = largeKey(nest.pearl);
+  const unopened = { [nest.pearl]: stock[nest.pearl] ?? 0, [big]: stock[big] ?? 0 };
   if (mode === "fresh") {
-    if ((stock[nest.pearl] ?? 0) < 1) return undefined;
-    const sheet = makeSheet(nest.pearl);
-    const packed = autoNest([nest], [sheet], { [nest.pearl]: 0 }, polygonsOf);
-    return { sheets: [sheet], placements: packed.placements };
+    const packed = autoNest([nest], [], unopened, polygonsOf);
+    if (!packed.opened.length) return undefined;
+    return { sheets: packed.opened, placements: packed.placements };
   }
   const open = ledger.sheets.filter((sheet) => sheet.pearl === nest.pearl);
-  const packed = autoNest([nest], open, { [nest.pearl]: stock[nest.pearl] ?? 0 }, polygonsOf);
+  const packed = autoNest([nest], open, unopened, polygonsOf);
   return { sheets: packed.opened, placements: packed.placements };
 }
 
@@ -71,7 +74,7 @@ export default function RecutPanel({
   piece: PlacedPiece;
   pending: PieceCutResult;
   ledger: ShellLedger;
-  stock: Partial<Record<PearlId, number>>;
+  stock: ShellStock;
   mode: RecutSession["mode"];
   draft?: ShellPlan;
   onMode: (mode: RecutSession["mode"]) => void;
@@ -83,7 +86,7 @@ export default function RecutPanel({
 }) {
   const lang = useSave((s) => s.lang);
   const pearl = piecePearl(piece, design);
-  const openStock = stock[pearl] ?? 0;
+  const openStock = (stock[pearl] ?? 0) + (stock[largeKey(pearl)] ?? 0);
   const fits = fitsWithoutNewSheet(nestOf(piece, design), ledger.sheets, polygonsOf);
   const blocked = !fits && openStock < 1;
   const reusable = pending.condition === "reusable-broken";

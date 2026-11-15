@@ -22,9 +22,8 @@ import {
 } from "@/lib/game";
 import { artworkTitle, lacquerName, stepName, t, tNode, type Locale } from "@/lib/i18n";
 import { sfx } from "@/lib/sound";
-import { clearCraftBoot, setCraftBoot, takeCraftBoot, useSave, useUI, type CraftProgress } from "@/lib/store";
+import { clearCraftBoot, pearlStock, setCraftBoot, takeCraftBoot, useSave, useUI, type CraftProgress } from "@/lib/store";
 import type { PieceCutResult, RecutSession } from "@/lib/cutFragments";
-import type { PearlId } from "@/lib/data";
 import type { ShellPlan } from "@/lib/shellNest";
 import AttachStep from "./AttachStep";
 import NestStep, { motifPolygons } from "./NestStep";
@@ -35,6 +34,10 @@ import DryStep from "./DryStep";
 import PaintStep, { type PaintStepDef } from "./PaintStep";
 import type { PaintStats } from "./PaintCanvas";
 import PeelStep from "./PeelStep";
+import { piecesAt, piecesRegion } from "./pieceRegion";
+
+/** 다림질은 붙인 자개와 이 둘레(작품 좌표)까지만 센다 */
+const IRON_MARGIN = 6;
 
 const STEPS: ("design" | StepId)[] = ["design", "cloth", "lacquer", "dry", "cut", "attach", "iron", "peel", "fill", "sand"];
 
@@ -98,6 +101,7 @@ function paintDefs(design: Design, lang: Locale): Record<"lacquer" | "iron" | "f
         tool: "iron",
         stampRate: 1.1,
         stampLabels: [t(lang, "iron.stageLoose"), t(lang, "iron.stageGood"), t(lang, "iron.stageBurnt")],
+        lift: true,
       },
       goodLabel: t(lang, "iron.good"),
       overLabel: t(lang, "iron.over"),
@@ -209,9 +213,10 @@ export default function CraftFlow() {
     () =>
       draft ?? {
         shape: commission?.shape ?? "box",
-        lacquer: commission?.lacquer ?? "black",
+        lacquer: "black",
         pearl: commission?.pearl ?? "white",
         pieces: [],
+        lacquerChosen: !commission,
       },
     [draft, commission],
   );
@@ -232,12 +237,7 @@ export default function CraftFlow() {
   const planRef = useRef<ShellPlan | undefined>(resumed.current?.shellPlan);
   const legacyPearl = useRef(!!resumed.current?.legacyPearlPaid);
   const recutRef = useRef<RecutSession | null>(resumed.current?.recutSession ?? null);
-  const shellStock: Partial<Record<PearlId, number>> = {
-    white: inventory.pearlWhite,
-    abalone: inventory.pearlAbalone,
-    black: inventory.pearlBlack,
-    paua: inventory.pearlPaua,
-  };
+  const shellStock = pearlStock(inventory);
 
   const step = STEPS[stepIdx];
   const progressNow = (session: RecutSession | null): CraftProgress => ({
@@ -296,8 +296,15 @@ export default function CraftFlow() {
     completeRef.current = complete;
   });
 
+  const finishedStep = useRef<StepId | null>(null);
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [stepIdx, nestPending]);
+
   const onStepDone = useCallback((score: number) => {
     const id = stepRef.current as StepId;
+    if (finishedStep.current === id) return;
+    finishedStep.current = id;
     scores.current[id] = score;
     setToast({ score, label: cheer(lang, score) });
     if (score >= 75) sfx.success();
@@ -324,6 +331,27 @@ export default function CraftFlow() {
       onStepDone(score);
     },
     [onStepDone],
+  );
+
+  const ironRegion = useMemo(
+    () => (step === "iron" ? piecesRegion(placed.length ? placed : design.pieces) : null),
+    [step, placed, design.pieces],
+  );
+
+  const onIronSlide = useCallback(
+    (at: { x: number; y: number }, dx: number, dy: number) => {
+      const pieces = placedRef.current.length ? placedRef.current : design.pieces;
+      const top = piecesAt(pieces, at.x, at.y)[0];
+      if (!top) return;
+      const next = pieces.map((piece) =>
+        piece.id === top.id
+          ? { ...piece, x: Math.max(10, Math.min(290, piece.x + dx)), y: Math.max(10, Math.min(290, piece.y + dy)) }
+          : piece,
+      );
+      placedRef.current = next;
+      setPlaced(next);
+    },
+    [design.pieces],
   );
 
   const onPaintDone = useCallback(
@@ -475,6 +503,9 @@ export default function CraftFlow() {
             def={defs.iron}
             shape={design.shape}
             background={<Artwork design={built} className="h-full w-full" gloss={0.1} />}
+            region={ironRegion}
+            regionMargin={IRON_MARGIN}
+            onSlide={onIronSlide}
             onDone={onPaintDone}
           />
         )}

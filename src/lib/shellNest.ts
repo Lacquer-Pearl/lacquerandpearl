@@ -39,6 +39,35 @@ export const SHELL_SPECS: Record<ShellPearl, ShellSpec> = {
   paua: { width: 156, height: 104, rotations: null },
 };
 
+/** 대형 자개패. 상점에서 따로 사며, 보통 자개패에 들어가지 않는 큰 문양을 올린다. */
+export const LARGE_SHELL_SPECS: Record<ShellPearl, ShellSpec> = {
+  white: { width: 252, height: 168, rotations: null },
+  abalone: { width: 222, height: 150, rotations: null },
+  black: { width: 204, height: 138, rotations: null },
+  paua: { width: 234, height: 156, rotations: null },
+};
+
+export type ShellSize = "standard" | "large";
+export type LargeStockKey = `${ShellPearl}:large`;
+/** 미개봉 자개패 재고. 진주 종류 키는 보통 자개패, `:large` 키는 대형 자개패다. */
+export type ShellStock = Partial<Record<ShellPearl | LargeStockKey, number>>;
+
+export function largeKey(pearl: ShellPearl): LargeStockKey {
+  return `${pearl}:large`;
+}
+
+export function stockKey(pearl: ShellPearl, size: ShellSize = "standard"): ShellPearl | LargeStockKey {
+  return size === "large" ? largeKey(pearl) : pearl;
+}
+
+export function specFor(pearl: ShellPearl, size: ShellSize = "standard") {
+  return size === "large" ? LARGE_SHELL_SPECS[pearl] : SHELL_SPECS[pearl];
+}
+
+export function sheetSize(sheet: Pick<ShellSheet, "size">): ShellSize {
+  return sheet.size === "large" ? "large" : "standard";
+}
+
 export const AUTO_ROTATIONS = [0, 90, 180, 270];
 
 export interface ShellPlacement {
@@ -60,6 +89,8 @@ export interface ShellSheet {
   status: "active" | "exhausted";
   cutPieceIds: string[];
   placements: ShellPlacement[];
+  /** 없으면 보통 자개패 */
+  size?: ShellSize;
 }
 
 export interface ShellLedger {
@@ -155,11 +186,11 @@ export function poseKeys(polygons: CrackPoint[][], s: number, r: number, x: numb
 }
 
 export function placementFits(
-  sheet: Pick<ShellSheet, "id" | "pearl" | "width" | "height">,
+  sheet: Pick<ShellSheet, "id" | "pearl" | "width" | "height" | "size">,
   piece: NestPiece,
   pose: Pick<ShellPlacement, "x" | "y" | "r">,
   occupied: Set<string>,
-  spec = SHELL_SPECS[sheet.pearl],
+  spec = specFor(sheet.pearl, sheetSize(sheet)),
 ): FitReason {
   if (piece.pearl !== sheet.pearl) return "pearl";
   if (!rotationAllowed(spec, pose.r)) return "rotation";
@@ -251,9 +282,10 @@ export function sheetId() {
   return `sheet-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export function makeSheet(pearl: ShellPearl, id = sheetId()): ShellSheet {
-  const spec = SHELL_SPECS[pearl];
-  return { id, pearl, width: spec.width, height: spec.height, status: "active", cutPieceIds: [], placements: [] };
+export function makeSheet(pearl: ShellPearl, id = sheetId(), size: ShellSize = "standard"): ShellSheet {
+  const spec = specFor(pearl, size);
+  const sheet: ShellSheet = { id, pearl, width: spec.width, height: spec.height, status: "active", cutPieceIds: [], placements: [] };
+  return size === "large" ? { ...sheet, size } : sheet;
 }
 
 export interface AutoNestResult {
@@ -266,12 +298,13 @@ export interface AutoNestResult {
 
 /**
  * 큰 문양부터, 이미 열린 자개패의 빈자리를 먼저 쓰고, 없을 때만 새 장을 연다.
+ * 새 장은 보통 자개패를 먼저 열고, 거기 들어가지 않을 때만 대형 자개패를 연다.
  * 고정된 배치는 옮기지 않는다. 최적해를 보장하지 않는다.
  */
 export function autoNest(
   pieces: NestPiece[],
   sheets: ShellSheet[],
-  unopened: Partial<Record<ShellPearl, number>>,
+  unopened: ShellStock,
   obstaclePolygons?: (placement: ShellPlacement) => CrackPoint[][],
 ): AutoNestResult {
   const cutIds = new Set(sheets.flatMap((sheet) => sheet.cutPieceIds));
@@ -308,21 +341,23 @@ export function autoNest(
     let fit: ShellPlacement | null = null;
     let host: ShellSheet | undefined;
     for (const sheet of candidates) {
-      fit = firstFit(sheet, piece, occupied.get(sheet.id) ?? new Set(), SHELL_SPECS[sheet.pearl]);
+      fit = firstFit(sheet, piece, occupied.get(sheet.id) ?? new Set(), specFor(sheet.pearl, sheetSize(sheet)));
       if (fit) {
         host = sheet;
         break;
       }
     }
-    if (!fit && (stock[piece.pearl] ?? 0) > 0) {
-      const sheet = makeSheet(piece.pearl);
-      fit = firstFit(sheet, piece, new Set(), SHELL_SPECS[sheet.pearl]);
+    for (const size of ["standard", "large"] as const) {
+      const key = stockKey(piece.pearl, size);
+      if (fit || (stock[key] ?? 0) <= 0) continue;
+      const sheet = makeSheet(piece.pearl, sheetId(), size);
+      fit = firstFit(sheet, piece, new Set(), specFor(piece.pearl, size));
       if (fit) {
         host = sheet;
         working.push(sheet);
         opened.push(sheet);
         occupied.set(sheet.id, new Set());
-        stock[piece.pearl] = (stock[piece.pearl] ?? 0) - 1;
+        stock[key] = (stock[key] ?? 0) - 1;
       }
     }
     if (!fit || !host) {
@@ -348,7 +383,7 @@ export function fitsWithoutNewSheet(
   obstaclePolygons?: (placement: ShellPlacement) => CrackPoint[][],
 ) {
   const same = sheets.filter((sheet) => sheet.pearl === piece.pearl);
-  return autoNest([piece], same, { [piece.pearl]: 0 }, obstaclePolygons).unplaced.length === 0;
+  return autoNest([piece], same, {}, obstaclePolygons).unplaced.length === 0;
 }
 
 export function sheetStatus(sheet: ShellSheet, polygonsFor: (placement: ShellPlacement) => CrackPoint[][]): ShellSheet["status"] {
@@ -389,7 +424,7 @@ export function countByPearl(placements: ShellPlacement[], sheets: ShellSheet[])
 }
 
 export interface CommitInput {
-  stock: Partial<Record<ShellPearl, number>>;
+  stock: ShellStock;
   ledger: ShellLedger;
   plan: ShellPlan;
   legacyPrepaid?: boolean;
@@ -399,29 +434,30 @@ export interface CommitInput {
 }
 
 export type CommitResult =
-  | { ok: true; stock: Partial<Record<ShellPearl, number>>; ledger: ShellLedger; plan: ShellPlan; charged: Partial<Record<ShellPearl, number>> }
-  | { ok: false; missing: ShellPearl };
+  | { ok: true; stock: ShellStock; ledger: ShellLedger; plan: ShellPlan; charged: ShellStock }
+  | { ok: false; missing: ShellPearl; large?: boolean };
 
 /** 처음 여는 자개패만 재고에서 1장 차감한다. 이미 열린 장의 빈자리는 추가 차감이 없다. */
 export function commitNest(input: CommitInput): CommitResult {
   const polygonsFor = input.polygonsFor ?? (() => rectPoly(8, 8));
   const known = new Set(input.ledger.sheets.map((sheet) => sheet.id));
-  const needed = new Map<ShellPearl, ShellSheet[]>();
+  const needed = new Map<ShellPearl | LargeStockKey, ShellSheet[]>();
   for (const sheet of input.plan.sheets) {
     if (known.has(sheet.id)) continue;
-    const list = needed.get(sheet.pearl) ?? [];
+    const key = stockKey(sheet.pearl, sheetSize(sheet));
+    const list = needed.get(key) ?? [];
     list.push(sheet);
-    needed.set(sheet.pearl, list);
+    needed.set(key, list);
   }
   const stock = { ...input.stock };
-  const charged: Partial<Record<ShellPearl, number>> = {};
+  const charged: ShellStock = {};
   if (!input.legacyPrepaid) {
-    for (const [pearl, sheets] of needed) {
-      if ((stock[pearl] ?? 0) < sheets.length) return { ok: false, missing: pearl };
+    for (const [key, sheets] of needed) {
+      if ((stock[key] ?? 0) < sheets.length) return { ok: false, missing: sheets[0].pearl, large: sheetSize(sheets[0]) === "large" };
     }
-    for (const [pearl, sheets] of needed) {
-      stock[pearl] = (stock[pearl] ?? 0) - sheets.length;
-      charged[pearl] = sheets.length;
+    for (const [key, sheets] of needed) {
+      stock[key] = (stock[key] ?? 0) - sheets.length;
+      charged[key] = sheets.length;
     }
   }
   const pieceIds = new Set(input.plan.placements.map((item) => item.pieceId));
@@ -444,13 +480,12 @@ export function commitNest(input: CommitInput): CommitResult {
     const merged = { ...sheet, placements: [...kept, ...incoming.filter((item) => !sheet.cutPieceIds.includes(item.pieceId))] };
     return { ...merged, status: sheetStatus(merged, polygonsFor) };
   });
-  for (const [pearl, sheets] of needed) {
+  for (const sheets of needed.values()) {
     for (const sheet of sheets) {
       const placements = bySheet.get(sheet.id) ?? [];
-      const made = { ...sheet, pearl, placements, cutPieceIds: sheet.cutPieceIds ?? [] };
+      const made = { ...sheet, placements, cutPieceIds: sheet.cutPieceIds ?? [] };
       nextSheets.push({ ...made, status: sheetStatus(made, polygonsFor) });
     }
-    void pearl;
   }
   const plan: ShellPlan = { ...input.plan, confirmed: true };
   return { ok: true, stock, ledger: { sheets: nextSheets }, plan, charged };
@@ -517,7 +552,8 @@ export function sanitizeLedger(raw: unknown): ShellLedger {
     const pearl = sheet.pearl;
     if (pearl !== "white" && pearl !== "abalone" && pearl !== "black" && pearl !== "paua") return [];
     if (typeof sheet.id !== "string" || !sheet.id) return [];
-    const spec = SHELL_SPECS[pearl];
+    const size = sheetSize(sheet);
+    const spec = specFor(pearl, size);
     return [
       {
         id: sheet.id,
@@ -527,6 +563,7 @@ export function sanitizeLedger(raw: unknown): ShellLedger {
         status: sheet.status === "exhausted" ? "exhausted" : "active",
         cutPieceIds: Array.isArray(sheet.cutPieceIds) ? sheet.cutPieceIds.filter((id) => typeof id === "string") : [],
         placements: Array.isArray(sheet.placements) ? sheet.placements.filter(isPlacement) : [],
+        ...(size === "large" ? { size } : {}),
       } satisfies ShellSheet,
     ];
   });
@@ -547,23 +584,53 @@ export interface SavedCraft {
   [key: string]: unknown;
 }
 
-/** 이 구획이 쓸 자개패. used 는 배치에 올라간 장수, fresh 는 그중 새로 열 장수다. */
+/**
+ * 이 구획이 쓸 자개패. used 는 배치에 올라간 장수, fresh 는 그중 새로 열 보통 자개패,
+ * freshLarge 는 새로 열 대형 자개패, reused 는 전에 열어 둔 장의 빈자리를 쓴 장수다.
+ */
 export function sheetUse(plan: ShellPlan | undefined, ledger: ShellLedger) {
   const known = new Set(ledger.sheets.map((sheet) => sheet.id));
-  const pearlOf = new Map<string, ShellPearl>();
-  for (const sheet of [...ledger.sheets, ...(plan?.sheets ?? [])]) pearlOf.set(sheet.id, sheet.pearl);
+  const sheetOf = new Map<string, ShellSheet>();
+  for (const sheet of [...ledger.sheets, ...(plan?.sheets ?? [])]) sheetOf.set(sheet.id, sheet);
   const used: Partial<Record<ShellPearl, number>> = {};
   const fresh: Partial<Record<ShellPearl, number>> = {};
+  const freshLarge: Partial<Record<ShellPearl, number>> = {};
+  const reused: Partial<Record<ShellPearl, number>> = {};
   const seen = new Set<string>();
   for (const placement of plan?.placements ?? []) {
     if (seen.has(placement.sheetId)) continue;
     seen.add(placement.sheetId);
-    const pearl = pearlOf.get(placement.sheetId);
-    if (!pearl) continue;
+    const sheet = sheetOf.get(placement.sheetId);
+    if (!sheet) continue;
+    const pearl = sheet.pearl;
     used[pearl] = (used[pearl] ?? 0) + 1;
-    if (!known.has(placement.sheetId)) fresh[pearl] = (fresh[pearl] ?? 0) + 1;
+    const bucket = known.has(sheet.id) ? reused : sheetSize(sheet) === "large" ? freshLarge : fresh;
+    bucket[pearl] = (bucket[pearl] ?? 0) + 1;
   }
-  return { used, fresh };
+  return { used, fresh, freshLarge, reused };
+}
+
+/** 이 문양을 한 장에 올릴 수 있는 가장 큰 배율. 90도 회전까지 본다. */
+export function maxScaleOnSheet(polygons: CrackPoint[][], spec: Pick<ShellSpec, "width" | "height">) {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const poly of polygons) {
+    for (const point of poly) {
+      minX = Math.min(minX, point.x);
+      minY = Math.min(minY, point.y);
+      maxX = Math.max(maxX, point.x);
+      maxY = Math.max(maxY, point.y);
+    }
+  }
+  if (!Number.isFinite(minX)) return Infinity;
+  const w = Math.max(1, maxX - minX);
+  const h = Math.max(1, maxY - minY);
+  const margin = CELL * (KERF_CELLS + 2) * 2;
+  const W = spec.width - margin;
+  const H = spec.height - margin;
+  return Math.max(Math.min(W / w, H / h), Math.min(W / h, H / w));
 }
 
 /**

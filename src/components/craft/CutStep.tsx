@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MotifMasks, NacreDefs, NacrePiece, PieceGraphics, SheenGradient, motifMask } from "@/components/Artwork";
-import { TOOL_TIP, ToolGraphic } from "@/components/Tools";
+import { TOOL_TIP, ToolGraphic, WorkPoint } from "@/components/Tools";
 import { Btn, Meter } from "@/components/ui";
 import {
   breakStateFrom,
@@ -18,15 +18,15 @@ import {
 } from "@/lib/cutFragments";
 import { MOTIFS, motifCutFit, motifCutRoutes, motifLocalBox, type CuttingMethod, type MotifId, type PearlId } from "@/lib/data";
 import { cutJobs, type Design } from "@/lib/game";
-import type { ShellLedger, ShellPlacement, ShellPlan } from "@/lib/shellNest";
+import type { ShellLedger, ShellPlacement, ShellPlan, ShellStock } from "@/lib/shellNest";
 import RecutPanel from "./RecutPanel";
 import { motifName, pearlName, t, tNode } from "@/lib/i18n";
 import { loopLevel, sfx, startLoop, stopLoop } from "@/lib/sound";
-import { useSave } from "@/lib/store";
+import { MACHINE_CUT_COST, useSave } from "@/lib/store";
 import MotifIcon from "@/components/MotifIcon";
 import UiIcon from "@/components/UiIcon";
 import { StepHeader } from "./common";
-import { claimCraftPointer, isForeignCraftPointer, releaseCraftPointer, useBlockCraftScroll } from "./craftTouch";
+import { claimCraftPointer, isForeignCraftPointer, releaseCraftPointer, toolLift, useBlockCraftScroll } from "./craftTouch";
 
 type Method = "jul" | "kkeun" | "auto";
 type Choice = Method | "each";
@@ -54,7 +54,7 @@ export default function CutStep({
   placements?: ShellPlacement[];
   onPieceCut?: (pieceId: string) => void;
   ledger?: ShellLedger;
-  stock?: Partial<Record<PearlId, number>>;
+  stock?: ShellStock;
   session?: RecutSession | null;
   onSession?: (session: RecutSession | null) => void;
   onSeal?: (pieceId: string) => void;
@@ -121,6 +121,8 @@ export default function CutStep({
         setJobIdx(scores.current.length);
         return;
       }
+      if (sent.current) return;
+      sent.current = true;
       const avg = scores.current.reduce((a, b) => a + b, 0) / scores.current.length;
       onDone(Math.round(avg), results.current);
     },
@@ -324,7 +326,7 @@ export default function CutStep({
                   {id === recommended && <span className="ml-2 text-sm text-[var(--gold)]">{t(lang, "cut.recommend")}</span>}
                 </b>
                 <span className="text-sm opacity-80">
-                  {t(lang, id === "jul" ? "cut.julDesc" : id === "kkeun" ? "cut.kkeunDesc" : "cut.autoDesc")}
+                  {t(lang, id === "jul" ? "cut.julDesc" : id === "kkeun" ? "cut.kkeunDesc" : "cut.autoDesc", { n: MACHINE_CUT_COST })}
                 </span>
               </span>
             </button>
@@ -376,7 +378,7 @@ export default function CutStep({
   return (
     <div className="flex flex-col gap-3">
       {roundBanner}
-      <AutoStep key={`${jobIdx}-auto`} onDone={finishJob} />
+      <AutoStep key={`${jobIdx}-auto`} onDone={finishJob} onAbort={() => setChoice(null)} />
     </div>
   );
 }
@@ -470,7 +472,7 @@ export function JulStep({
   const [idx, setIdx] = useState(0);
   const [stress, setStress] = useState(0);
   const [breaks, setBreaks] = useState(0);
-  const [saw, setSaw] = useState<{ x: number; y: number } | null>(null);
+  const [saw, setSaw] = useState<{ x: number; y: number; lift?: number } | null>(null);
   const [warn, setWarn] = useState<string | null>(null);
   const [shake, setShake] = useState(false);
   const [breakFx, setBreakFx] = useState<null | { result: PieceCutResult; gap: number }>(null);
@@ -650,9 +652,14 @@ export function JulStep({
     }
   };
 
-  const toLocal = (e: { clientX: number; clientY: number }) => {
+  const toLocal = (e: { clientX: number; clientY: number; pointerType?: string }) => {
     const r = svgRef.current!.getBoundingClientRect();
-    return { x: ((e.clientX - r.left) / r.width) * 300, y: ((e.clientY - r.top) / r.height) * 300 };
+    const lift = toolLift(e.pointerType);
+    return {
+      x: ((e.clientX - r.left) / r.width) * 300,
+      y: ((e.clientY - lift - r.top) / r.height) * 300,
+      lift: (lift / r.height) * 300,
+    };
   };
 
   const enterRoute = (p: { x: number; y: number }) => {
@@ -792,11 +799,9 @@ export function JulStep({
           {t(lang, "cut.debug")}
         </button>
       )}
-      {phase === "hop" && (
-        <p className="text-center text-sm text-[var(--brown)]">
-          {t(lang, "cut.hop", { n: routeIdx + 1, max: routes.length })}
-        </p>
-      )}
+      <p className="craft-status-line">
+        {phase === "hop" ? t(lang, "cut.hop", { n: routeIdx + 1, max: routes.length }) : t(lang, "cut.liftHint")}
+      </p>
       <div className={`workbench relative ${shake ? "shake" : ""}`}>
         <svg
           ref={svgRef}
@@ -805,6 +810,7 @@ export function JulStep({
           onPointerDown={(e) => {
             if (st.current.breaking || st.current.done || !claimCraftPointer(e, gesture)) return;
             const p = toLocal(e);
+            setSaw(p);
             st.current.down = true;
             st.current.last = p;
             st.current.lastT = performance.now();
@@ -947,11 +953,11 @@ export function JulStep({
             </g>
           )}
           {saw && (
-            <g
-              transform={`translate(${saw.x - TOOL_TIP.saw[0] * 0.9} ${saw.y - TOOL_TIP.saw[1] * 0.9}) scale(0.9)`}
-              className="pointer-events-none"
-            >
-              <ToolGraphic tool="saw" />
+            <g className="pointer-events-none">
+              <g transform={`translate(${saw.x - TOOL_TIP.saw[0] * 0.9} ${saw.y - TOOL_TIP.saw[1] * 0.9}) scale(0.9)`}>
+                <ToolGraphic tool="saw" />
+              </g>
+              <WorkPoint x={saw.x} y={saw.y} lift={saw.lift} />
             </g>
           )}
         </svg>
@@ -1171,7 +1177,46 @@ function KkeunStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; o
   );
 }
 
-function AutoStep({ onDone }: { onDone: (s: number) => void }) {
+function AutoStep({ onDone, onAbort }: { onDone: (s: number) => void; onAbort: () => void }) {
+  const lang = useSave((s) => s.lang);
+  const money = useSave((s) => s.money);
+  const payCoins = useSave((s) => s.payCoins);
+  const [paid, setPaid] = useState(false);
+  if (!paid)
+    return (
+      <div className="flex flex-col gap-3">
+        <StepHeader title={t(lang, "cut.autoTitle")} icon="gear">
+          {t(lang, "cut.autoTip")}
+        </StepHeader>
+        <div className="panel flex flex-col items-center gap-2 py-4 text-center text-[var(--brown)]">
+          <UiIcon id="gear" className="ui-icon-2xl" />
+          <p className="text-sm">{t(lang, "cut.autoPay", { n: MACHINE_CUT_COST, money })}</p>
+          {money < MACHINE_CUT_COST && <p className="text-sm text-[var(--red)]">{t(lang, "cut.autoPoor")}</p>}
+        </div>
+        <Btn
+          variant="pink"
+          size="lg"
+          disabled={money < MACHINE_CUT_COST}
+          onClick={() => {
+            if (!payCoins(MACHINE_CUT_COST)) {
+              sfx.fail();
+              return;
+            }
+            sfx.coin();
+            setPaid(true);
+          }}
+        >
+          {t(lang, "cut.autoPayBtn", { n: MACHINE_CUT_COST })}
+        </Btn>
+        <Btn variant="cream" onClick={onAbort}>
+          {t(lang, "cut.autoBack")}
+        </Btn>
+      </div>
+    );
+  return <AutoRun onDone={onDone} />;
+}
+
+function AutoRun({ onDone }: { onDone: (s: number) => void }) {
   const lang = useSave((s) => s.lang);
   const [p, setP] = useState(0);
   useEffect(() => {

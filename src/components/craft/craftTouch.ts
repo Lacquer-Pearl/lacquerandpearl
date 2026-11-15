@@ -25,6 +25,11 @@ export function claimCraftPointer(event: CraftPointer, active: { current: number
   return true;
 }
 
+/** 손가락·커서 위쪽으로 작업점을 띄우는 거리(화면 px). 손가락이 작업점을 가리지 않게 한다. */
+export function toolLift(pointerType: string | undefined) {
+  return pointerType === "mouse" ? 36 : 72;
+}
+
 /** 같은 손가락이 끝났을 때만 참. 다른 손가락의 up·cancel 은 현재 작업을 끝내지 않는다. */
 export function releaseCraftPointer(event: CraftPointer, active: { current: number | null }) {
   if (event.pointerId !== active.current) return false;
