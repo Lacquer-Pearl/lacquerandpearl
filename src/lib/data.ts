@@ -80,10 +80,14 @@ export interface LacquerDef {
 }
 
 export const LACQUERS: Record<LacquerId, LacquerDef> = {
-  black: { id: "black", name: "흑칠", color: "#1c1416", light: "#3e3134", deep: "#0a0607" },
-  red: { id: "red", name: "주칠", color: "#7a2119", light: "#a8412f", deep: "#3f0d09" },
-  gold: { id: "gold", name: "황칠", color: "#9a6a24", light: "#d2a24f", deep: "#553510" },
-  blue: { id: "blue", name: "청칠", color: "#1b2c47", light: "#3b5676", deep: "#0a1222" },
+  // 진한 먹옻 — 하이라이트만 따뜻하게 살려 광택 대비
+  black: { id: "black", name: "흑칠", color: "#100c0a", light: "#6e5240", deep: "#040302" },
+  // 깊고 진한 주사 주칠
+  red: { id: "red", name: "주칠", color: "#8e1e16", light: "#e45a42", deep: "#2e0806" },
+  // 진한 호박 황칠
+  gold: { id: "gold", name: "황칠", color: "#9a6818", light: "#f0c45c", deep: "#3e2608" },
+  // 깊고 맑은 쪽빛 청칠
+  blue: { id: "blue", name: "청칠", color: "#142838", light: "#5a86ae", deep: "#060e16" },
 };
 
 export {

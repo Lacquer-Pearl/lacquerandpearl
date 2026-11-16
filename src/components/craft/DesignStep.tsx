@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import Artwork from "@/components/Artwork";
 import UiIcon, { MATERIAL_ICONS } from "@/components/UiIcon";
 import { Btn, Coin } from "@/components/ui";
@@ -707,7 +707,16 @@ export default function DesignStep({
                   setDesign({ ...design, lacquer: l.id, lacquerChosen: true });
                 }}
               >
-                <span className="swatch lg" style={{ background: `radial-gradient(circle at 35% 30%, ${l.light}, ${l.color})` }} />
+                <span
+                  className="lacquer-swatch"
+                  style={
+                    {
+                      "--lac-light": l.light,
+                      "--lac-mid": l.color,
+                      "--lac-deep": l.deep,
+                    } as CSSProperties
+                  }
+                />
                 <span>{lacquerName(lang, l.id)}</span>
               </button>
             ))}

@@ -23,6 +23,9 @@ const ko: Dict = {
   "paint.covered": "작업한 곳",
   "paint.toGoal": "목표선까지 {n}%",
   "paint.goalReached": "목표 도달 ✓",
+  "paint.legendThin": "연함",
+  "paint.legendGood": "알맞음",
+  "paint.legendOver": "과함",
   "common.start": "시작하기!",
   "common.reset": "초기화",
   "common.music": "배경음악",
@@ -278,6 +281,7 @@ const ko: Dict = {
     "붓을 옻 그릇에 적셔 칠하렴. 바를수록 붓이 말라 칠이 연해지니 자주 적셔 주어야 한단다. 옻칠은 {b1}가 생명이라, 한곳만 너무 칠하면 {b2} 자국이 남는단다.",
   "lacquer.tipB1": "얇고 고르게",
   "lacquer.tipB2": "흘러내려",
+  "lacquer.thin": "연하게 남은 곳",
   "lacquer.good": "고르게 칠한 면적",
   "lacquer.over": "흘러내린 곳",
   "lacquer.dip": "옻 그릇에 붓 적시기",
@@ -420,6 +424,7 @@ const ko: Dict = {
     "유산지 밑에 자개가 비치는 곳만 다리면 된단다. 인두 끝(빨간 점)을 자개 위에 대고 꾹 누른 채 기다리렴. '덜 붙음'이 '잘 붙음'으로 바뀌면 손을 떼고 옆자리로 옮겨 다시 누르거라. 오래 대고 있으면 연기가 나며 {b2} 버리고, 누른 채 손을 끌면 자개가 밀려나니 꼭 떼었다가 옮기렴. 문양마다 {b1} 다려 주면 된다.",
   "iron.tipB1": "빠짐없이",
   "iron.tipB2": "눌어붙어",
+  "iron.thin": "덜 다린 곳",
   "iron.good": "고르게 다린 면적",
   "iron.over": "눌은 자국",
   "iron.stageLoose": "덜 붙음",
@@ -442,6 +447,7 @@ const ko: Dict = {
   "fill.tip":
     "붙인 자개 위까지 옻칠을 {b} 틈을 메우는 거란다. 자개가 안 보여도 걱정 말렴, 나중에 갈아내면 다시 나타난단다.",
   "fill.tipB": "한 번 더 덮어",
+  "fill.thin": "덜 메운 곳",
   "fill.good": "메운 면적",
   "fill.over": "뭉친 곳",
 
@@ -450,6 +456,7 @@ const ko: Dict = {
     "숫돌로 살살 갈아내면 덮였던 자개가 {b1} 드러난단다. 하지만 {b2} 자개가 뿌옇게 연해지고 흠집이 나니 적당히 멈추렴!",
   "sand.tipB1": "영롱하게",
   "sand.tipB2": "너무 많이 갈면",
+  "sand.thin": "덜 갈아낸 곳",
   "sand.good": "알맞게 갈아낸 면적",
   "sand.over": "너무 갈아낸 곳",
 
@@ -631,6 +638,9 @@ const en: Dict = {
   "paint.covered": "Worked area",
   "paint.toGoal": "{n}% to the goal line",
   "paint.goalReached": "Goal reached ✓",
+  "paint.legendThin": "Thin",
+  "paint.legendGood": "Even",
+  "paint.legendOver": "Too much",
   "common.start": "Let's begin!",
   "common.reset": "Reset",
   "common.music": "Music",
@@ -885,6 +895,7 @@ const en: Dict = {
     "Dip the brush in the lacquer bowl. The coat fades as the brush dries, so keep dipping. Lacquer must be {b1} — too much in one spot will {b2} and leave marks.",
   "lacquer.tipB1": "thin and even",
   "lacquer.tipB2": "drip",
+  "lacquer.thin": "Still thin",
   "lacquer.good": "Evenly coated area",
   "lacquer.over": "Drips",
   "lacquer.dip": "Dip the brush in lacquer",
@@ -1026,6 +1037,7 @@ const en: Dict = {
     "Only iron where the shell shows through the parchment. Set the iron tip (the red dot) on the shell and hold it down. When 'Loose' turns to 'Bonded', lift and press the next spot. Hold too long and it smokes and will {b2}; drag while pressing and the shell slides away, so always lift before you move. Iron each motif {b1}.",
   "iron.tipB1": "evenly",
   "iron.tipB2": "scorch",
+  "iron.thin": "Still loose",
   "iron.good": "Evenly ironed area",
   "iron.over": "Scorch marks",
   "iron.stageLoose": "Loose",
@@ -1049,6 +1061,7 @@ const en: Dict = {
   "fill.tip":
     "Coat lacquer {b} to fill gaps over the shell. Don't worry if it disappears — polishing will reveal it again.",
   "fill.tipB": "once more over",
+  "fill.thin": "Still sparse",
   "fill.good": "Filled area",
   "fill.over": "Clumps",
 
@@ -1057,6 +1070,7 @@ const en: Dict = {
     "Gently grind with a whetstone and the shell appears {b1}. But {b2} the shell turns cloudy and gets scratched — stop in time!",
   "sand.tipB1": "brilliantly",
   "sand.tipB2": "grind too much and",
+  "sand.thin": "Still thick",
   "sand.good": "Properly polished area",
   "sand.over": "Over-polished",
 

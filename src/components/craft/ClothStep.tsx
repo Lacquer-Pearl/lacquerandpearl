@@ -123,7 +123,8 @@ export default function ClothStep({ design, onDone }: { design: Design; onDone: 
   const gesture = useRef<number | null>(null);
   useBlockCraftScroll(svgRef);
   const stats = useMemo(() => coverage(strips, mask), [strips, mask]);
-  const ready = stats.covered >= 0.5;
+  const minCovered = 0.75;
+  const ready = stats.covered >= minCovered;
 
   useEffect(() => {
     startLoop("brush");
@@ -243,10 +244,15 @@ export default function ClothStep({ design, onDone }: { design: Design; onDone: 
         <Meter
           value={stats.covered}
           color="var(--mint-deep)"
+          target={minCovered}
           label={
             <>
               <span>{t(lang, "cloth.good")}</span>
-              <span>{Math.round(stats.covered * 100)}%</span>
+              <span>
+                {ready
+                  ? t(lang, "paint.goalReached")
+                  : t(lang, "paint.toGoal", { n: Math.max(1, Math.ceil((minCovered - stats.covered) * 100)) })}
+              </span>
             </>
           }
         />

@@ -654,6 +654,38 @@ svg.craft-touch-area * {
   border: 2px solid #fffdf8;
   box-shadow: 0 0 0 1.5px var(--line-deep), inset 0 -3px 6px rgba(0, 0, 0, 0.25);
 }
+/* 옻칠 견본: 젖은 광택 + 가장자리 깊이 */
+.lacquer-swatch {
+  --lac-light: #4a382e;
+  --lac-mid: #1a120e;
+  --lac-deep: #080504;
+  position: relative;
+  display: block;
+  width: 36px;
+  height: 36px;
+  margin: 0 auto 4px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 30% 24%, color-mix(in srgb, var(--lac-light) 88%, white) 0%, transparent 34%),
+    radial-gradient(circle at 68% 78%, var(--lac-deep) 0%, transparent 46%),
+    radial-gradient(circle at 42% 38%, var(--lac-light) 0%, var(--lac-mid) 46%, var(--lac-deep) 100%);
+  box-shadow:
+    0 0 0 1.5px color-mix(in srgb, var(--lac-deep) 55%, #cbb58c),
+    0 4px 10px color-mix(in srgb, var(--lac-deep) 45%, transparent),
+    inset 0 1px 1px color-mix(in srgb, var(--lac-light) 70%, white),
+    inset 0 -8px 14px color-mix(in srgb, var(--lac-deep) 70%, transparent);
+}
+.lacquer-swatch::after {
+  content: "";
+  position: absolute;
+  left: 18%;
+  top: 14%;
+  width: 42%;
+  height: 28%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0));
+  pointer-events: none;
+}
 .pearl-pick {
   display: grid;
   place-items: center;
@@ -703,6 +735,39 @@ svg.craft-touch-area * {
   40% {
     transform: scale(1.06, 0.92);
   }
+}
+
+.paint-quality-map {
+  opacity: 1;
+  pointer-events: none;
+}
+.paint-quality-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--brown-light);
+}
+.paint-quality-swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.paint-quality-swatch::before {
+  content: "";
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  border: 1px solid rgba(60, 40, 24, 0.35);
+}
+.paint-quality-swatch.thin::before {
+  background: linear-gradient(135deg, rgba(40, 28, 22, 0.55), rgba(18, 12, 10, 0.85));
+}
+.paint-quality-swatch.good::before {
+  background: linear-gradient(145deg, #d8cfc4 8%, #1a120e 42%, #0a0706 100%);
+}
+.paint-quality-swatch.over::before {
+  background: radial-gradient(circle at 28% 22%, #f2ebe2 0 8%, #1c100c 22%, #080504 100%);
 }
 
 .iron-footprint {

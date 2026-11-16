@@ -15,6 +15,7 @@ export interface PaintStepDef {
   icon: UiIconId;
   tip: React.ReactNode;
   config: PaintConfig;
+  thinLabel?: string;
   goodLabel: string;
   overLabel?: string;
   /** 완료 버튼 활성 조건 */
@@ -42,13 +43,14 @@ export default function PaintStep({
   onDone: (score: number, stats: PaintStats) => void;
 }) {
   const lang = useSave((s) => s.lang);
-  const [stats, setStats] = useState<PaintStats>({ touched: 0, inRange: 0, over: 0, mean: 0 });
+  const [stats, setStats] = useState<PaintStats>({ touched: 0, thin: 0, inRange: 0, over: 0, mean: 0 });
   const [done, setDone] = useState(false);
   const inkRef = useRef(0);
   const [ink, setInk] = useState(0);
   const [dipping, setDipping] = useState(false);
   const ready = stats.touched >= def.minTouched;
   const usesInk = !!def.config.inkDecay;
+  const showMap = def.config.mode !== "stamp";
 
   const dip = () => {
     if (done) return;
@@ -112,6 +114,13 @@ export default function PaintStep({
         </div>
       )}
       <div className="panel flex flex-col gap-2 py-3">
+        {showMap && (
+          <div className="paint-quality-legend" aria-hidden="true">
+            <span className="paint-quality-swatch thin">{t(lang, "paint.legendThin")}</span>
+            <span className="paint-quality-swatch good">{t(lang, "paint.legendGood")}</span>
+            <span className="paint-quality-swatch over">{t(lang, "paint.legendOver")}</span>
+          </div>
+        )}
         <Meter
           value={stats.touched}
           color="var(--gold-deep)"
@@ -127,9 +136,21 @@ export default function PaintStep({
             </>
           }
         />
+        {def.thinLabel && (
+          <Meter
+            value={stats.thin}
+            color="#c4a574"
+            label={
+              <>
+                <span>{def.thinLabel}</span>
+                <span>{Math.round(stats.thin * 100)}%</span>
+              </>
+            }
+          />
+        )}
         <Meter
           value={stats.inRange}
-          color="var(--mint-deep)"
+          color="#7a9a8a"
           label={
             <>
               <span>{def.goodLabel}</span>
@@ -140,7 +161,7 @@ export default function PaintStep({
         {def.overLabel && (
           <Meter
             value={Math.min(1, stats.over * 4)}
-            color="var(--red)"
+            color="#6e3228"
             label={
               <>
                 <span>{def.overLabel}</span>

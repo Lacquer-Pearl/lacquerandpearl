@@ -9,6 +9,8 @@ import { claimCraftPointer, isForeignCraftPointer, releaseCraftPointer, toolLift
 export interface PaintStats {
   /** 조금이라도 작업된 칸 비율 */
   touched: number;
+  /** 닿았지만 아직 연한(목표 범위 미달) 칸 비율 */
+  thin: number;
   /** 목표 범위 안에 든 칸 비율 */
   inRange: number;
   /** 과하게 작업된 칸 비율 */
@@ -134,11 +136,14 @@ export default function PaintCanvas({
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<HTMLCanvasElement>(null);
+  const qualityRef = useRef<HTMLCanvasElement>(null);
   const overRef = useRef<HTMLCanvasElement>(null);
   const grid = useRef(new Float32Array(N * N));
   const mask = useRef(new Uint8Array(N * N));
   const flagged = useRef(new Uint8Array(N * N));
   const masked = useRef(0);
+  const qualityBuf = useRef<HTMLCanvasElement | null>(null);
+  const dripBuf = useRef<HTMLCanvasElement | null>(null);
   const last = useRef<{ x: number; y: number } | null>(null);
   const pattern = useRef<CanvasPattern | null>(null);
   const raf = useRef(0);
@@ -185,9 +190,10 @@ export default function PaintCanvas({
 
   useEffect(() => {
     const layer = layerRef.current!;
+    const quality = qualityRef.current!;
     const over = overRef.current!;
     const path = new Path2D(SHAPES[shape].path);
-    for (const cv of [layer, over]) {
+    for (const cv of [layer, quality, over]) {
       cv.width = 300 * RES;
       cv.height = 300 * RES;
       const ctx = cv.getContext("2d")!;
@@ -196,6 +202,8 @@ export default function PaintCanvas({
     }
     grid.current.fill(0);
     flagged.current.fill(0);
+    qualityBuf.current = null;
+    dripBuf.current = null;
     const ctx = layer.getContext("2d")!;
     pattern.current = makeHempPattern(ctx);
     if (cfgRef.current.initialFill) {
@@ -238,12 +246,97 @@ export default function PaintCanvas({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shape, region, regionMargin]);
 
+  /**
+   * 도포 단계(참고 2~3) 마감.
+   * 2 연함: 매트·광택 없음(옅은 베이지 덮개를 씌우지 않음)
+   * 3 알맞음: 깊은 색 위 부드러운 비단 광택
+   * 4 과함(젖은): over 레이어가 담당. 여기선 거의 손대지 않음
+   * 5 경화 주름: 건조 연결용 — 아직 미반영
+   */
+  function redrawQuality() {
+    const cfg = cfgRef.current;
+    const canvas = qualityRef.current;
+    if (!canvas) return;
+    if (cfg.mode === "stamp") {
+      canvas.getContext("2d")!.clearRect(0, 0, 300, 300);
+      return;
+    }
+    let buf = qualityBuf.current;
+    if (!buf) {
+      buf = document.createElement("canvas");
+      buf.width = buf.height = N;
+      qualityBuf.current = buf;
+    }
+    const bctx = buf.getContext("2d")!;
+    const img = bctx.createImageData(N, N);
+    const g = grid.current;
+    const m = mask.current;
+    const [lo, hi] = cfg.range;
+    const lac = hexRgb(cfg.color);
+    for (let j = 0; j < N; j++)
+      for (let i = 0; i < N; i++) {
+        const k = j * N + i;
+        const o = k * 4;
+        if (!m[k]) {
+          img.data[o + 3] = 0;
+          continue;
+        }
+        const v = g[k];
+        let r = 0,
+          gg = 0,
+          b = 0,
+          a = 0;
+        if (v > cfg.over) {
+          img.data[o + 3] = 0;
+          continue;
+        } else if (v >= lo && v <= hi) {
+          // 3: 붓으로 칠해진 칸만 — 칠 두께·이웃 결로 국소 새틴 광택 (전역 흰 호선 없음)
+          const t = (v - lo) / Math.max(0.001, hi - lo);
+          const vl = i > 0 && m[k - 1] ? g[k - 1] : v;
+          const vr = i < N - 1 && m[k + 1] ? g[k + 1] : v;
+          const vu = j > 0 && m[k - N] ? g[k - N] : v;
+          const vd = j < N - 1 && m[k + N] ? g[k + N] : v;
+          const nx = (vl - vr) * 0.9;
+          const ny = (vu - vd) * 0.9;
+          // 결을 따르되, 두꺼워질수록 흰 능선이 파이지 않게 약하게
+          const ridge = Math.max(0, 0.4 + nx * 0.55 + ny * 0.4);
+          const grain = 0.75 + cellNoise(k) * 0.25;
+          const sheen = Math.pow(ridge, 1.35) * (0.22 + t * 0.28) * grain;
+          r = Math.round(lac.r * 0.45 + 190 * sheen * 0.4);
+          gg = Math.round(lac.g * 0.45 + 180 * sheen * 0.35);
+          b = Math.round(lac.b * 0.45 + 170 * sheen * 0.3);
+          a = 0.03 + sheen * 0.12;
+        } else if (v > 0.05) {
+          // 2: 매트 — 광택 없이 살짝만 눌러 나무결이 비치게
+          const thin = 1 - Math.min(1, v / lo);
+          r = Math.round(lac.r * 0.55);
+          gg = Math.round(lac.g * 0.55);
+          b = Math.round(lac.b * 0.55);
+          a = 0.05 + thin * 0.12;
+        }
+        img.data[o] = Math.min(255, r);
+        img.data[o + 1] = Math.min(255, gg);
+        img.data[o + 2] = Math.min(255, b);
+        img.data[o + 3] = Math.round(Math.min(1, a) * 255);
+      }
+    bctx.putImageData(img, 0, 0);
+    const ctx = canvas.getContext("2d")!;
+    ctx.clearRect(0, 0, 300, 300);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.save();
+    ctx.filter = "blur(1.4px)";
+    ctx.drawImage(buf, 0, 0, 300, 300);
+    ctx.restore();
+  }
+
   function report() {
     if (raf.current) return;
     raf.current = requestAnimationFrame(() => {
       raf.current = 0;
       const { range, over } = cfgRef.current;
       let touched = 0,
+        thin = 0,
         inRange = 0,
         overN = 0,
         sum = 0;
@@ -254,11 +347,13 @@ export default function PaintCanvas({
         const v = g[k];
         sum += v;
         if (v > 0.05) touched++;
+        if (v > 0.05 && v < range[0]) thin++;
         if (v >= range[0] && v <= range[1]) inRange++;
         if (v > over) overN++;
       }
       const n = masked.current || 1;
-      statsRef.current({ touched: touched / n, inRange: inRange / n, over: overN / n, mean: sum / n });
+      statsRef.current({ touched: touched / n, thin: thin / n, inRange: inRange / n, over: overN / n, mean: sum / n });
+      redrawQuality();
       if (cfgRef.current.inkDecay && inkRef) inkCb.current?.(inkRef.current);
     });
   }
@@ -286,21 +381,17 @@ export default function PaintCanvas({
       ctx.arc(x, y, r * 0.85, 0, Math.PI * 2);
       ctx.fill();
       ctx.globalAlpha = 1;
-    } else {
+    } else if (cfg.mode === "erase") {
       const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
-      if (cfg.mode === "erase") {
-        ctx.globalCompositeOperation = "destination-out";
-        grad.addColorStop(0, `rgba(0,0,0,${alpha})`);
-        grad.addColorStop(1, "rgba(0,0,0,0)");
-      } else {
-        ctx.globalCompositeOperation = "source-over";
-        grad.addColorStop(0, hexA(cfg.color, alpha));
-        grad.addColorStop(0.7, hexA(cfg.color, alpha * 0.5));
-        grad.addColorStop(1, hexA(cfg.color, 0));
-      }
+      ctx.globalCompositeOperation = "destination-out";
+      grad.addColorStop(0, `rgba(0,0,0,${alpha})`);
+      grad.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = grad;
       ctx.fillRect(x - r, y - r, r * 2, r * 2);
       ctx.globalCompositeOperation = "source-over";
+    } else {
+      // 나무 위에 붓질하는 살짝 거친 결 (가느다란 모 여러 가닥)
+      dabRoughBrush(ctx, x, y, r, alpha, cfg.color, cfg.overColor || cfg.color, strokeDir.current);
     }
 
     const g = grid.current;
@@ -339,14 +430,15 @@ export default function PaintCanvas({
 
   function stampColor(v: number, cfg: PaintConfig): [number, number, number, number] {
     const [lo, hi] = cfg.range;
+    // 연함(노란 종이) → 알맞음(맑은 밀색) → 과함(짙은 눌음) 대비를 키운다.
     const stops: [number, [number, number, number, number]][] = [
-      [0, [246, 238, 220, 0.72]],
-      [lo * 0.55, [240, 228, 204, 0.6]],
-      [lo, [218, 194, 150, 0.26]],
-      [hi, [206, 176, 122, 0.3]],
-      [cfg.over, [168, 112, 56, 0.55]],
-      [cfg.over + 0.6, [92, 48, 20, 0.86]],
-      [cfg.over + 1.6, [48, 24, 10, 0.94]],
+      [0, [246, 238, 220, 0.78]],
+      [lo * 0.55, [236, 210, 150, 0.62]],
+      [lo, [198, 214, 176, 0.22]],
+      [hi, [168, 196, 150, 0.28]],
+      [cfg.over, [168, 96, 48, 0.62]],
+      [cfg.over + 0.6, [96, 40, 18, 0.9]],
+      [cfg.over + 1.6, [42, 18, 8, 0.96]],
     ];
     if (v <= 0) return stops[0][1];
     for (let s = 1; s < stops.length; s++) {
@@ -457,7 +549,13 @@ export default function PaintCanvas({
       const canvas = overRef.current;
       const cfg = cfgRef.current;
       if (!canvas || cfg.overStyle !== "drip") return;
-      redrawDrips(canvas.getContext("2d")!, grid.current, cfg.over, cfg.color);
+      let buf = dripBuf.current;
+      if (!buf) {
+        buf = document.createElement("canvas");
+        buf.width = buf.height = N;
+        dripBuf.current = buf;
+      }
+      redrawDrips(canvas.getContext("2d")!, grid.current, cfg.over, cfg.overColor || cfg.color, buf);
     });
   }
 
@@ -606,6 +704,7 @@ export default function PaintCanvas({
     >
       <div className="pointer-events-none absolute inset-0">{background}</div>
       <canvas ref={layerRef} className="pointer-events-none absolute inset-0 h-full w-full" />
+      <canvas ref={qualityRef} className="pointer-events-none absolute inset-0 h-full w-full paint-quality-map" />
       <canvas ref={overRef} className="pointer-events-none absolute inset-0 h-full w-full" />
       {foreground && <div className="pointer-events-none absolute inset-0">{foreground}</div>}
       {stamp && cursor && !pressed && !disabled && (
@@ -677,13 +776,13 @@ export function PaintLab() {
             background={<div className="h-full w-full bg-[#f3ead8]" />}
             config={{
               brushRadius: 22,
-              passAmount: 0.6,
-              range: [0.8, 1.9],
-              over: 2.5,
-              opaqueAt: 0.9,
+              passAmount: 0.82,
+              range: [0.52, 3.4],
+              over: 4.2,
+              opaqueAt: 0.52,
               mode: "paint",
-              color: "#1a120e",
-              overColor: "#1a120e",
+              color: "#100c0a",
+              overColor: "#040302",
               overStyle: "drip",
               sound: "brush",
               tool: "brush",
@@ -722,57 +821,165 @@ function mixHex(hex: string, to: string, t: number) {
 function dripHeight(amount: number, over: number) {
   const excess = amount - over;
   if (excess <= 0) return 0;
-  return Math.min(3.4, 0.4 + Math.sqrt(excess) * 1.05);
+  return Math.min(3.6, 0.45 + Math.sqrt(excess) * 1.15);
+}
+
+/** 칸마다 다른 울퉁불퉁함을 위한 값 */
+function cellNoise(k: number) {
+  const n = Math.sin(k * 127.1 + 311.7) * 43758.5453;
+  return n - Math.floor(n);
+}
+
+/** 나무에 옻을 바르는 거친 붓 결. 광택은 모 가닥마다 미세하게만 얹는다(가운데 흰 호선 없음). */
+function dabRoughBrush(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  r: number,
+  alpha: number,
+  color: string,
+  deep: string,
+  dir: number,
+) {
+  const cos = Math.cos(dir);
+  const sin = Math.sin(dir);
+  const bristles = 8;
+  const core = mixHex(color, deep, 0.45);
+  // 한 획을 더 진하게 보이도록 알파를 조금 올림 (밝은 코어는 쌓이면 흰 홈처럼 보여서 쓰지 않음)
+  const boost = Math.min(1, alpha * 1.35);
+  ctx.globalCompositeOperation = "source-over";
+  for (let b = 0; b < bristles; b++) {
+    const along = (b / (bristles - 1) - 0.5) * 2;
+    const n0 = cellNoise((b * 17 + Math.round(x * 3 + y)) | 0);
+    const n1 = cellNoise((b * 31 + Math.round(x + y * 5)) | 0);
+    const px = x + (-sin * along + cos * (n0 - 0.5) * 0.55) * r * 0.92;
+    const py = y + (cos * along + sin * (n0 - 0.5) * 0.55) * r * 0.92;
+    const rw = r * (0.16 + n1 * 0.2);
+    const rh = r * (0.7 + n0 * 0.45);
+    const aB = boost * (0.34 + n1 * 0.55);
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.rotate(dir);
+    ctx.scale(rh / r, rw / r);
+    const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+    grad.addColorStop(0, hexA(core, aB));
+    grad.addColorStop(0.45, hexA(color, aB * 0.55));
+    grad.addColorStop(1, hexA(color, 0));
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
 }
 
 /**
- * 칠한 면과 같은 색의 얇은 막.
- * 가장자리는 흐려 아래 칠과 이어지고, 더 칠한 곳만 아래로 조금 불룩하다.
+ * 참고 4: 과다 도포 — 알맞음과 확연히 다르게.
+/**
+ * 참고 4: 과다 도포 — 검정 물감 카툰 그래픽.
+ * 불투명 면 + 단순 셀 음영 + 얇은 외곽. 사실적 스펙큘러·방울은 쓰지 않는다.
+ * (5 경화 주름은 미반영)
  */
-function redrawDrips(ctx: CanvasRenderingContext2D, grid: Float32Array, over: number, color: string) {
+function redrawDrips(
+  ctx: CanvasRenderingContext2D,
+  grid: Float32Array,
+  over: number,
+  color: string,
+  buf: HTMLCanvasElement,
+) {
   ctx.clearRect(0, 0, 300, 300);
-  const cells: { x: number; y: number; h: number }[] = [];
+  const heights = new Float32Array(N * N);
+  let any = false;
   for (let k = 0; k < grid.length; k++) {
     const h = dripHeight(grid[k], over);
     if (h <= 0) continue;
-    const i = k % N;
-    const j = (k / N) | 0;
-    cells.push({ x: (i + 0.5) * CELL, y: (j + 0.5) * CELL, h });
+    heights[k] = h;
+    any = true;
   }
-  if (cells.length === 0) return;
+  if (!any) return;
 
-  const { r, g, b } = hexRgb(color);
-  const dark = (0.3 * r + 0.59 * g + 0.11 * b) / 255 < 0.2;
-  const lip = dark ? mixHex(color, "#000000", 0.35) : mixHex(color, "#140806", 0.28);
-  const rx = CELL * 1.08;
+  const bctx = buf.getContext("2d")!;
+  const fill = bctx.createImageData(N, N);
+  const shade = bctx.createImageData(N, N);
+  const edge = bctx.createImageData(N, N);
+  const { r: cr, g: cg, b: cb } = hexRgb(color);
+  // 카툰 본체 — 거의 먹색, 완전 불투명에 가깝게
+  const fr = Math.round(cr * 0.18);
+  const fg = Math.round(cg * 0.18);
+  const fb = Math.round(cb * 0.18);
+  // 셀 하이라이트 — 옻색을 살짝만 밝힌 면 (흰 점 아님)
+  const hr = Math.min(255, Math.round(fr + (cr - fr) * 0.55 + 28));
+  const hg = Math.min(255, Math.round(fg + (cg - fg) * 0.5 + 24));
+  const hb = Math.min(255, Math.round(fb + (cb - fb) * 0.45 + 20));
+  // 외곽선
+  const er = Math.round(fr * 0.35);
+  const eg = Math.round(fg * 0.35);
+  const eb = Math.round(fb * 0.35);
+
+  for (let j = 0; j < N; j++)
+    for (let i = 0; i < N; i++) {
+      const k = j * N + i;
+      const o = k * 4;
+      const h = heights[k];
+      if (h <= 0) {
+        fill.data[o + 3] = 0;
+        shade.data[o + 3] = 0;
+        edge.data[o + 3] = 0;
+        continue;
+      }
+      const on = 1;
+      const left = i > 0 && heights[k - 1] > 0 ? 1 : 0;
+      const right = i < N - 1 && heights[k + 1] > 0 ? 1 : 0;
+      const up = j > 0 && heights[k - N] > 0 ? 1 : 0;
+      const down = j < N - 1 && heights[k + N] > 0 ? 1 : 0;
+      const border = on && left + right + up + down < 4;
+
+      fill.data[o] = fr;
+      fill.data[o + 1] = fg;
+      fill.data[o + 2] = fb;
+      fill.data[o + 3] = Math.round(Math.min(0.98, 0.78 + Math.min(h, 2) * 0.08) * 255);
+
+      // 왼쪽 위 1/3 쪽만 셀 하이라이트 면
+      const cel = i / N + j / N < 0.85 && h > 0.9 ? 1 : 0;
+      shade.data[o] = hr;
+      shade.data[o + 1] = hg;
+      shade.data[o + 2] = hb;
+      shade.data[o + 3] = cel ? Math.round(0.22 * 255) : 0;
+
+      edge.data[o] = er;
+      edge.data[o + 1] = eg;
+      edge.data[o + 2] = eb;
+      edge.data[o + 3] = border ? Math.round(0.75 * 255) : 0;
+    }
 
   ctx.save();
-  ctx.filter = "blur(3.2px)";
-  ctx.globalAlpha = dark ? 0.28 : 0.18;
-  ctx.fillStyle = "#1a0e0c";
-  ctx.beginPath();
-  for (const c of cells) ctx.ellipse(c.x + c.h * 0.08, c.y + c.h * 0.42, rx, rx, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
 
-  ctx.save();
-  ctx.filter = "blur(2px)";
-  ctx.globalAlpha = 0.9;
-  ctx.fillStyle = lip;
-  ctx.beginPath();
-  for (const c of cells) ctx.ellipse(c.x, c.y + 0.25 + c.h * 0.7, rx, rx, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+  // 살짝 떨어진 그림자 (카툰 스티커 느낌)
+  bctx.putImageData(fill, 0, 0);
+  ctx.globalAlpha = 0.28;
+  ctx.filter = "blur(2.4px)";
+  ctx.drawImage(buf, 1.4, 2.2, 300, 300);
 
-  ctx.save();
-  ctx.filter = "blur(1.7px)";
+  // 불투명 본체
   ctx.globalAlpha = 1;
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  for (const c of cells) ctx.ellipse(c.x, c.y, rx, rx, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+  ctx.filter = "blur(0.6px)";
+  ctx.drawImage(buf, 0, 0, 300, 300);
 
+  // 셀 하이라이트 면
+  bctx.putImageData(shade, 0, 0);
+  ctx.filter = "blur(1.2px)";
+  ctx.globalAlpha = 0.9;
+  ctx.drawImage(buf, 0, 0, 300, 300);
+
+  // 얇은 외곽
+  bctx.putImageData(edge, 0, 0);
+  ctx.filter = "blur(0.5px)";
+  ctx.globalAlpha = 1;
+  ctx.drawImage(buf, 0, 0, 300, 300);
+
+  ctx.restore();
   ctx.filter = "none";
   ctx.globalAlpha = 1;
 }

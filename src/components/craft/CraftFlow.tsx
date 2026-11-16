@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Artwork from "@/components/Artwork";
 import UiIcon, { STEP_ICONS } from "@/components/UiIcon";
 import { Btn, Modal, TopBar } from "@/components/ui";
-import { LACQUERS, SHAPES } from "@/lib/data";
+import { LACQUERS } from "@/lib/data";
 import {
   artworkValue,
   GRADE_INFO,
@@ -57,22 +57,25 @@ function paintDefs(design: Design, lang: Locale): Record<"lacquer" | "iron" | "f
       ),
       config: {
         brushRadius: 22,
-        passAmount: 0.6,
-        range: [0.8, 1.9],
-        over: 2.5,
-        opaqueAt: 0.9,
+        // 한 획을 더 진하게. opaqueAt≈range[0] → 삼베가 안 비칠 때부터 '고르게'
+        passAmount: 0.82,
+        range: [0.52, 3.4],
+        // 알맞음과 흘러내림이 겹치지 않게 과다 기준을 충분히 올림
+        over: 4.2,
+        opaqueAt: 0.52,
         mode: "paint",
         color: lac.color,
-        overColor: lac.color,
+        overColor: lac.deep,
         overStyle: "drip",
         sound: "brush",
         tool: "brush",
         // 한 번 적신 붓이 마를 때까지의 총량. 0.9887 ≈ √0.9775 → 이전 대비 약 2배
         inkDecay: 0.9887,
       },
+      thinLabel: t(lang, "lacquer.thin"),
       goodLabel: t(lang, "lacquer.good"),
       overLabel: t(lang, "lacquer.over"),
-      minTouched: 0.4,
+      minTouched: 0.75,
       score: (s) => s.inRange * 112 - s.over * 160,
     },
     iron: {
@@ -103,9 +106,10 @@ function paintDefs(design: Design, lang: Locale): Record<"lacquer" | "iron" | "f
         stampLabels: [t(lang, "iron.stageLoose"), t(lang, "iron.stageGood"), t(lang, "iron.stageBurnt")],
         lift: true,
       },
+      thinLabel: t(lang, "iron.thin"),
       goodLabel: t(lang, "iron.good"),
       overLabel: t(lang, "iron.over"),
-      minTouched: 0.4,
+      minTouched: 0.75,
       score: (s) => s.inRange * 110 - s.over * 150,
     },
     fill: {
@@ -114,20 +118,21 @@ function paintDefs(design: Design, lang: Locale): Record<"lacquer" | "iron" | "f
       tip: <>{tNode(lang, "fill.tip", { b: <b>{t(lang, "fill.tipB")}</b> })}</>,
       config: {
         brushRadius: 22,
-        passAmount: 0.65,
-        range: [0.7, 2.2],
-        over: 2.9,
-        opaqueAt: 0.75,
+        passAmount: 0.8,
+        range: [0.5, 3.3],
+        over: 4.1,
+        opaqueAt: 0.5,
         mode: "paint",
         color: lac.color,
-        overColor: lac.color,
+        overColor: lac.deep,
         overStyle: "drip",
         sound: "brush",
         tool: "brush",
       },
+      thinLabel: t(lang, "fill.thin"),
       goodLabel: t(lang, "fill.good"),
       overLabel: t(lang, "fill.over"),
-      minTouched: 0.4,
+      minTouched: 0.75,
       score: (s) => s.inRange * 108 - s.over * 90,
     },
     sand: {
@@ -155,32 +160,13 @@ function paintDefs(design: Design, lang: Locale): Record<"lacquer" | "iron" | "f
         sound: "sand",
         tool: "stone",
       },
+      thinLabel: t(lang, "sand.thin"),
       goodLabel: t(lang, "sand.good"),
       overLabel: t(lang, "sand.over"),
-      minTouched: 0.4,
+      minTouched: 0.75,
       score: (s) => s.inRange * 112 - s.over * 170,
     },
   };
-}
-
-/** 갓 칠한 옻의 젖은 광택 */
-function WetSheen({ shape }: { shape: Design["shape"] }) {
-  return (
-    <svg viewBox="0 0 300 300" className="h-full w-full">
-      <defs>
-        <clipPath id="wet-clip">
-          <path d={SHAPES[shape].path} />
-        </clipPath>
-        <filter id="wet-blur" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="8" />
-        </filter>
-      </defs>
-      <g clipPath="url(#wet-clip)">
-        <ellipse cx="100" cy="75" rx="100" ry="30" transform="rotate(-28 100 75)" fill="#fff" opacity="0.13" filter="url(#wet-blur)" />
-        <path d="M60 95 Q115 50 175 40" stroke="#fff" strokeWidth="1.4" strokeLinecap="round" fill="none" opacity="0.14" />
-      </g>
-    </svg>
-  );
 }
 
 function cheer(lang: Locale, score: number) {
@@ -229,7 +215,7 @@ export default function CraftFlow() {
   const scores = useRef<StepScores>({ ...(resumed.current?.scores ?? {}) });
   const sandStats = useRef<PaintStats | null>(
     resumed.current?.sandOver != null
-      ? { touched: 0, inRange: 0, over: resumed.current.sandOver, mean: 0 }
+      ? { touched: 0, thin: 0, inRange: 0, over: resumed.current.sandOver, mean: 0 }
       : null,
   );
   const placedRef = useRef<PlacedPiece[]>(resumed.current?.placed ?? []);
@@ -418,7 +404,6 @@ export default function CraftFlow() {
             def={defs.lacquer}
             shape={design.shape}
             background={<Artwork design={design} surface="hemp" showPieces={false} className="h-full w-full" />}
-            foreground={<WetSheen shape={design.shape} />}
             onDone={onPaintDone}
           />
         )}
@@ -515,7 +500,6 @@ export default function CraftFlow() {
             def={defs.fill}
             shape={design.shape}
             background={<Artwork design={built} className="h-full w-full" gloss={0.1} />}
-            foreground={<WetSheen shape={design.shape} />}
             onDone={onPaintDone}
           />
         )}
