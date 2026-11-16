@@ -29,6 +29,48 @@ export interface ArtworkProps {
   svgRef?: React.Ref<SVGSVGElement>;
 }
 
+function hexToHsl(hex: string) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = ((n >> 16) & 255) / 255;
+  const g = ((n >> 8) & 255) / 255;
+  const b = (n & 255) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  const d = max - min;
+  if (!d) return { h: 0, s: 0, l };
+  const s = d / (1 - Math.abs(2 * l - 1));
+  const sector = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return { h: (sector * 60 + 360) % 360, s, l };
+}
+
+function hslToHex(h: number, s: number, l: number) {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const hp = h / 60;
+  const x = c * (1 - Math.abs((hp % 2) - 1));
+  const [r, g, b] =
+    hp < 1 ? [c, x, 0] : hp < 2 ? [x, c, 0] : hp < 3 ? [0, c, x] : hp < 4 ? [0, x, c] : hp < 5 ? [x, 0, c] : [c, 0, x];
+  const m = l - c / 2;
+  const ch = (v: number) =>
+    Math.round(Math.min(255, Math.max(0, (v + m) * 255)))
+      .toString(16)
+      .padStart(2, "0");
+  return `#${ch(r)}${ch(g)}${ch(b)}`;
+}
+
+/** 색상은 유지한 채 명도만 크게 낮춘 테두리. 검정은 이미 어두우므로 더 죽이지 않는다. */
+function darkenedRim(hex: string) {
+  const { h, s, l } = hexToHsl(hex);
+  if (s < 0.2) return { body: hex, shadow: hslToHex(h, s, Math.max(0.02, l * 0.4)) };
+  const bodyL = Math.max(0.09, l - 0.22);
+  return { body: hslToHex(h, s, bodyL), shadow: hslToHex(h, s, Math.max(0.045, bodyL * 0.5)) };
+}
+
+function liftedLight(hex: string) {
+  const { h, s, l } = hexToHsl(hex);
+  return hslToHex(h, Math.min(1, s * 0.92), Math.min(0.84, l + 0.1));
+}
+
 export function pieceTransform(p: Pick<PlacedPiece, "x" | "y" | "r" | "s"> & { flipX?: boolean }) {
   const sx = p.flipX ? -p.s : p.s;
   return `translate(${p.x} ${p.y}) rotate(${p.r}) scale(${sx} ${p.s})`;
@@ -449,10 +491,14 @@ export default function Artwork({
     micro: `mi${uid}`,
     blur: `b${uid}`,
     shadow: `s${uid}`,
+    inset: `in${uid}`,
     soft: `so${uid}`,
     rim: `r${uid}`,
+    rimHi: `rh${uid}`,
   };
   const isLac = surface === "lacquer";
+  const rimTone = darkenedRim(lac.color);
+  const rimHighlight = liftedLight(lac.light);
   const pearls = [...new Set(showPieces ? list.map((p) => piecePearl(p, design)) : [])];
 
   return (
@@ -543,11 +589,29 @@ export default function Artwork({
           )}
         </linearGradient>
         <linearGradient id={ids.rim} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#faf8f4" stopOpacity={isLac ? 0.62 : 0.35} />
-          <stop offset="0.38" stopColor="#f7f3ec" stopOpacity="0" />
-          <stop offset="0.62" stopColor="#000" stopOpacity="0" />
-          <stop offset="1" stopColor="#000" stopOpacity={isLac ? 0.55 : 0.5} />
+          {isLac ? (
+            <>
+              <stop offset="0" stopColor={rimTone.body} />
+              <stop offset="0.58" stopColor={rimTone.body} />
+              <stop offset="1" stopColor={rimTone.shadow} />
+            </>
+          ) : (
+            <>
+              <stop offset="0" stopColor="#ecc68e" />
+              <stop offset="0.38" stopColor="#c38440" />
+              <stop offset="0.7" stopColor="#815129" />
+              <stop offset="1" stopColor="#3b1f0d" />
+            </>
+          )}
         </linearGradient>
+        {isLac && (
+          <linearGradient id={ids.rimHi} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor={rimHighlight} stopOpacity="1" />
+            <stop offset="0.34" stopColor={rimHighlight} stopOpacity="0.85" />
+            <stop offset="0.62" stopColor={rimHighlight} stopOpacity="0" />
+            <stop offset="1" stopColor={rimHighlight} stopOpacity="0" />
+          </linearGradient>
+        )}
         <linearGradient id={ids.wood} x1="0" y1="0" x2="1" y2="0.2">
           <stop offset="0" stopColor="#c99a66" />
           <stop offset="0.5" stopColor="#d8ad78" />
@@ -581,6 +645,12 @@ export default function Artwork({
         </filter>
         <filter id={ids.shadow} x="-20%" y="-20%" width="140%" height="150%">
           <feGaussianBlur stdDeviation="6" />
+        </filter>
+        {/* 알파만 흐리고 단색으로 다시 칠해, 넓은 블러의 청록 색수차를 막는다 */}
+        <filter id={ids.inset} x="-50%" y="-50%" width="200%" height="200%" colorInterpolationFilters="sRGB">
+          <feGaussianBlur in="SourceAlpha" stdDeviation="12" result="blur" />
+          <feFlood floodColor="#120c08" floodOpacity="0.72" result="ink" />
+          <feComposite in="ink" in2="blur" operator="in" />
         </filter>
         <clipPath id={ids.clip}>
           <path d={shape.path} />
@@ -642,8 +712,6 @@ export default function Artwork({
             </g>
           ))}
 
-        {isLac && <rect width="300" height="300" fill={`url(#${ids.lacEdge})`} pointerEvents="none" />}
-
         {/* 기본 광택(항상) + 훑는 직선 띠 */}
         {gloss > 0 && (
           <g pointerEvents="none" opacity={1 - Math.min(0.55, dull)}>
@@ -654,9 +722,9 @@ export default function Artwork({
               d={shape.path}
               fill="none"
               stroke={`url(#${ids.lac}-rimSpec)`}
-              strokeWidth="2.4"
-              strokeOpacity={0.9}
-              transform="translate(150 150) scale(0.988) translate(-150 -150)"
+              strokeWidth="2"
+              strokeOpacity={0.28}
+              transform="translate(150 150) scale(0.985) translate(-150 -150)"
             />
             <path d={shape.path} fill={`url(#${ids.lac}-band)`} />
             {showPieces && list.length > 0 && (
@@ -680,19 +748,37 @@ export default function Artwork({
             pointerEvents="none"
           />
         )}
+        <path
+          d={shape.path}
+          fill="none"
+          stroke="#000"
+          strokeWidth="16"
+          strokeOpacity="1"
+          strokeLinejoin="round"
+          filter={`url(#${ids.inset})`}
+          pointerEvents="none"
+        />
       </g>
 
-      <path d={shape.path} fill="none" stroke={isLac ? lac.deep : "#7a5636"} strokeWidth="5" pointerEvents="none" />
-      <path d={shape.path} fill="none" stroke={`url(#${ids.rim})`} strokeWidth="3.5" pointerEvents="none" />
       <path
         d={shape.path}
         fill="none"
-        stroke="#faf8f4"
-        strokeOpacity={isLac ? 0.28 : 0.22}
-        strokeWidth="1.2"
-        transform="translate(150 150) scale(0.975) translate(-150 -150)"
+        stroke={`url(#${ids.rim})`}
+        strokeWidth="3.85"
+        strokeLinejoin="round"
         pointerEvents="none"
       />
+      {isLac && (
+        <path
+          d={shape.path}
+          fill="none"
+          stroke={`url(#${ids.rimHi})`}
+          strokeWidth="1.7"
+          strokeLinejoin="round"
+          transform="translate(150 150) scale(1.006) translate(-150 -150)"
+          pointerEvents="none"
+        />
+      )}
       {children}
     </svg>
   );
