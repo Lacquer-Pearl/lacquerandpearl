@@ -476,26 +476,43 @@ export default function Artwork({
             </mask>
           </>
         )}
-        {/* 본색 위주 — 밝은 점 명암 없이 가장자리만 살짝 어둡게 */}
+        {/* 본색 위주 — 원형 하이라이트 없이 가장자리만 살짝 어둡게 */}
         <radialGradient id={ids.lac} cx="0.5" cy="0.45" r="0.85">
           <stop offset="0" stopColor={lac.color} />
           <stop offset="0.7" stopColor={lac.color} />
           <stop offset="1" stopColor={lac.deep} />
         </radialGradient>
         <radialGradient id={ids.lacEdge} cx="0.5" cy="0.5" r="0.58">
-          <stop offset="0.8" stopColor="#000" stopOpacity="0" />
-          <stop offset="1" stopColor="#000" stopOpacity="0.38" />
+          <stop offset="0.78" stopColor="#000" stopOpacity="0" />
+          <stop offset="1" stopColor="#000" stopOpacity="0.42" />
         </radialGradient>
-        {/* 항상 깔리는 기본 광택 — 은은한 면 윤기 + 가장자리 */}
-        <linearGradient id={`${ids.lac}-base`} x1="0.2" y1="0.05" x2="0.85" y2="0.95">
-          <stop offset="0" stopColor="#faf7f2" stopOpacity={0.1 * gloss} />
-          <stop offset="0.45" stopColor="#faf7f2" stopOpacity={0.03 * gloss} />
-          <stop offset="1" stopColor="#faf7f2" stopOpacity={0.06 * gloss} />
+        {/* 면 전반 옅은 명암 — 좌상 밝음 → 우하 그림자 */}
+        <linearGradient id={`${ids.lac}-base`} x1="0.12" y1="0.08" x2="0.92" y2="0.96">
+          <stop offset="0" stopColor="#faf8f4" stopOpacity={0.16 * gloss} />
+          <stop offset="0.28" stopColor="#faf7f2" stopOpacity={0.07 * gloss} />
+          <stop offset="0.55" stopColor="#faf7f2" stopOpacity={0.02 * gloss} />
+          <stop offset="0.78" stopColor="#1a0f0a" stopOpacity={0.05 * gloss} />
+          <stop offset="1" stopColor="#1a0f0a" stopOpacity={0.14 * gloss} />
         </linearGradient>
-        <radialGradient id={`${ids.lac}-rimLight`} cx="0.5" cy="0.5" r="0.72">
-          <stop offset="0.6" stopColor="#faf7f2" stopOpacity="0" />
-          <stop offset="0.86" stopColor="#faf7f2" stopOpacity={0.04 * gloss} />
-          <stop offset="1" stopColor="#faf8f4" stopOpacity={0.11 * gloss} />
+        {/* 테두리 유광 하이라이트 (프레넬) */}
+        <radialGradient id={`${ids.lac}-rimLight`} cx="0.5" cy="0.5" r="0.74">
+          <stop offset="0.62" stopColor="#faf7f2" stopOpacity="0" />
+          <stop offset="0.84" stopColor="#faf7f2" stopOpacity={0.03 * gloss} />
+          <stop offset="0.93" stopColor="#faf8f4" stopOpacity={0.14 * gloss} />
+          <stop offset="1" stopColor="#ffffff" stopOpacity={0.22 * gloss} />
+        </radialGradient>
+        {/* 상단·좌상단 테두리 스펙큘러 호 */}
+        <linearGradient id={`${ids.lac}-rimSpec`} x1="0.15" y1="0" x2="0.85" y2="0.55">
+          <stop offset="0" stopColor="#ffffff" stopOpacity={0.28 * gloss} />
+          <stop offset="0.35" stopColor="#faf8f4" stopOpacity={0.1 * gloss} />
+          <stop offset="0.65" stopColor="#faf7f2" stopOpacity="0" />
+          <stop offset="1" stopColor="#faf7f2" stopOpacity="0" />
+        </linearGradient>
+        {/* 우측 하단 옅은 면 그림자 */}
+        <radialGradient id={`${ids.lac}-brShade`} cx="0.78" cy="0.82" r="0.55">
+          <stop offset="0" stopColor="#1a0f0a" stopOpacity={0.16 * gloss} />
+          <stop offset="0.45" stopColor="#1a0f0a" stopOpacity={0.06 * gloss} />
+          <stop offset="1" stopColor="#1a0f0a" stopOpacity="0" />
         </radialGradient>
         {/* 면 위 직선 광택 띠 — 한 방향으로 훑는 애니메이션 */}
         <linearGradient
@@ -526,10 +543,10 @@ export default function Artwork({
           )}
         </linearGradient>
         <linearGradient id={ids.rim} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#f7f3ec" stopOpacity={isLac ? 0.5 : 0.35} />
-          <stop offset="0.42" stopColor="#f7f3ec" stopOpacity="0" />
+          <stop offset="0" stopColor="#faf8f4" stopOpacity={isLac ? 0.62 : 0.35} />
+          <stop offset="0.38" stopColor="#f7f3ec" stopOpacity="0" />
           <stop offset="0.62" stopColor="#000" stopOpacity="0" />
-          <stop offset="1" stopColor="#000" stopOpacity="0.5" />
+          <stop offset="1" stopColor="#000" stopOpacity={isLac ? 0.55 : 0.5} />
         </linearGradient>
         <linearGradient id={ids.wood} x1="0" y1="0" x2="1" y2="0.2">
           <stop offset="0" stopColor="#c99a66" />
@@ -631,7 +648,16 @@ export default function Artwork({
         {gloss > 0 && (
           <g pointerEvents="none" opacity={1 - Math.min(0.55, dull)}>
             <path d={shape.path} fill={`url(#${ids.lac}-base)`} />
+            <path d={shape.path} fill={`url(#${ids.lac}-brShade)`} />
             <path d={shape.path} fill={`url(#${ids.lac}-rimLight)`} />
+            <path
+              d={shape.path}
+              fill="none"
+              stroke={`url(#${ids.lac}-rimSpec)`}
+              strokeWidth="2.4"
+              strokeOpacity={0.9}
+              transform="translate(150 150) scale(0.988) translate(-150 -150)"
+            />
             <path d={shape.path} fill={`url(#${ids.lac}-band)`} />
             {showPieces && list.length > 0 && (
               <rect
@@ -661,9 +687,9 @@ export default function Artwork({
       <path
         d={shape.path}
         fill="none"
-        stroke="#faf7f2"
-        strokeOpacity={isLac ? 0.16 : 0.22}
-        strokeWidth="1.1"
+        stroke="#faf8f4"
+        strokeOpacity={isLac ? 0.28 : 0.22}
+        strokeWidth="1.2"
         transform="translate(150 150) scale(0.975) translate(-150 -150)"
         pointerEvents="none"
       />
