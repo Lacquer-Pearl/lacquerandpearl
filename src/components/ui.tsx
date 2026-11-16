@@ -75,7 +75,7 @@ export function SoundToggle() {
           sfx.click();
         }}
       >
-        <UiIcon id={musicOn ? "sfx" : "musicOff"} className="ui-icon-md" />
+        <UiIcon id="music" className="ui-icon-md" />
         {!musicOn && <span className="icon-slash" />}
       </button>
       <button

@@ -106,13 +106,14 @@ export function SheenGradient({ id, animate = true, size = 300 }: { id: string; 
       y2={size * 0.8}
       gradientTransform={animate ? undefined : `translate(${-size * 0.18} ${-size * 0.14})`}
     >
-      <stop offset="0" stopColor="#fff" stopOpacity="0" />
-      <stop offset="0.4" stopColor="#a9d8d2" stopOpacity="0" />
-      <stop offset="0.46" stopColor="#c9e6e2" stopOpacity="0.22" />
-      <stop offset="0.5" stopColor="#fffdf6" stopOpacity="0.55" />
-      <stop offset="0.54" stopColor="#ecc9d6" stopOpacity="0.22" />
-      <stop offset="0.6" stopColor="#f3c2d0" stopOpacity="0" />
-      <stop offset="1" stopColor="#fff" stopOpacity="0" />
+      {/* 살짝 따뜻한 진주 광택 — 누렇지 않고 고급스럽게 */}
+      <stop offset="0" stopColor="#f2f0ec" stopOpacity="0" />
+      <stop offset="0.4" stopColor="#9ecfc8" stopOpacity="0" />
+      <stop offset="0.46" stopColor="#c5e4de" stopOpacity="0.28" />
+      <stop offset="0.5" stopColor="#faf7f2" stopOpacity="0.62" />
+      <stop offset="0.54" stopColor="#d4c4e0" stopOpacity="0.26" />
+      <stop offset="0.6" stopColor="#c8b8c4" stopOpacity="0" />
+      <stop offset="1" stopColor="#f2f0ec" stopOpacity="0" />
       {animate && (
         <animateTransform
           attributeName="gradientTransform"
@@ -475,20 +476,60 @@ export default function Artwork({
             </mask>
           </>
         )}
-        <radialGradient id={ids.lac} cx="0.38" cy="0.32" r="0.85">
-          <stop offset="0" stopColor={lac.light} />
-          <stop offset="0.45" stopColor={lac.color} />
+        {/* 본색 위주 — 밝은 점 명암 없이 가장자리만 살짝 어둡게 */}
+        <radialGradient id={ids.lac} cx="0.5" cy="0.45" r="0.85">
+          <stop offset="0" stopColor={lac.color} />
+          <stop offset="0.7" stopColor={lac.color} />
           <stop offset="1" stopColor={lac.deep} />
         </radialGradient>
-        <radialGradient id={ids.lacEdge} cx="0.5" cy="0.5" r="0.55">
-          <stop offset="0.78" stopColor="#000" stopOpacity="0" />
-          <stop offset="1" stopColor="#000" stopOpacity="0.45" />
+        <radialGradient id={ids.lacEdge} cx="0.5" cy="0.5" r="0.58">
+          <stop offset="0.8" stopColor="#000" stopOpacity="0" />
+          <stop offset="1" stopColor="#000" stopOpacity="0.38" />
         </radialGradient>
+        {/* 항상 깔리는 기본 광택 — 은은한 면 윤기 + 가장자리 */}
+        <linearGradient id={`${ids.lac}-base`} x1="0.2" y1="0.05" x2="0.85" y2="0.95">
+          <stop offset="0" stopColor="#faf7f2" stopOpacity={0.1 * gloss} />
+          <stop offset="0.45" stopColor="#faf7f2" stopOpacity={0.03 * gloss} />
+          <stop offset="1" stopColor="#faf7f2" stopOpacity={0.06 * gloss} />
+        </linearGradient>
+        <radialGradient id={`${ids.lac}-rimLight`} cx="0.5" cy="0.5" r="0.72">
+          <stop offset="0.6" stopColor="#faf7f2" stopOpacity="0" />
+          <stop offset="0.86" stopColor="#faf7f2" stopOpacity={0.04 * gloss} />
+          <stop offset="1" stopColor="#faf8f4" stopOpacity={0.11 * gloss} />
+        </radialGradient>
+        {/* 면 위 직선 광택 띠 — 한 방향으로 훑는 애니메이션 */}
+        <linearGradient
+          id={`${ids.lac}-band`}
+          gradientUnits="userSpaceOnUse"
+          x1="-80"
+          y1="-40"
+          x2="380"
+          y2="340"
+          gradientTransform={shimmer ? undefined : "translate(-40 -30)"}
+        >
+          <stop offset="0" stopColor="#faf7f2" stopOpacity="0" />
+          <stop offset="0.38" stopColor="#faf7f2" stopOpacity="0" />
+          <stop offset="0.44" stopColor="#faf7f2" stopOpacity={0.06 * gloss} />
+          <stop offset="0.5" stopColor="#faf8f4" stopOpacity={0.18 * gloss} />
+          <stop offset="0.56" stopColor="#faf7f2" stopOpacity={0.06 * gloss} />
+          <stop offset="0.62" stopColor="#faf7f2" stopOpacity="0" />
+          <stop offset="1" stopColor="#faf7f2" stopOpacity="0" />
+          {shimmer && gloss > 0 && (
+            <animateTransform
+              attributeName="gradientTransform"
+              type="translate"
+              values="-220 -165; 220 165; 220 165"
+              keyTimes="0; 0.55; 1"
+              dur="4s"
+              repeatCount="indefinite"
+            />
+          )}
+        </linearGradient>
         <linearGradient id={ids.rim} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#fff" stopOpacity={isLac ? 0.45 : 0.35} />
-          <stop offset="0.45" stopColor="#fff" stopOpacity="0" />
-          <stop offset="0.6" stopColor="#000" stopOpacity="0" />
-          <stop offset="1" stopColor="#000" stopOpacity="0.55" />
+          <stop offset="0" stopColor="#f7f3ec" stopOpacity={isLac ? 0.5 : 0.35} />
+          <stop offset="0.42" stopColor="#f7f3ec" stopOpacity="0" />
+          <stop offset="0.62" stopColor="#000" stopOpacity="0" />
+          <stop offset="1" stopColor="#000" stopOpacity="0.5" />
         </linearGradient>
         <linearGradient id={ids.wood} x1="0" y1="0" x2="1" y2="0.2">
           <stop offset="0" stopColor="#c99a66" />
@@ -583,46 +624,35 @@ export default function Artwork({
               />
             </g>
           ))}
-        {showPieces && list.length > 0 && (
+
+        {isLac && <rect width="300" height="300" fill={`url(#${ids.lacEdge})`} pointerEvents="none" />}
+
+        {/* 기본 광택(항상) + 훑는 직선 띠 */}
+        {gloss > 0 && (
+          <g pointerEvents="none" opacity={1 - Math.min(0.55, dull)}>
+            <path d={shape.path} fill={`url(#${ids.lac}-base)`} />
+            <path d={shape.path} fill={`url(#${ids.lac}-rimLight)`} />
+            <path d={shape.path} fill={`url(#${ids.lac}-band)`} />
+            {showPieces && list.length > 0 && (
+              <rect
+                width="300"
+                height="300"
+                fill={`url(#${ids.sheen})`}
+                mask={`url(#${ids.pieceMask})`}
+                opacity={0.42 * gloss * (1 - Math.min(0.7, dull))}
+              />
+            )}
+          </g>
+        )}
+        {showPieces && list.length > 0 && gloss <= 0 && (
           <rect
             width="300"
             height="300"
             fill={`url(#${ids.sheen})`}
             mask={`url(#${ids.pieceMask})`}
-            opacity={0.42 * (1 - Math.min(0.8, dull))}
+            opacity={0.38 * (1 - Math.min(0.8, dull))}
             pointerEvents="none"
           />
-        )}
-
-        {isLac && (
-          <g pointerEvents="none">
-            <rect width="300" height="300" fill={`url(#${ids.lacEdge})`} />
-            {gloss > 0 && (
-              <>
-                <ellipse
-                  cx="95"
-                  cy="70"
-                  rx="95"
-                  ry="34"
-                  transform="rotate(-28 95 70)"
-                  fill="#fff"
-                  opacity={0.16 * gloss}
-                  filter={`url(#${ids.blur})`}
-                />
-                <path
-                  d="M40 120 Q120 40 230 30"
-                  stroke="#fff"
-                  strokeWidth="5"
-                  strokeLinecap="round"
-                  fill="none"
-                  opacity={0.22 * gloss}
-                  filter={`url(#${ids.shadow})`}
-                />
-                <path d="M78 80 Q118 52 160 44" stroke="#fff" strokeWidth="2" strokeLinecap="round" fill="none" opacity={0.18 * gloss} filter={`url(#${ids.soft})`} />
-                <ellipse cx="225" cy="235" rx="60" ry="18" transform="rotate(-28 225 235)" fill="#fff" opacity={0.05 * gloss} filter={`url(#${ids.blur})`} />
-              </>
-            )}
-          </g>
         )}
       </g>
 
@@ -631,10 +661,10 @@ export default function Artwork({
       <path
         d={shape.path}
         fill="none"
-        stroke="#fff"
-        strokeOpacity={isLac ? 0.12 : 0.2}
-        strokeWidth="1"
-        transform="translate(150 150) scale(0.97) translate(-150 -150)"
+        stroke="#faf7f2"
+        strokeOpacity={isLac ? 0.16 : 0.22}
+        strokeWidth="1.1"
+        transform="translate(150 150) scale(0.975) translate(-150 -150)"
         pointerEvents="none"
       />
       {children}

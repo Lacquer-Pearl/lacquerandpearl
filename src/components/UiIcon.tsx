@@ -29,6 +29,7 @@ const ICONS = {
   ticket: "/images/ui/icon-ticket.png",
   star: "/images/ui/icon-star.png",
   medal: "/images/ui/icon-medal.png",
+  music: "/images/ui/icon-music.png",
   musicOff: "/images/ui/icon-music-off.png",
   sfx: "/images/ui/icon-sfx.png",
   settings: "/images/ui/icon-settings.png",
