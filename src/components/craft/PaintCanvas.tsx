@@ -555,7 +555,7 @@ export default function PaintCanvas({
         buf.width = buf.height = N;
         dripBuf.current = buf;
       }
-      redrawDrips(canvas.getContext("2d")!, grid.current, cfg.over, cfg.overColor || cfg.color, buf);
+      redrawDrips(canvas.getContext("2d")!, grid.current, cfg.over, cfg.color, cfg.overColor || cfg.color, buf);
     });
   }
 
@@ -830,7 +830,7 @@ function cellNoise(k: number) {
   return n - Math.floor(n);
 }
 
-/** 나무에 옻을 바르는 거친 붓 결. 광택은 모 가닥마다 미세하게만 얹는다(가운데 흰 호선 없음). */
+/** 나무에 옻을 바르는 거친 붓 결. 본색만 쓰고 검정 코어 반점은 만들지 않는다. */
 function dabRoughBrush(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -838,32 +838,31 @@ function dabRoughBrush(
   r: number,
   alpha: number,
   color: string,
-  deep: string,
+  _deep: string,
   dir: number,
 ) {
   const cos = Math.cos(dir);
   const sin = Math.sin(dir);
   const bristles = 8;
-  const core = mixHex(color, deep, 0.45);
-  // 한 획을 더 진하게 보이도록 알파를 조금 올림 (밝은 코어는 쌓이면 흰 홈처럼 보여서 쓰지 않음)
-  const boost = Math.min(1, alpha * 1.35);
+  // deep(거의 검정) 코어를 섞으면 반점처럼 보여서 본색만 사용
+  const boost = Math.min(1, alpha * 1.25);
   ctx.globalCompositeOperation = "source-over";
   for (let b = 0; b < bristles; b++) {
     const along = (b / (bristles - 1) - 0.5) * 2;
     const n0 = cellNoise((b * 17 + Math.round(x * 3 + y)) | 0);
     const n1 = cellNoise((b * 31 + Math.round(x + y * 5)) | 0);
-    const px = x + (-sin * along + cos * (n0 - 0.5) * 0.55) * r * 0.92;
-    const py = y + (cos * along + sin * (n0 - 0.5) * 0.55) * r * 0.92;
-    const rw = r * (0.16 + n1 * 0.2);
-    const rh = r * (0.7 + n0 * 0.45);
-    const aB = boost * (0.34 + n1 * 0.55);
+    const px = x + (-sin * along + cos * (n0 - 0.5) * 0.35) * r * 0.88;
+    const py = y + (cos * along + sin * (n0 - 0.5) * 0.35) * r * 0.88;
+    const rw = r * (0.2 + n1 * 0.16);
+    const rh = r * (0.75 + n0 * 0.35);
+    const aB = boost * (0.4 + n1 * 0.35);
     ctx.save();
     ctx.translate(px, py);
     ctx.rotate(dir);
     ctx.scale(rh / r, rw / r);
     const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
-    grad.addColorStop(0, hexA(core, aB));
-    grad.addColorStop(0.45, hexA(color, aB * 0.55));
+    grad.addColorStop(0, hexA(color, aB));
+    grad.addColorStop(0.5, hexA(color, aB * 0.5));
     grad.addColorStop(1, hexA(color, 0));
     ctx.fillStyle = grad;
     ctx.beginPath();
@@ -874,17 +873,15 @@ function dabRoughBrush(
 }
 
 /**
- * 참고 4: 과다 도포 — 알맞음과 확연히 다르게.
-/**
- * 참고 4: 과다 도포 — 검정 물감 카툰 그래픽.
- * 불투명 면 + 단순 셀 음영 + 얇은 외곽. 사실적 스펙큘러·방울은 쓰지 않는다.
- * (5 경화 주름은 미반영)
+ * 참고 4: 과다 도포 — 부드러운 물감/옻 고임.
+ * 높이맵 기반 부드러운 부피·윤기. 딱딱한 외곽·핏자국형 셀 셰딩 없음.
  */
 function redrawDrips(
   ctx: CanvasRenderingContext2D,
   grid: Float32Array,
   over: number,
   color: string,
+  deep: string,
   buf: HTMLCanvasElement,
 ) {
   ctx.clearRect(0, 0, 300, 300);
@@ -900,21 +897,32 @@ function redrawDrips(
 
   const bctx = buf.getContext("2d")!;
   const fill = bctx.createImageData(N, N);
-  const shade = bctx.createImageData(N, N);
-  const edge = bctx.createImageData(N, N);
+  const gloss = bctx.createImageData(N, N);
   const { r: cr, g: cg, b: cb } = hexRgb(color);
-  // 카툰 본체 — 거의 먹색, 완전 불투명에 가깝게
-  const fr = Math.round(cr * 0.18);
-  const fg = Math.round(cg * 0.18);
-  const fb = Math.round(cb * 0.18);
-  // 셀 하이라이트 — 옻색을 살짝만 밝힌 면 (흰 점 아님)
-  const hr = Math.min(255, Math.round(fr + (cr - fr) * 0.55 + 28));
-  const hg = Math.min(255, Math.round(fg + (cg - fg) * 0.5 + 24));
-  const hb = Math.min(255, Math.round(fb + (cb - fb) * 0.45 + 20));
-  // 외곽선
-  const er = Math.round(fr * 0.35);
-  const eg = Math.round(fg * 0.35);
-  const eb = Math.round(fb * 0.35);
+  const { r: dr, g: dg, b: db } = hexRgb(deep);
+  const gray = 0.299 * cr + 0.587 * cg + 0.114 * cb;
+  const chroma = Math.max(Math.abs(cr - gray), Math.abs(cg - gray), Math.abs(cb - gray));
+  const isInk = chroma < 18 && gray < 48;
+
+  // 물감 본체: 본색에 가깝고 채도만 살짝, 명도는 거의 유지
+  const sat = isInk ? 0.08 : 0.28;
+  const body = (c: number) =>
+    Math.min(255, Math.max(0, Math.round(gray + (c - gray) * (1 + sat))));
+  const br = body(cr);
+  const bg = body(cg);
+  const bb = body(cb);
+  // 두꺼운 곳 그림자 / 빛 — 같은 색 계열
+  const shR = Math.round(br * 0.82 + dr * 0.18);
+  const shG = Math.round(bg * 0.82 + dg * 0.18);
+  const shB = Math.round(bb * 0.82 + db * 0.18);
+  const hiR = Math.min(255, Math.round(br * 0.72 + 255 * 0.28));
+  const hiG = Math.min(255, Math.round(bg * 0.72 + 255 * 0.28));
+  const hiB = Math.min(255, Math.round(bb * 0.72 + 255 * 0.28));
+
+  const hAt = (i: number, j: number) => {
+    if (i < 0 || j < 0 || i >= N || j >= N) return 0;
+    return heights[j * N + i];
+  };
 
   for (let j = 0; j < N; j++)
     for (let i = 0; i < N; i++) {
@@ -923,60 +931,54 @@ function redrawDrips(
       const h = heights[k];
       if (h <= 0) {
         fill.data[o + 3] = 0;
-        shade.data[o + 3] = 0;
-        edge.data[o + 3] = 0;
+        gloss.data[o + 3] = 0;
         continue;
       }
-      const on = 1;
-      const left = i > 0 && heights[k - 1] > 0 ? 1 : 0;
-      const right = i < N - 1 && heights[k + 1] > 0 ? 1 : 0;
-      const up = j > 0 && heights[k - N] > 0 ? 1 : 0;
-      const down = j < N - 1 && heights[k + N] > 0 ? 1 : 0;
-      const border = on && left + right + up + down < 4;
 
-      fill.data[o] = fr;
-      fill.data[o + 1] = fg;
-      fill.data[o + 2] = fb;
-      fill.data[o + 3] = Math.round(Math.min(0.98, 0.78 + Math.min(h, 2) * 0.08) * 255);
+      const hl = hAt(i - 1, j);
+      const hr = hAt(i + 1, j);
+      const hu = hAt(i, j - 1);
+      const hd = hAt(i, j + 1);
+      const neigh = (hl > 0 ? 1 : 0) + (hr > 0 ? 1 : 0) + (hu > 0 ? 1 : 0) + (hd > 0 ? 1 : 0);
+      // 가장자리는 알파로만 부드럽게 페더 (선 테두리 X)
+      const feather = 0.35 + neigh * 0.16;
 
-      // 왼쪽 위 1/3 쪽만 셀 하이라이트 면
-      const cel = i / N + j / N < 0.85 && h > 0.9 ? 1 : 0;
-      shade.data[o] = hr;
-      shade.data[o + 1] = hg;
-      shade.data[o + 2] = hb;
-      shade.data[o + 3] = cel ? Math.round(0.22 * 255) : 0;
+      // 높이·기울기로 부드러운 부피 명암
+      const nx = (hl - hr) * 0.45;
+      const ny = (hu - hd) * 0.45;
+      const lit = Math.max(0, Math.min(1, 0.48 + nx * 0.55 + ny * 0.4 + Math.min(h, 2.2) * 0.06));
+      const thick = Math.min(1, h / 2.4);
 
-      edge.data[o] = er;
-      edge.data[o + 1] = eg;
-      edge.data[o + 2] = eb;
-      edge.data[o + 3] = border ? Math.round(0.75 * 255) : 0;
+      fill.data[o] = Math.round(shR + (br - shR) * lit + (hiR - br) * lit * lit * 0.35);
+      fill.data[o + 1] = Math.round(shG + (bg - shG) * lit + (hiG - bg) * lit * lit * 0.35);
+      fill.data[o + 2] = Math.round(shB + (bb - shB) * lit + (hiB - bb) * lit * lit * 0.35);
+      fill.data[o + 3] = Math.round(Math.min(0.92, (0.38 + thick * 0.42) * feather) * 255);
+
+      // 젖은 물감 윤기 — 능선·밝은 쪽에만 부드러운 광
+      const sheen = Math.pow(Math.max(0, lit - 0.42), 1.6) * (0.2 + thick * 0.55) * feather;
+      gloss.data[o] = hiR;
+      gloss.data[o + 1] = hiG;
+      gloss.data[o + 2] = hiB;
+      gloss.data[o + 3] = Math.round(Math.min(0.34, sheen) * 255);
     }
 
   ctx.save();
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
 
-  // 살짝 떨어진 그림자 (카툰 스티커 느낌)
+  // 부드러운 본체 (물감처럼 번진 가장자리)
   bctx.putImageData(fill, 0, 0);
-  ctx.globalAlpha = 0.28;
+  ctx.globalAlpha = 1;
+  ctx.filter = "blur(1.8px)";
+  ctx.drawImage(buf, 0, 0, 300, 300);
+  ctx.filter = "blur(0.7px)";
+  ctx.globalAlpha = 0.85;
+  ctx.drawImage(buf, 0, 0, 300, 300);
+
+  // 젖은 윤기
+  bctx.putImageData(gloss, 0, 0);
   ctx.filter = "blur(2.4px)";
-  ctx.drawImage(buf, 1.4, 2.2, 300, 300);
-
-  // 불투명 본체
-  ctx.globalAlpha = 1;
-  ctx.filter = "blur(0.6px)";
-  ctx.drawImage(buf, 0, 0, 300, 300);
-
-  // 셀 하이라이트 면
-  bctx.putImageData(shade, 0, 0);
-  ctx.filter = "blur(1.2px)";
-  ctx.globalAlpha = 0.9;
-  ctx.drawImage(buf, 0, 0, 300, 300);
-
-  // 얇은 외곽
-  bctx.putImageData(edge, 0, 0);
-  ctx.filter = "blur(0.5px)";
-  ctx.globalAlpha = 1;
+  ctx.globalAlpha = 0.75;
   ctx.drawImage(buf, 0, 0, 300, 300);
 
   ctx.restore();
