@@ -148,9 +148,11 @@ function paintDefs(design: Design, lang: Locale): Record<"lacquer" | "iron" | "f
       ),
       config: {
         brushRadius: 20,
-        passAmount: 0.5,
-        range: [0.55, 1.5],
-        over: 2,
+        // 한 획이 덜 깎이게 해서, 알맞게 드러나기까지 갈아내는 횟수를 늘린다
+        passAmount: 0.34,
+        range: [0.55, 2.7],
+        // 알맞음과 과함이 겹치지 않게, 옻칠과 같은 비율로 과다 기준을 올림
+        over: 3.4,
         opaqueAt: 0.7,
         mode: "erase",
         color: lac.color,
