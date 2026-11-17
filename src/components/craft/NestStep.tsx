@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { MotifSilhouette } from "@/components/Artwork";
-import MotifIcon from "@/components/MotifIcon";
+import MotifIcon, { NacreSwatch } from "@/components/MotifIcon";
 import { Btn, Coin, Meter } from "@/components/ui";
 import {
   MATERIALS,
@@ -11,7 +11,6 @@ import {
   motifCutRoutes,
   motifLocalBox,
   motifOutline,
-  type MaterialId,
   type MotifId,
   type PearlId,
 } from "@/lib/data";
@@ -146,6 +145,7 @@ export default function NestStep({
   ledger,
   stock,
   legacyPrepaid = false,
+  orderPearl,
   initial,
   onChange,
   onConfirm,
@@ -159,6 +159,8 @@ export default function NestStep({
   ledger: ShellLedger;
   stock: ShellStock;
   legacyPrepaid?: boolean;
+  /** 의뢰에서 지정한 자개. 선택 목록에서 강조한다. */
+  orderPearl?: PearlId;
   initial?: ShellPlan;
   onChange: (plan: ShellPlan) => void;
   onConfirm: (plan: ShellPlan) => { ok: true } | { ok: false; missing: PearlId; large?: boolean };
@@ -228,14 +230,12 @@ export default function NestStep({
         : null;
   const draftsOf = (size: ShellSize) =>
     sheets.filter((sheet) => sheet.pearl === pearl && !ledgerIds.has(sheet.id) && sheetSize(sheet) === size).length;
+  const reusedOf = (size: ShellSize) =>
+    sheets.filter((sheet) => sheet.pearl === pearl && ledgerIds.has(sheet.id) && sheetSize(sheet) === size).length;
   const roomOf = (size: ShellSize) =>
     legacyPrepaid && size === "standard"
       ? 6
       : Math.max(0, (stock[size === "large" ? largeKey(pearl) : pearl] ?? 0) - draftsOf(size));
-  const usedSheets = sheets.filter((sheet) => placements.some((item) => item.sheetId === sheet.id));
-  const reusedCount = usedSheets.filter((sheet) => ledgerIds.has(sheet.id)).length;
-  const freshCount = usedSheets.filter((sheet) => !ledgerIds.has(sheet.id) && sheetSize(sheet) === "standard").length;
-  const freshLargeCount = usedSheets.filter((sheet) => !ledgerIds.has(sheet.id) && sheetSize(sheet) === "large").length;
   const polyOf = (placement: ShellPlacement) => motifPolygons(placement.motifId);
   const allPlaced = design.pieces.length > 0 && unplaced.length === 0;
 
@@ -270,6 +270,27 @@ export default function NestStep({
     const source = design.pieces.find((piece) => piece.id === id);
     return !!source && needsLargeSheet(source, piecePearl(source, design));
   };
+
+  const roomStd = roomOf("standard");
+  const roomLarge = roomOf("large");
+  /** 새 장을 열면 화면상 보유는 바로 줄어든다 (확정 전 예약). */
+  const ownedStd = Math.max(0, (stock[pearl] ?? 0) - draftsOf("standard"));
+  const ownedLarge = Math.max(0, (stock[largeKey(pearl)] ?? 0) - draftsOf("large"));
+  const reusedStd = reusedOf("standard");
+  const reusedLarge = reusedOf("large");
+  const freshStd = draftsOf("standard");
+  const freshLarge = draftsOf("large");
+  const usingStd = reusedStd + freshStd;
+  const usingLarge = reusedLarge + freshLarge;
+  const waitStd = waiting.some((piece) => !tooBig(piece.id));
+  const waitLarge = waiting.some((piece) => tooBig(piece.id));
+  const hasStdSheet = visible.some((sheet) => sheetSize(sheet) === "standard");
+  const hasLargeSheet = visible.some((sheet) => sheetSize(sheet) === "large");
+  const needOpenStandard = waitStd && roomStd > 0 && !hasStdSheet;
+  const needOpenLarge = waitLarge && roomLarge > 0 && !hasLargeSheet;
+  const needBuyStandard = !legacyPrepaid && waitStd && roomStd === 0;
+  const needBuyLarge = !legacyPrepaid && waitLarge && roomLarge === 0;
+  const selectPearls = [...new Set([...pearls, ...(orderPearl ? [orderPearl] : [])])];
 
   /** 열린 장이 없거나 들어갈 자리가 없을 때, 새 장(보통 → 대형 순)을 열어 올린다. */
   const openAndPlace = (id: string) => {
@@ -470,64 +491,103 @@ export default function NestStep({
         </StepHeader>
       )}
       {legacyPrepaid && <p className="panel py-2 text-sm text-[var(--brown)]">{t(lang, "nest.legacy")}</p>}
-      <div className="panel flex flex-col gap-1 py-2 text-sm text-[var(--brown)]">
-        <div className="flex items-center justify-between gap-2">
-          <b>{t(lang, "nest.statusPlaced", { n: design.pieces.length - unplaced.length, max: design.pieces.length })}</b>
-          <span className={allPlaced ? "text-[var(--mint-deep)]" : ""}>
-            {allPlaced ? t(lang, "nest.statusAllDone") : t(lang, "nest.statusLeft", { n: unplaced.length })}
-          </span>
-        </div>
-        <div>
-          {t(lang, "nest.useLine", { n: legacyPrepaid ? reusedCount : reusedCount + freshCount + freshLargeCount })}{" "}
-          <span className="text-xs opacity-80">
-            {t(lang, "nest.useDetail", { reused: reusedCount, fresh: legacyPrepaid ? 0 : freshCount, large: freshLargeCount })}
-          </span>
-        </div>
-        <div className="text-xs opacity-80">
-          {t(lang, "nest.stockLine", {
-            name: pearlName(lang, pearl),
-            n: stock[pearl] ?? 0,
-            large: stock[largeKey(pearl)] ?? 0,
-          })}
-        </div>
-        {!legacyPrepaid && (
-          <div className="mt-1 grid grid-cols-2 gap-1.5">
-            {([PEARLS[pearl].material, PEARLS[pearl].largeMaterial] as MaterialId[]).map((id, i) => (
+      <div className="panel nest-stock py-2">
+        <div className="nest-stock-pick">
+          {selectPearls.map((kind) => {
+            const ordered = orderPearl === kind;
+            return (
               <button
-                key={id}
+                key={kind}
                 type="button"
-                className="mat-buy"
-                disabled={money < MATERIALS[id].price}
+                className={`nest-stock-pearl ${kind === pearl ? "on" : ""} ${ordered ? "ordered" : ""}`}
                 onClick={() => {
-                  if (buy(id)) sfx.coin();
-                  else sfx.fail();
+                  sfx.click();
+                  setPearl(kind);
                 }}
               >
-                {t(lang, i === 0 ? "design.buyStandard" : "design.buyLarge")} +{MATERIALS[id].pack} · <Coin /> {MATERIALS[id].price}
+                <NacreSwatch pearl={kind} className="swatch lg shrink-0" />
+                <span className="nest-stock-pearl-text">
+                  {pearlName(lang, kind)}
+                  {ordered && <small>{t(lang, "nest.orderPearl")}</small>}
+                </span>
               </button>
-            ))}
-          </div>
-        )}
-      </div>
-      {pearls.length > 1 && (
-        <div className="flex flex-wrap gap-1">
-          {pearls.map((kind) => (
-            <Btn key={kind} size="sm" variant={kind === pearl ? "gold" : "cream"} onClick={() => setPearl(kind)}>
-              {pearlName(lang, kind)}
-            </Btn>
+            );
+          })}
+        </div>
+        <div className="nest-stock-row">
+          {(
+            [
+              {
+                key: "standard" as const,
+                label: "nest.stockStd",
+                owned: ownedStd,
+                using: usingStd,
+                reused: reusedStd,
+                fresh: freshStd,
+                need: needBuyStandard,
+                material: PEARLS[pearl].material,
+              },
+              {
+                key: "large" as const,
+                label: "nest.stockLarge",
+                owned: ownedLarge,
+                using: usingLarge,
+                reused: reusedLarge,
+                fresh: freshLarge,
+                need: needBuyLarge,
+                material: PEARLS[pearl].largeMaterial,
+              },
+            ] as const
+          ).map((cell) => (
+            <div key={cell.key} className={`nest-stock-cell ${cell.need ? "lack" : ""}`}>
+              <div className="nest-stock-cell-main">
+                <span className="nest-stock-label">{t(lang, cell.label)}</span>
+                <span className="nest-stock-num">{t(lang, "nest.stockCount", { n: cell.owned })}</span>
+                <span className="nest-stock-using">
+                  {t(lang, "nest.inUseDetail", { n: cell.using })}
+                  <br />
+                  {t(lang, "nest.inUseSplit", { reused: cell.reused, fresh: cell.fresh })}
+                </span>
+              </div>
+              {!legacyPrepaid && (
+                <button
+                  type="button"
+                  className={`nest-buy ${cell.need ? "on cta-glow" : ""}`}
+                  disabled={money < MATERIALS[cell.material].price}
+                  onClick={() => {
+                    if (buy(cell.material)) sfx.coin();
+                    else sfx.fail();
+                  }}
+                >
+                  +{MATERIALS[cell.material].pack} · <Coin /> {MATERIALS[cell.material].price}
+                </button>
+              )}
+            </div>
           ))}
         </div>
-      )}
+      </div>
       <div className="flex flex-wrap gap-1">
         {visible.map((sheet, index) => (
           <Btn key={sheet.id} size="sm" variant={sheet.id === active?.id ? "gold" : "cream"} onClick={() => setActiveId(sheet.id)}>
             {t(lang, sheetSize(sheet) === "large" ? "nest.sheetLarge" : "nest.sheet", { n: index + 1 })}
           </Btn>
         ))}
-        <Btn size="sm" variant="cream" onClick={() => openSheet("standard")}>
+        <Btn
+          size="sm"
+          variant={needOpenStandard ? "gold" : "cream"}
+          className={needOpenStandard ? "cta-glow" : ""}
+          disabled={roomStd <= 0}
+          onClick={() => openSheet("standard")}
+        >
           {t(lang, "nest.newSheet")}
         </Btn>
-        <Btn size="sm" variant="cream" onClick={() => openSheet("large")}>
+        <Btn
+          size="sm"
+          variant={needOpenLarge ? "gold" : "cream"}
+          className={needOpenLarge ? "cta-glow" : ""}
+          disabled={roomLarge <= 0}
+          onClick={() => openSheet("large")}
+        >
           {t(lang, "nest.newLarge")}
         </Btn>
       </div>

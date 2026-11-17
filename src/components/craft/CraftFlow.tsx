@@ -479,6 +479,7 @@ export default function CraftFlow() {
             ledger={shellLedger}
             stock={shellStock}
             legacyPrepaid={legacyPearl.current}
+            orderPearl={commission?.pearl}
             initial={planRef.current}
             onChange={(plan) => {
               planRef.current = plan;

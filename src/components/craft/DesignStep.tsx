@@ -345,6 +345,7 @@ export default function DesignStep({
           design={design}
           ledger={ledger}
           stock={stock}
+          orderPearl={commission?.pearl}
           initial={plan}
           confirmLabel={t(lang, "design.nextReview")}
           hideConfirm
