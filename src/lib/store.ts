@@ -48,6 +48,8 @@ export interface CraftProgress {
   /** 파손 뒤 다시 자르는 중. 없으면 절단이 확정된 상태다. */
   recutSession?: RecutSession;
   sandOver?: number;
+  /** 개발자 단계 시험. 본 세이브의 이어하기와 재고를 건드리지 않는다. */
+  dev?: boolean;
   savedAt: number;
 }
 

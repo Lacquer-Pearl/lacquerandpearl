@@ -8,6 +8,7 @@ import { Btn, Coin, Modal, Sparkles, SoundToggle } from "@/components/ui";
 import { MasterTip } from "@/components/craft/common";
 import { rankTitle, stepName, t, tNode, type Locale } from "@/lib/i18n";
 import type { StepId } from "@/lib/game";
+import { beginDevCraft, loadDevProgress } from "@/lib/devCraft";
 import { sfx } from "@/lib/sound";
 import { useSave, useUI } from "@/lib/store";
 
@@ -130,6 +131,18 @@ export default function TitleScreen() {
             <UiIcon id="frame" />
             {t(lang, "title.freeDesign")}
           </TitleMenuBtn>
+          {process.env.NODE_ENV === "development" && (
+            <TitleMenuBtn size="md" onClick={() => beginDevCraft()}>
+              <UiIcon id="pencil" />
+              {loadDevProgress()
+                ? lang === "en"
+                  ? "Resume stage test"
+                  : "단계 시험 이어하기"
+                : lang === "en"
+                  ? "Stage test"
+                  : "단계 시험"}
+            </TitleMenuBtn>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <TitleMenuBtn size="md" onClick={() => go("gallery")}>
               <UiIcon id="cabinet" />

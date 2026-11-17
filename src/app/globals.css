@@ -916,6 +916,22 @@ svg.craft-touch-area * {
   filter: grayscale(1);
   opacity: 0.6;
 }
+button.step-dot {
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+}
+button.step-dot:focus-visible {
+  outline: 2px solid var(--gold-deep);
+  outline-offset: 2px;
+}
+.dev-step-hint {
+  margin: 0;
+  padding: 2px 12px 0;
+  text-align: center;
+  font-size: 11px;
+  color: var(--brown-light);
+}
 .step-dot.done {
   filter: none;
   opacity: 1;

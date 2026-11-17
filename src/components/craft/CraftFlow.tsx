@@ -23,6 +23,7 @@ import {
 import { artworkTitle, lacquerName, stepName, t, tNode, type Locale } from "@/lib/i18n";
 import { sfx } from "@/lib/sound";
 import { clearCraftBoot, pearlStock, setCraftBoot, takeCraftBoot, useSave, useUI, type CraftProgress } from "@/lib/store";
+import { clearDevProgress, devProgress, writeDevProgress } from "@/lib/devCraft";
 import type { PieceCutResult, RecutSession } from "@/lib/cutFragments";
 import type { ShellPlan } from "@/lib/shellNest";
 import AttachStep from "./AttachStep";
@@ -196,6 +197,7 @@ export default function CraftFlow() {
   const clearCraftProgress = useSave((s) => s.clearCraftProgress);
 
   const resumed = useRef(takeCraftBoot());
+  const devSession = useRef(process.env.NODE_ENV === "development" && !!resumed.current?.dev);
 
   const design: Design = useMemo(
     () =>
@@ -210,6 +212,7 @@ export default function CraftFlow() {
   );
 
   const [stepIdx, setStepIdx] = useState(() => resumed.current?.stepIdx ?? 0);
+  const [devNonce, setDevNonce] = useState(0);
   const [nestPending, setNestPending] = useState(() => !!resumed.current?.nestPending);
   const [placed, setPlaced] = useState<PlacedPiece[]>(() => resumed.current?.placed ?? []);
   const [toast, setToast] = useState<{ score: number; label: string } | null>(null);
@@ -272,6 +275,13 @@ export default function CraftFlow() {
       gloss: 0.25 + (sand / 100) * 0.6,
       dull: Math.min(0.7, (sandStats.current?.over ?? 0) * 2.5),
     };
+    if (process.env.NODE_ENV === "development" && devSession.current) {
+      clearDevProgress();
+      clearCraftBoot();
+      showResult(art);
+      return;
+    }
+    clearCraftBoot();
     clearCraftProgress();
     finishArtwork(art, reputationGain(grade, !!commission));
     showResult(art);
@@ -288,6 +298,32 @@ export default function CraftFlow() {
   useEffect(() => {
     window.scrollTo({ top: 0 });
   }, [stepIdx, nestPending]);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "development" || !devSession.current) return;
+    const payload = { ...progressNow(recutRef.current), dev: true as const };
+    writeDevProgress(payload);
+    setCraftBoot(payload);
+  }, [stepIdx, design, nestPending]);
+
+  const jumpDev = (index: number) => {
+    if (process.env.NODE_ENV !== "development" || !devSession.current) return;
+    const progress = devProgress(index, design);
+    planRef.current = progress.shellPlan;
+    cutResultsRef.current = progress.cutResults ?? [];
+    placedRef.current = progress.placed;
+    legacyPearl.current = false;
+    recutRef.current = null;
+    scores.current = { ...progress.scores };
+    sandStats.current = null;
+    finishedStep.current = null;
+    setPlaced(progress.placed);
+    setNestPending(false);
+    setDraft(progress.design);
+    setCraftBoot(writeDevProgress(progress));
+    if (index === stepIdx) setDevNonce((n) => n + 1);
+    else setStepIdx(index);
+  };
 
   const onStepDone = useCallback((score: number) => {
     const id = stepRef.current as StepId;
@@ -356,20 +392,47 @@ export default function CraftFlow() {
         title={commission ? t(lang, "craft.commission") : t(lang, "craft.free")}
         onBack={() => {
           if (stepIdx === 0) {
+            if (process.env.NODE_ENV === "development" && devSession.current) {
+              writeDevProgress({ ...progressNow(recutRef.current), dev: true });
+            }
             setDraft(undefined);
-            go(commission ? "board" : "title");
+            clearCraftBoot();
+            go(devSession.current || !commission ? "title" : "board");
           } else setConfirmExit(true);
         }}
       />
       <div className="steps-bar">
-        {STEPS.map((s, i) => (
-          <div key={s} className={`step-dot ${i < stepIdx ? "done" : i === stepIdx ? "now" : ""}`} title={stepName(lang, s)}>
-            <UiIcon id={STEP_ICONS[s]} />
-          </div>
-        ))}
+        {STEPS.map((s, i) => {
+          const className = `step-dot ${i < stepIdx ? "done" : i === stepIdx ? "now" : ""}`;
+          if (process.env.NODE_ENV === "development" && devSession.current) {
+            return (
+              <button
+                key={s}
+                type="button"
+                className={className}
+                title={stepName(lang, s)}
+                aria-current={i === stepIdx ? "step" : undefined}
+                onClick={() => jumpDev(i)}
+              >
+                <UiIcon id={STEP_ICONS[s]} />
+              </button>
+            );
+          }
+          return (
+            <div key={s} className={className} title={stepName(lang, s)}>
+              <UiIcon id={STEP_ICONS[s]} />
+            </div>
+          );
+        })}
       </div>
+      {process.env.NODE_ENV === "development" && devSession.current && (
+        <p className="dev-step-hint">
+          {lang === "en" ? "Dev test · tap a stage to jump · " : "개발자 시험 · 단계를 누르면 이동합니다 · "}
+          {stepName(lang, step)}
+        </p>
+      )}
 
-      <div className="screen-body" key={step}>
+      <div className="screen-body" key={process.env.NODE_ENV === "development" && devSession.current ? `${step}-${devNonce}` : step}>
         {step === "design" && (
           <DesignStep
             design={design}
@@ -454,11 +517,15 @@ export default function CraftFlow() {
             }}
             onSession={(next) => {
               recutRef.current = next;
-              saveCraftProgress(progressNow(next));
+              const payload = { ...progressNow(next), dev: devSession.current || undefined };
+              if (process.env.NODE_ENV === "development" && devSession.current) writeDevProgress(payload);
+              else saveCraftProgress(payload);
             }}
             onCommitPlan={(plan, pieceId) => {
-              const result = commitShellPlan(plan, (placement) => motifPolygons(placement.motifId), false, [pieceId]);
-              if (!result.ok) return result;
+              if (process.env.NODE_ENV !== "development" || !devSession.current) {
+                const result = commitShellPlan(plan, (placement) => motifPolygons(placement.motifId), false, [pieceId]);
+                if (!result.ok) return result;
+              }
               const kept = (planRef.current?.placements ?? []).filter((item) => item.pieceId !== pieceId);
               const known = new Set((planRef.current?.sheets ?? []).map((sheet) => sheet.id));
               planRef.current = {
@@ -469,14 +536,20 @@ export default function CraftFlow() {
               return { ok: true };
             }}
             onShop={() => {
-              const payload = progressNow(recutRef.current);
-              saveCraftProgress(payload);
-              setCraftBoot(payload);
+              const payload = { ...progressNow(recutRef.current), dev: devSession.current || undefined };
+              if (process.env.NODE_ENV === "development" && devSession.current) {
+                setCraftBoot(writeDevProgress(payload));
+              } else {
+                saveCraftProgress(payload);
+                setCraftBoot(payload);
+              }
               setDraft(design);
               go("shop");
             }}
             onPause={() => {
-              saveCraftProgress(progressNow(recutRef.current));
+              const payload = { ...progressNow(recutRef.current), dev: devSession.current || undefined };
+              if (process.env.NODE_ENV === "development" && devSession.current) writeDevProgress(payload);
+              else saveCraftProgress(payload);
               clearCraftBoot();
               setDraft(undefined);
               go("title");
@@ -542,7 +615,10 @@ export default function CraftFlow() {
               <Btn
                 variant="pink"
                 onClick={() => {
-                  saveCraftProgress(progressNow(recutRef.current));
+                  const payload = { ...progressNow(recutRef.current), dev: devSession.current || undefined };
+                  if (process.env.NODE_ENV === "development" && devSession.current) {
+                    writeDevProgress(payload);
+                  } else saveCraftProgress(payload);
                   clearCraftBoot();
                   setDraft(undefined);
                   go("title");
