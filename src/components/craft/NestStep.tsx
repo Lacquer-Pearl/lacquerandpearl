@@ -6,6 +6,7 @@ import MotifIcon from "@/components/MotifIcon";
 import { Btn, Coin, Meter } from "@/components/ui";
 import {
   MATERIALS,
+  MOTIFS,
   PEARLS,
   motifCutRoutes,
   motifLocalBox,
@@ -536,38 +537,48 @@ export default function NestStep({
               const x = moving ? drag.x : item.x;
               const y = moving ? drag.y : item.y;
               const cut = cutIds.has(item.pieceId);
+              const motif = item.motifId as MotifId;
+              const stamp = MOTIFS[motif].stamp;
               return (
                 <g
                   key={item.pieceId}
                   transform={`translate(${x} ${y}) rotate(${item.r}) scale(${item.s})`}
                   opacity={cut ? 0.38 : 1}
-                  onPointerDown={(e) => {
-                    if (cut) return;
-                    e.stopPropagation();
-                    const point = pointOf(e);
-                    setSelected(item.pieceId);
-                    setDrag({
-                      id: item.pieceId,
-                      x: item.x,
-                      y: item.y,
-                      dx: item.x - (point?.x ?? item.x),
-                      dy: item.y - (point?.y ?? item.y),
-                    });
-                    try {
-                      svgRef.current?.setPointerCapture(e.pointerId);
-                    } catch {
-                      // 포인터를 붙잡지 못해도 시트 안에서는 그대로 따라간다.
-                    }
-                  }}
                 >
-                  <MotifSilhouette motif={item.motifId as MotifId} color={selected === item.pieceId ? "#8d5a32" : "#f4efe4"} />
-                  <path d={motifOutline(item.motifId as MotifId)} fill="none" stroke="transparent" strokeWidth={6} />
+                  <g pointerEvents="none">
+                    <MotifSilhouette motif={motif} color={selected === item.pieceId ? "#8d5a32" : "#f4efe4"} />
+                    <path
+                      d={motifOutline(motif)}
+                      fill="none"
+                      stroke={selected === item.pieceId ? "#4a2c1a" : "#6b4e3a"}
+                      strokeWidth={0.7}
+                    />
+                  </g>
+                  {/* 마스크 rect·두꺼운 stroke가 아니라 실제 윤곽만 집는다 (디자인 화면과 동일) */}
                   <path
-                    d={motifOutline(item.motifId as MotifId)}
-                    fill="none"
-                    stroke={selected === item.pieceId ? "#4a2c1a" : "#6b4e3a"}
-                    strokeWidth={0.7}
-                    pointerEvents="none"
+                    d={motifOutline(motif)}
+                    fill="transparent"
+                    stroke="transparent"
+                    strokeWidth={stamp ? 2.4 / item.s : 0}
+                    style={{ pointerEvents: cut ? "none" : "auto", cursor: cut ? "default" : "grab" }}
+                    onPointerDown={(e) => {
+                      if (cut) return;
+                      e.stopPropagation();
+                      const point = pointOf(e);
+                      setSelected(item.pieceId);
+                      setDrag({
+                        id: item.pieceId,
+                        x: item.x,
+                        y: item.y,
+                        dx: item.x - (point?.x ?? item.x),
+                        dy: item.y - (point?.y ?? item.y),
+                      });
+                      try {
+                        svgRef.current?.setPointerCapture(e.pointerId);
+                      } catch {
+                        // 포인터를 붙잡지 못해도 시트 안에서는 그대로 따라간다.
+                      }
+                    }}
                   />
                 </g>
               );

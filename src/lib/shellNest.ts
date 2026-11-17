@@ -22,7 +22,11 @@ function pointInPolygon(point: CrackPoint, polygon: CrackPoint[]) {
 }
 
 export const CELL = 2;
-export const KERF_CELLS = 1;
+/**
+ * 절단 여유(kerf)로 실루엣 밖 칸을 추가로 막는다.
+ * 1이면 윤곽선 밖 빈곳도 "겹침"이 되어 손으로 구획하기 어렵다. 지금은 보이는 면만 막는다.
+ */
+export const KERF_CELLS = 0;
 const SCAN = 4;
 
 /** 게임용 자개패 규격. rotations 가 있으면 그 각도만 허용하고, 없으면 자동은 90도, 수동은 15도다. */
