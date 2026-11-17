@@ -15,7 +15,7 @@ export default function MotifIcon({
 }) {
   const id = `mi${useId().replace(/:/g, "")}`;
   return (
-    <svg viewBox="-32 -32 64 64" className={className}>
+    <svg viewBox="-32 -32 64 64" className={["block", className].filter(Boolean).join(" ")}>
       <defs>
         <NacreDefs id={id} pearl={pearl} />
         <MotifMasks id={`${id}-c`} motifs={[motif]} />
@@ -44,7 +44,7 @@ export default function MotifIcon({
 export function NacreSwatch({ pearl, className, round = true }: { pearl: PearlId; className?: string; round?: boolean }) {
   const id = `ns${useId().replace(/:/g, "")}`;
   return (
-    <svg viewBox="0 0 48 48" className={className} aria-hidden>
+    <svg viewBox="0 0 48 48" className={["block", className].filter(Boolean).join(" ")} aria-hidden>
       <defs>
         <NacreDefs id={id} pearl={pearl} scale={0.85} />
         <SheenGradient id={`${id}-sh`} size={48} />

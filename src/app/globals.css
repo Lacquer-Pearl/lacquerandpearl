@@ -1114,15 +1114,22 @@ button.step-dot:focus-visible {
 }
 
 .tray-piece {
+  display: inline-flex;
   height: 64px;
   width: 64px;
   flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
   border-radius: 12px;
   background: #3a2a20;
   border: 1.5px dashed #8b6f5a;
   padding: 4px;
   touch-action: none;
   cursor: grab;
+}
+.tray-piece > svg {
+  display: block;
+  flex: none;
 }
 .tray-piece.glued {
   border-color: var(--gold);
@@ -1454,6 +1461,59 @@ button.step-dot:focus-visible {
   flex-direction: column;
   justify-content: center;
   gap: 4px;
+}
+.nest-piece-bar {
+  position: sticky;
+  bottom: 72px;
+  z-index: 14;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  margin: 0 -2px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(140, 110, 70, 0.28);
+  background: rgba(255, 250, 240, 0.96);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 16px rgba(40, 24, 12, 0.12);
+  color: var(--brown);
+  overflow-x: auto;
+}
+.nest-piece-bar-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding-right: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.nest-piece-bar-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.nest-piece-bar-actions .btn {
+  flex: none;
+  white-space: nowrap;
+}
+.nest-piece-bar-actions .nest-piece-bar-turn {
+  width: 2rem;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0;
+}
+.nest-piece-bar-actions .nest-piece-bar-turn-glyph {
+  display: block;
+  font-size: 20px;
+  line-height: 1;
+  /* btn-sm 하단 inset 베벨(~2px)을 제외한 아이보리 면 중심에 맞춤 */
+  transform: translateY(-2px);
 }
 .nest-tray-label {
   font-size: 0.75rem;

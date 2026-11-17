@@ -124,6 +124,23 @@ function loadEditor(design: Design, ledger: ShellLedger, initial?: ShellPlan) {
 
 type TrayDrag = { id: string; pointerId: number; sx: number; sy: number; x: number; y: number; moving: boolean; unit: number };
 
+type NestDrag =
+  | { kind: "move"; id: string; x: number; y: number; dx: number; dy: number }
+  | { kind: "rotate"; id: string; cx: number; cy: number; startAngle: number; startR: number; liveR: number };
+
+function angleAt(cx: number, cy: number, x: number, y: number) {
+  return (Math.atan2(y - cy, x - cx) * 180) / Math.PI;
+}
+
+function nestLocalToWorld(p: Pick<ShellPlacement, "x" | "y" | "r" | "s">, lx: number, ly: number) {
+  const rad = (p.r * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const x = lx * p.s;
+  const y = ly * p.s;
+  return { x: p.x + x * cos - y * sin, y: p.y + x * sin + y * cos };
+}
+
 export default function NestStep({
   design,
   ledger,
@@ -162,9 +179,8 @@ export default function NestStep({
   const [pearl, setPearl] = useState<PearlId>(piecePearl(design.pieces[0], design));
   const [activeId, setActiveId] = useState<string | null>(boot.sheets.find((sheet) => sheet.pearl === piecePearl(design.pieces[0], design))?.id ?? null);
   const [selected, setSelected] = useState<string | null>(null);
-  const [zoom, setZoom] = useState(1);
-  const [msg, setMsg] = useState<string | null>(null);
-  const [drag, setDrag] = useState<{ id: string; x: number; y: number; dx: number; dy: number } | null>(null);
+  const zoom = 1;
+  const [drag, setDrag] = useState<NestDrag | null>(null);
   const [trayDrag, setTrayDrag] = useState<TrayDrag | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const benchRef = useRef<HTMLDivElement>(null);
@@ -203,6 +219,13 @@ export default function NestStep({
   const waiting = unplaced.filter((piece) => piecePearl(piece, design) === pearl);
   const mineOnSheet = placements.filter((item) => item.sheetId === active?.id);
   const selectedPlacement = placements.find((item) => item.pieceId === selected);
+  const selectedWaiting = waiting.find((piece) => piece.id === selected);
+  const selectedPiece =
+    selectedPlacement && !cutIds.has(selectedPlacement.pieceId)
+      ? { kind: "placed" as const, placement: selectedPlacement, motif: selectedPlacement.motifId as MotifId }
+      : selectedWaiting
+        ? { kind: "waiting" as const, piece: selectedWaiting, motif: selectedWaiting.motif }
+        : null;
   const draftsOf = (size: ShellSize) =>
     sheets.filter((sheet) => sheet.pearl === pearl && !ledgerIds.has(sheet.id) && sheetSize(sheet) === size).length;
   const roomOf = (size: ShellSize) =>
@@ -220,9 +243,8 @@ export default function NestStep({
     onStatusRef.current?.({ unplaced: unplaced.length, total: design.pieces.length });
   }, [unplaced.length, design.pieces.length]);
 
-  const say = (key: "nest.outside" | "nest.overlap" | "nest.fit" | "nest.cutLocked" | "nest.needLarge") => {
+  const say = (_key?: "nest.outside" | "nest.overlap" | "nest.fit" | "nest.cutLocked" | "nest.needLarge") => {
     sfx.fail();
-    setMsg(t(lang, key));
   };
 
   const blockers = (sheet: ShellSheet, except?: string) => [
@@ -270,10 +292,10 @@ export default function NestStep({
     setActiveId(sheet.id);
     setPlacements([...placements.filter((item) => item.pieceId !== id), packed.placements[0]]);
     setSelected(id);
-    setMsg(null);
     return true;
   };
 
+  /** 고른 대기 문양을 현재 장에 올린다. 장이 없거나 안 들어가면 새 장을 연다. */
   const placeWaiting = (id: string) => {
     if (!active) {
       openAndPlace(id);
@@ -283,14 +305,13 @@ export default function NestStep({
     if (!source || piecePearl(source, design) !== active.pearl) return;
     const packed = autoNest([toNest(source, design)], [{ ...active, placements: blockers(active, id) }], {});
     if (!packed.placements.length) {
-      say(tooBig(id) && sheetSize(active) === "standard" ? "nest.needLarge" : "nest.fit");
+      if (!openAndPlace(id)) say(tooBig(id) && sheetSize(active) === "standard" ? "nest.needLarge" : "nest.fit");
       return;
     }
     remember();
     sfx.pop();
     setPlacements([...placements.filter((item) => item.pieceId !== id), packed.placements[0]]);
     setSelected(id);
-    setMsg(null);
   };
 
   const moveTo = (id: string, x: number, y: number, r: number, turns: number[] = [r]) => {
@@ -328,7 +349,6 @@ export default function NestStep({
     };
     setPlacements([...placements.filter((item) => item.pieceId !== id), next]);
     setSelected(id);
-    setMsg(null);
     sfx.pop();
     return true;
   };
@@ -361,9 +381,10 @@ export default function NestStep({
     );
     setPlacements(result.placements.filter((item) => editable.has(item.pieceId) && !cutIds.has(item.pieceId)));
     sfx.pop();
-    if (!result.unplaced.length) setMsg(null);
-    else if (result.unplaced.some(tooBig)) say("nest.needLarge");
-    else say("nest.fit");
+    if (result.unplaced.length) {
+      if (result.unplaced.some(tooBig)) say("nest.needLarge");
+      else say("nest.fit");
+    }
   };
 
   const confirm = () => {
@@ -379,7 +400,7 @@ export default function NestStep({
     const result = onConfirm(plan);
     if (!result.ok) {
       sfx.fail();
-      setMsg(t(lang, result.large ? "nest.noLarge" : "nest.missing", { name: pearlName(lang, result.missing) }));
+      say();
       return;
     }
     sfx.success();
@@ -402,7 +423,7 @@ export default function NestStep({
 
   const openSheet = (size: ShellSize) => {
     if (roomOf(size) <= 0) {
-      setMsg(t(lang, size === "large" ? "nest.noLarge" : "nest.missing", { name: pearlName(lang, pearl) }));
+      say();
       sfx.fail();
       return;
     }
@@ -519,7 +540,15 @@ export default function NestStep({
             onPointerMove={(e) => {
               if (!drag) return;
               const point = pointOf(e);
-              if (point) setDrag({ ...drag, x: point.x + drag.dx, y: point.y + drag.dy });
+              if (!point) return;
+              if (drag.kind === "move") {
+                setDrag({ ...drag, x: point.x + drag.dx, y: point.y + drag.dy });
+                return;
+              }
+              const ang = angleAt(drag.cx, drag.cy, point.x, point.y);
+              let liveR = drag.startR + (ang - drag.startAngle);
+              liveR = ((liveR % 360) + 360) % 360;
+              setDrag({ ...drag, liveR: +liveR.toFixed(1) });
             }}
             onPointerUp={() => {
               if (!drag) return;
@@ -527,22 +556,25 @@ export default function NestStep({
               const next = drag;
               setDrag(null);
               if (!current) return;
-              moveTo(next.id, next.x, next.y, current.r);
+              if (next.kind === "move") moveTo(next.id, next.x, next.y, current.r);
+              else moveTo(next.id, current.x, current.y, next.liveR);
             }}
             onPointerCancel={() => setDrag(null)}
           >
             <rect width={shown.width} height={shown.height} rx="6" fill={PEARLS[pearl].stops[0]} stroke="#5c4030" strokeWidth="1.5" />
             {shown.placements.map((item) => {
-              const moving = drag?.id === item.pieceId;
+              const moving = drag?.kind === "move" && drag.id === item.pieceId;
+              const rotating = drag?.kind === "rotate" && drag.id === item.pieceId;
               const x = moving ? drag.x : item.x;
               const y = moving ? drag.y : item.y;
+              const r = rotating ? drag.liveR : item.r;
               const cut = cutIds.has(item.pieceId);
               const motif = item.motifId as MotifId;
               const stamp = MOTIFS[motif].stamp;
               return (
                 <g
                   key={item.pieceId}
-                  transform={`translate(${x} ${y}) rotate(${item.r}) scale(${item.s})`}
+                  transform={`translate(${x} ${y}) rotate(${r}) scale(${item.s})`}
                   opacity={cut ? 0.38 : 1}
                 >
                   <g pointerEvents="none">
@@ -567,6 +599,7 @@ export default function NestStep({
                       const point = pointOf(e);
                       setSelected(item.pieceId);
                       setDrag({
+                        kind: "move",
                         id: item.pieceId,
                         x: item.x,
                         y: item.y,
@@ -583,6 +616,43 @@ export default function NestStep({
                 </g>
               );
             })}
+            {selectedPlacement &&
+              selectedPlacement.sheetId === shown.id &&
+              !cutIds.has(selectedPlacement.pieceId) &&
+              (() => {
+                const live =
+                  drag?.kind === "move" && drag.id === selectedPlacement.pieceId
+                    ? { ...selectedPlacement, x: drag.x, y: drag.y }
+                    : drag?.kind === "rotate" && drag.id === selectedPlacement.pieceId
+                      ? { ...selectedPlacement, r: drag.liveR }
+                      : selectedPlacement;
+                return (
+                  <NestRotateChrome
+                    placement={live}
+                    onRotateStart={(e) => {
+                      e.stopPropagation();
+                      const point = pointOf(e);
+                      if (!point) return;
+                      setSelected(selectedPlacement.pieceId);
+                      setDrag({
+                        kind: "rotate",
+                        id: selectedPlacement.pieceId,
+                        cx: live.x,
+                        cy: live.y,
+                        startAngle: angleAt(live.x, live.y, point.x, point.y),
+                        startR: live.r,
+                        liveR: live.r,
+                      });
+                      sfx.tick();
+                      try {
+                        svgRef.current?.setPointerCapture(e.pointerId);
+                      } catch {
+                        // 붙잡지 못해도 시트 안 이동으로 각도를 따른다.
+                      }
+                    }}
+                  />
+                );
+              })()}
           </svg>
         ) : (
           <p className="flex aspect-[3/2] items-center justify-center p-4 text-center text-sm text-[var(--cream)]">{t(lang, "nest.empty")}</p>
@@ -646,24 +716,108 @@ export default function NestStep({
           <span className="nest-tray-label">{design.pieces.length ? t(lang, "nest.trayEmpty") : "\u00a0"}</span>
         )}
       </div>
-      <p className={`nest-msg ${allPlaced && !msg ? "done" : ""}`}>
-        {msg ?? (allPlaced ? t(lang, "nest.doneHint", { label: confirmLabel ?? t(lang, "nest.confirm") }) : "\u00a0")}
-      </p>
+      {selectedPiece && (
+        <div className="nest-piece-bar" role="toolbar" aria-label={motifName(lang, selectedPiece.motif)}>
+          <div className="nest-piece-bar-head">
+            <MotifIcon motif={selectedPiece.motif} className="h-6 w-6" />
+            {motifName(lang, selectedPiece.motif)}
+          </div>
+          <div className="nest-piece-bar-actions">
+            <Btn
+              size="sm"
+              variant="cream"
+              disabled={selectedPiece.kind !== "placed"}
+              onClick={() => {
+                if (selectedPiece.kind !== "placed") return;
+                const { placement } = selectedPiece;
+                moveTo(placement.pieceId, placement.x, placement.y, 0);
+              }}
+            >
+              {t(lang, "nest.resetRotation")}
+            </Btn>
+            <Btn
+              size="sm"
+              variant="cream"
+              onClick={() => {
+                const prev = history.current.pop();
+                if (!prev) return;
+                setSheets(prev.sheets);
+                setPlacements(prev.placements);
+                sfx.click();
+              }}
+            >
+              {t(lang, "nest.undo")}
+            </Btn>
+            <Btn
+              size="sm"
+              variant="cream"
+              className="nest-piece-bar-turn"
+              aria-label={t(lang, "nest.turnL")}
+              title="-15°"
+              disabled={selectedPiece.kind !== "placed"}
+              onClick={() => {
+                if (selectedPiece.kind !== "placed") return;
+                const { placement } = selectedPiece;
+                moveTo(placement.pieceId, placement.x, placement.y, turnPiece(placement.r, -1));
+              }}
+            >
+              <span className="nest-piece-bar-turn-glyph" aria-hidden>
+                ↺
+              </span>
+            </Btn>
+            <Btn
+              size="sm"
+              variant="cream"
+              className="nest-piece-bar-turn"
+              aria-label={t(lang, "nest.turnR")}
+              title="+15°"
+              disabled={selectedPiece.kind !== "placed"}
+              onClick={() => {
+                if (selectedPiece.kind !== "placed") return;
+                const { placement } = selectedPiece;
+                moveTo(placement.pieceId, placement.x, placement.y, turnPiece(placement.r, 1));
+              }}
+            >
+              <span className="nest-piece-bar-turn-glyph" aria-hidden>
+                ↻
+              </span>
+            </Btn>
+            <Btn
+              size="sm"
+              variant="cream"
+              disabled={selectedPiece.kind !== "waiting"}
+              onClick={() => {
+                if (selectedPiece.kind !== "waiting") return;
+                placeWaiting(selectedPiece.piece.id);
+              }}
+            >
+              {t(lang, "nest.put")}
+            </Btn>
+            <Btn
+              size="sm"
+              variant="cream"
+              disabled={selectedPiece.kind !== "placed"}
+              onClick={() => {
+                if (selectedPiece.kind !== "placed") return;
+                const { placement } = selectedPiece;
+                if (cutIds.has(placement.pieceId)) {
+                  say("nest.cutLocked");
+                  return;
+                }
+                remember();
+                setPlacements(placements.filter((item) => item.pieceId !== placement.pieceId));
+                setSelected(placement.pieceId);
+                sfx.click();
+              }}
+            >
+              {t(lang, "nest.lift")}
+            </Btn>
+          </div>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-2">
         <Btn variant="gold" onClick={runAuto}>
           {t(lang, "nest.auto")}
-        </Btn>
-        <Btn variant="cream" disabled={!selected || placedIds.has(selected)} onClick={() => selected && placeWaiting(selected)}>
-          {t(lang, "nest.drop")}
-        </Btn>
-        <Btn variant="cream" onClick={() => {
-          const prev = history.current.pop();
-          if (!prev) return;
-          setSheets(prev.sheets);
-          setPlacements(prev.placements);
-          sfx.click();
-        }}>
-          {t(lang, "nest.undo")}
         </Btn>
         <Btn
           variant="cream"
@@ -672,54 +826,19 @@ export default function NestStep({
             const keep = new Set(placements.filter((item) => item.locked).map((item) => item.sheetId));
             setPlacements(placements.filter((item) => item.locked));
             setSheets(sheets.filter((sheet) => ledgerIds.has(sheet.id) || keep.has(sheet.id)));
+            setSelected(null);
             sfx.click();
           }}
         >
           {t(lang, "nest.reset")}
         </Btn>
-        <Btn
-          variant="cream"
-          onClick={() => {
-            if (!selectedPlacement) return;
-            const next = turnPiece(selectedPlacement.r, -1);
-            moveTo(selectedPlacement.pieceId, selectedPlacement.x, selectedPlacement.y, next);
-          }}
-        >
-          {t(lang, "nest.turnL")}
-        </Btn>
-        <Btn
-          variant="cream"
-          onClick={() => {
-            if (!selectedPlacement) return;
-            moveTo(selectedPlacement.pieceId, selectedPlacement.x, selectedPlacement.y, turnPiece(selectedPlacement.r, 1));
-          }}
-        >
-          {t(lang, "nest.turnR")}
-        </Btn>
-        <Btn variant="cream" onClick={() => setZoom((value) => Math.max(0.7, Math.round((value - 0.25) * 100) / 100))}>
-          {t(lang, "nest.zoomOut")}
-        </Btn>
-        <Btn variant="cream" onClick={() => setZoom((value) => Math.min(2.2, Math.round((value + 0.25) * 100) / 100))}>
-          {t(lang, "nest.zoomIn")}
-        </Btn>
-        <Btn
-          variant="cream"
-          disabled={!selectedPlacement}
-          onClick={() => {
-            if (!selectedPlacement || cutIds.has(selectedPlacement.pieceId)) {
-              if (selectedPlacement) say("nest.cutLocked");
-              return;
-            }
-            remember();
-            setPlacements(
-              placements.map((item) => (item.pieceId === selectedPlacement.pieceId ? { ...item, locked: !item.locked } : item)),
-            );
-          }}
-        >
-          {selectedPlacement?.locked ? t(lang, "nest.unlock") : t(lang, "nest.lock")}
-        </Btn>
         {!hideConfirm && (
-          <Btn variant="pink" className={allPlaced ? "cta-glow" : ""} disabled={unplaced.length > 0} onClick={confirm}>
+          <Btn
+            variant="pink"
+            className={`col-span-2 ${allPlaced ? "cta-glow" : ""}`}
+            disabled={unplaced.length > 0}
+            onClick={confirm}
+          >
             {confirmLabel ?? t(lang, "nest.confirm")}
           </Btn>
         )}
@@ -740,6 +859,67 @@ export default function NestStep({
         </svg>
       )}
     </div>
+  );
+}
+
+/** 디자인과 같이 패 위에서 바로 돌리는 손잡이. 크기 조절은 구획에 없다. */
+function NestRotateChrome({
+  placement,
+  onRotateStart,
+}: {
+  placement: ShellPlacement;
+  onRotateStart: (e: React.PointerEvent) => void;
+}) {
+  const box = motifLocalBox(placement.motifId as MotifId);
+  const corners = [
+    [box.x, box.y],
+    [box.x + box.w, box.y],
+    [box.x + box.w, box.y + box.h],
+    [box.x, box.y + box.h],
+  ].map(([lx, ly]) => nestLocalToWorld(placement, lx, ly));
+  const topMid = nestLocalToWorld(placement, box.x + box.w / 2, box.y);
+  const rot = nestLocalToWorld(placement, box.x + box.w / 2, box.y - 20 / Math.max(placement.s, 0.6));
+
+  return (
+    <g className="nest-rotate-chrome" style={{ pointerEvents: "auto" }}>
+      <polygon
+        points={corners.map((c) => `${c.x},${c.y}`).join(" ")}
+        fill="none"
+        stroke="#e2c27a"
+        strokeWidth="1.4"
+        strokeDasharray="4 3"
+        className="pointer-events-none"
+      />
+      <line
+        x1={topMid.x}
+        y1={topMid.y}
+        x2={rot.x}
+        y2={rot.y}
+        stroke="#e2c27a"
+        strokeWidth="1.4"
+        className="pointer-events-none"
+      />
+      <circle
+        cx={rot.x}
+        cy={rot.y}
+        r="7"
+        fill="#fffdf8"
+        stroke="#c4a05a"
+        strokeWidth="1.6"
+        style={{ cursor: "grab" }}
+        onPointerDown={onRotateStart}
+      />
+      <path
+        d="M0 -3.4 A3.4 3.4 0 1 1 -3.4 0 M-5.1 0.4 L-3.4 -1.4 L-1.7 0.4"
+        transform={`translate(${rot.x} ${rot.y}) rotate(${placement.r})`}
+        fill="none"
+        stroke="#8a6a3a"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="pointer-events-none"
+      />
+    </g>
   );
 }
 
