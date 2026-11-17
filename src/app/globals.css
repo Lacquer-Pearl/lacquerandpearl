@@ -632,6 +632,25 @@ svg.craft-touch-area * {
 .design-sel-slot > .panel {
   flex: 1;
 }
+/* 의뢰 주문서: 스크롤해도 상단바 아래에 떠 따라온다 */
+.design-order-bar {
+  position: sticky;
+  top: 60px;
+  z-index: 16;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 18px;
+  border: 1.5px solid rgba(140, 110, 70, 0.22);
+  background: rgba(255, 250, 240, 0.94);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 14px rgba(40, 24, 12, 0.1);
+  font-size: 14px;
+}
+
 .design-action-bar {
   position: sticky;
   bottom: 0;

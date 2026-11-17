@@ -316,7 +316,7 @@ export default function DesignStep({
       </ol>
 
       {commission && (
-        <div className="panel flex flex-wrap items-center gap-2 py-2 text-sm">
+        <div className="design-order-bar" aria-label={t(lang, "design.order")}>
           <b className="text-[var(--brown)]">{t(lang, "design.order")}</b>
           <span className="chip">{shapeName(lang, commission.shape)}</span>
           <span className={`chip ${lacquerReady && design.lacquer === commission.lacquer ? "chip-ok" : ""}`}>
@@ -620,55 +620,6 @@ export default function DesignStep({
       </div>
 
       <div className="panel flex flex-col gap-3 py-3">
-        {commission && (
-          <div className="design-order-motifs">
-            <div className="label flex items-center justify-between gap-2">
-              <span>{t(lang, "design.orderMotifs")}</span>
-              <small className={orderLeft === 0 ? "text-[var(--mint-deep)]" : "text-[var(--red)]"}>
-                {orderLeft === 0 ? t(lang, "design.orderDone") : t(lang, "design.orderLeft", { n: orderLeft })}
-              </small>
-            </div>
-            <div className="grid grid-cols-4 gap-2">
-              {(Object.entries(commission.motifs) as [MotifId, number][]).map(([m, n]) => (
-                <button
-                  key={m}
-                  className={`motif-btn ${(counts[m] ?? 0) >= n ? "on" : ""}`}
-                  onClick={() => addMotif(m)}
-                  title={motifMeaning(lang, m)}
-                >
-                  <MotifIcon motif={m} pearl={design.pearl} className="h-9 w-9" />
-                  <span>
-                    {motifName(lang, m)} {counts[m] ?? 0}/{n}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        <div>
-          <div className="label">{t(lang, "design.motifs", { n: design.pieces.length, max: MAX_PIECES })}</div>
-          <div className="grid grid-cols-4 gap-2">
-            {SHAPE_MOTIFS.map((m) => (
-              <button key={m.id} className="motif-btn" onClick={() => addMotif(m.id)} title={motifMeaning(lang, m.id)}>
-                <MotifIcon motif={m.id} pearl={design.pearl} className="h-9 w-9" />
-                <span>{motifName(lang, m.id)}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <div className="label">{t(lang, "design.patternMotifs")}</div>
-          <div className="grid grid-cols-4 gap-2">
-            {PATTERN_MOTIFS.map((m) => (
-              <button key={m.id} className="motif-btn" onClick={() => addMotif(m.id)} title={motifMeaning(lang, m.id)}>
-                <MotifIcon motif={m.id} pearl={design.pearl} className="h-9 w-9" />
-                <span>{motifName(lang, m.id)}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
         {!commission && (
           <div>
             <div className="label">{t(lang, "design.shape")}</div>
@@ -741,6 +692,55 @@ export default function DesignStep({
                   <br />
                   <small>{t(lang, "design.shellStock", { n: inventory[p.material], large: inventory[p.largeMaterial] })}</small>
                 </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {commission && (
+          <div className="design-order-motifs">
+            <div className="label flex items-center justify-between gap-2">
+              <span>{t(lang, "design.orderMotifs")}</span>
+              <small className={orderLeft === 0 ? "text-[var(--mint-deep)]" : "text-[var(--red)]"}>
+                {orderLeft === 0 ? t(lang, "design.orderDone") : t(lang, "design.orderLeft", { n: orderLeft })}
+              </small>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              {(Object.entries(commission.motifs) as [MotifId, number][]).map(([m, n]) => (
+                <button
+                  key={m}
+                  className={`motif-btn ${(counts[m] ?? 0) >= n ? "on" : ""}`}
+                  onClick={() => addMotif(m)}
+                  title={motifMeaning(lang, m)}
+                >
+                  <MotifIcon motif={m} pearl={design.pearl} className="h-9 w-9" />
+                  <span>
+                    {motifName(lang, m)} {counts[m] ?? 0}/{n}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        <div>
+          <div className="label">{t(lang, "design.motifs", { n: design.pieces.length, max: MAX_PIECES })}</div>
+          <div className="grid grid-cols-4 gap-2">
+            {SHAPE_MOTIFS.map((m) => (
+              <button key={m.id} className="motif-btn" onClick={() => addMotif(m.id)} title={motifMeaning(lang, m.id)}>
+                <MotifIcon motif={m.id} pearl={design.pearl} className="h-9 w-9" />
+                <span>{motifName(lang, m.id)}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div className="label">{t(lang, "design.patternMotifs")}</div>
+          <div className="grid grid-cols-4 gap-2">
+            {PATTERN_MOTIFS.map((m) => (
+              <button key={m.id} className="motif-btn" onClick={() => addMotif(m.id)} title={motifMeaning(lang, m.id)}>
+                <MotifIcon motif={m.id} pearl={design.pearl} className="h-9 w-9" />
+                <span>{motifName(lang, m.id)}</span>
               </button>
             ))}
           </div>
