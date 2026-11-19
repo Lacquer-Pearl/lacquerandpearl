@@ -189,10 +189,38 @@ export default function NestStep({
   const history = useRef<{ sheets: ShellSheet[]; placements: ShellPlacement[] }[]>([]);
   const onChangeRef = useRef(onChange);
   const onStatusRef = useRef(onStatus);
+  const selectedRef = useRef<string | null>(null);
+  const scrollLock = useRef<{ x: number; y: number } | null>(null);
   useLayoutEffect(() => {
     onChangeRef.current = onChange;
     onStatusRef.current = onStatus;
   });
+  selectedRef.current = selected;
+
+  const clearSelected = () => {
+    if (selectedRef.current === null) return;
+    scrollLock.current = { x: window.scrollX, y: window.scrollY };
+    setSelected(null);
+  };
+
+  useLayoutEffect(() => {
+    if (selected !== null || !scrollLock.current) return;
+    const { x, y } = scrollLock.current;
+    scrollLock.current = null;
+    window.scrollTo(x, y);
+  }, [selected]);
+
+  useEffect(() => {
+    const onDown = (e: PointerEvent) => {
+      if (selectedRef.current === null) return;
+      const el = e.target;
+      if (!(el instanceof Element)) return;
+      if (el.closest("[data-nest-keep-select]")) return;
+      clearSelected();
+    };
+    document.addEventListener("pointerdown", onDown, true);
+    return () => document.removeEventListener("pointerdown", onDown, true);
+  }, []);
 
   const ledgerIds = useMemo(() => new Set(ledger.sheets.map((sheet) => sheet.id)), [ledger.sheets]);
   const cutIds = useMemo(() => new Set(sheets.flatMap((sheet) => sheet.cutPieceIds)), [sheets]);
@@ -634,6 +662,7 @@ export default function NestStep({
               return (
                 <g
                   key={item.pieceId}
+                  data-nest-keep-select=""
                   transform={`translate(${x} ${y}) rotate(${r}) scale(${item.s})`}
                   opacity={cut ? 0.38 : 1}
                 >
@@ -689,6 +718,7 @@ export default function NestStep({
                 return (
                   <NestRotateChrome
                     placement={live}
+                    keepSelect
                     onRotateStart={(e) => {
                       e.stopPropagation();
                       const point = pointOf(e);
@@ -731,6 +761,7 @@ export default function NestStep({
                 <button
                   key={piece.id}
                   type="button"
+                  data-nest-keep-select=""
                   aria-label={motifName(lang, piece.motif)}
                   className={`tray-piece nest-tray-piece shrink-0 ${selected === piece.id ? "ring-2 ring-[var(--gold-deep)]" : ""}`}
                   onPointerDown={(e) => {
@@ -776,105 +807,112 @@ export default function NestStep({
           <span className="nest-tray-label">{design.pieces.length ? t(lang, "nest.trayEmpty") : "\u00a0"}</span>
         )}
       </div>
-      {selectedPiece && (
-        <div className="nest-piece-bar" role="toolbar" aria-label={motifName(lang, selectedPiece.motif)}>
-          <div className="nest-piece-bar-head">
-            <MotifIcon motif={selectedPiece.motif} className="h-6 w-6" />
-            {motifName(lang, selectedPiece.motif)}
+      <div className="nest-piece-bar-slot">
+        {selectedPiece && (
+          <div
+            className="nest-piece-bar"
+            data-nest-keep-select=""
+            role="toolbar"
+            aria-label={motifName(lang, selectedPiece.motif)}
+          >
+            <div className="nest-piece-bar-head">
+              <MotifIcon motif={selectedPiece.motif} className="h-6 w-6" />
+              {motifName(lang, selectedPiece.motif)}
+            </div>
+            <div className="nest-piece-bar-actions">
+              <Btn
+                size="sm"
+                variant="cream"
+                disabled={selectedPiece.kind !== "placed"}
+                onClick={() => {
+                  if (selectedPiece.kind !== "placed") return;
+                  const { placement } = selectedPiece;
+                  moveTo(placement.pieceId, placement.x, placement.y, 0);
+                }}
+              >
+                {t(lang, "nest.resetRotation")}
+              </Btn>
+              <Btn
+                size="sm"
+                variant="cream"
+                onClick={() => {
+                  const prev = history.current.pop();
+                  if (!prev) return;
+                  setSheets(prev.sheets);
+                  setPlacements(prev.placements);
+                  sfx.click();
+                }}
+              >
+                {t(lang, "nest.undo")}
+              </Btn>
+              <Btn
+                size="sm"
+                variant="cream"
+                className="nest-piece-bar-turn"
+                aria-label={t(lang, "nest.turnL")}
+                title="-15°"
+                disabled={selectedPiece.kind !== "placed"}
+                onClick={() => {
+                  if (selectedPiece.kind !== "placed") return;
+                  const { placement } = selectedPiece;
+                  moveTo(placement.pieceId, placement.x, placement.y, turnPiece(placement.r, -1));
+                }}
+              >
+                <span className="nest-piece-bar-turn-glyph" aria-hidden>
+                  ↺
+                </span>
+              </Btn>
+              <Btn
+                size="sm"
+                variant="cream"
+                className="nest-piece-bar-turn"
+                aria-label={t(lang, "nest.turnR")}
+                title="+15°"
+                disabled={selectedPiece.kind !== "placed"}
+                onClick={() => {
+                  if (selectedPiece.kind !== "placed") return;
+                  const { placement } = selectedPiece;
+                  moveTo(placement.pieceId, placement.x, placement.y, turnPiece(placement.r, 1));
+                }}
+              >
+                <span className="nest-piece-bar-turn-glyph" aria-hidden>
+                  ↻
+                </span>
+              </Btn>
+              <Btn
+                size="sm"
+                variant="cream"
+                disabled={selectedPiece.kind !== "waiting"}
+                onClick={() => {
+                  if (selectedPiece.kind !== "waiting") return;
+                  placeWaiting(selectedPiece.piece.id);
+                }}
+              >
+                {t(lang, "nest.put")}
+              </Btn>
+              <Btn
+                size="sm"
+                variant="cream"
+                disabled={selectedPiece.kind !== "placed"}
+                onClick={() => {
+                  if (selectedPiece.kind !== "placed") return;
+                  const { placement } = selectedPiece;
+                  if (cutIds.has(placement.pieceId)) {
+                    say("nest.cutLocked");
+                    return;
+                  }
+                  remember();
+                  setPlacements(placements.filter((item) => item.pieceId !== placement.pieceId));
+                  setSelected(placement.pieceId);
+                  sfx.click();
+                }}
+              >
+                {t(lang, "nest.lift")}
+              </Btn>
+            </div>
           </div>
-          <div className="nest-piece-bar-actions">
-            <Btn
-              size="sm"
-              variant="cream"
-              disabled={selectedPiece.kind !== "placed"}
-              onClick={() => {
-                if (selectedPiece.kind !== "placed") return;
-                const { placement } = selectedPiece;
-                moveTo(placement.pieceId, placement.x, placement.y, 0);
-              }}
-            >
-              {t(lang, "nest.resetRotation")}
-            </Btn>
-            <Btn
-              size="sm"
-              variant="cream"
-              onClick={() => {
-                const prev = history.current.pop();
-                if (!prev) return;
-                setSheets(prev.sheets);
-                setPlacements(prev.placements);
-                sfx.click();
-              }}
-            >
-              {t(lang, "nest.undo")}
-            </Btn>
-            <Btn
-              size="sm"
-              variant="cream"
-              className="nest-piece-bar-turn"
-              aria-label={t(lang, "nest.turnL")}
-              title="-15°"
-              disabled={selectedPiece.kind !== "placed"}
-              onClick={() => {
-                if (selectedPiece.kind !== "placed") return;
-                const { placement } = selectedPiece;
-                moveTo(placement.pieceId, placement.x, placement.y, turnPiece(placement.r, -1));
-              }}
-            >
-              <span className="nest-piece-bar-turn-glyph" aria-hidden>
-                ↺
-              </span>
-            </Btn>
-            <Btn
-              size="sm"
-              variant="cream"
-              className="nest-piece-bar-turn"
-              aria-label={t(lang, "nest.turnR")}
-              title="+15°"
-              disabled={selectedPiece.kind !== "placed"}
-              onClick={() => {
-                if (selectedPiece.kind !== "placed") return;
-                const { placement } = selectedPiece;
-                moveTo(placement.pieceId, placement.x, placement.y, turnPiece(placement.r, 1));
-              }}
-            >
-              <span className="nest-piece-bar-turn-glyph" aria-hidden>
-                ↻
-              </span>
-            </Btn>
-            <Btn
-              size="sm"
-              variant="cream"
-              disabled={selectedPiece.kind !== "waiting"}
-              onClick={() => {
-                if (selectedPiece.kind !== "waiting") return;
-                placeWaiting(selectedPiece.piece.id);
-              }}
-            >
-              {t(lang, "nest.put")}
-            </Btn>
-            <Btn
-              size="sm"
-              variant="cream"
-              disabled={selectedPiece.kind !== "placed"}
-              onClick={() => {
-                if (selectedPiece.kind !== "placed") return;
-                const { placement } = selectedPiece;
-                if (cutIds.has(placement.pieceId)) {
-                  say("nest.cutLocked");
-                  return;
-                }
-                remember();
-                setPlacements(placements.filter((item) => item.pieceId !== placement.pieceId));
-                setSelected(placement.pieceId);
-                sfx.click();
-              }}
-            >
-              {t(lang, "nest.lift")}
-            </Btn>
-          </div>
-        </div>
-      )}
+        )}
+      </div>
       <div className="grid grid-cols-2 gap-2">
         <Btn variant="gold" onClick={runAuto}>
           {t(lang, "nest.auto")}
@@ -886,7 +924,7 @@ export default function NestStep({
             const keep = new Set(placements.filter((item) => item.locked).map((item) => item.sheetId));
             setPlacements(placements.filter((item) => item.locked));
             setSheets(sheets.filter((sheet) => ledgerIds.has(sheet.id) || keep.has(sheet.id)));
-            setSelected(null);
+            clearSelected();
             sfx.click();
           }}
         >
@@ -926,9 +964,11 @@ export default function NestStep({
 function NestRotateChrome({
   placement,
   onRotateStart,
+  keepSelect = false,
 }: {
   placement: ShellPlacement;
   onRotateStart: (e: React.PointerEvent) => void;
+  keepSelect?: boolean;
 }) {
   const box = motifLocalBox(placement.motifId as MotifId);
   const corners = [
@@ -941,7 +981,11 @@ function NestRotateChrome({
   const rot = nestLocalToWorld(placement, box.x + box.w / 2, box.y - 20 / Math.max(placement.s, 0.6));
 
   return (
-    <g className="nest-rotate-chrome" style={{ pointerEvents: "auto" }}>
+    <g
+      className="nest-rotate-chrome"
+      style={{ pointerEvents: "auto" }}
+      {...(keepSelect ? { "data-nest-keep-select": "" } : {})}
+    >
       <polygon
         points={corners.map((c) => `${c.x},${c.y}`).join(" ")}
         fill="none"

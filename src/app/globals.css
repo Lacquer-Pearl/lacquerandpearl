@@ -1587,6 +1587,10 @@ button.step-dot:focus-visible {
 .nest-buy.on:active:not(:disabled) {
   box-shadow: 0 1px 0 var(--gold-deep);
 }
+.nest-piece-bar-slot:empty {
+  /* 선택 해제 직후 바가 비어도 레이아웃 높이를 잠깐 유지해 스크롤이 덜 흔들린다 */
+  min-height: 52px;
+}
 .nest-piece-bar {
   position: sticky;
   bottom: 72px;
