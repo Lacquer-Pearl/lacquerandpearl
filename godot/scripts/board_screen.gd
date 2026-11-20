@@ -48,18 +48,21 @@ func _card(c: Dictionary) -> PanelContainer:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 8)
 	panel.add_child(box)
-	var name := c["name_ko"] if I18n.lang() == "ko" else c["name_en"]
-	box.add_child(UiKit.make_label(str(name), 18))
-	var line := c["line_ko"] if I18n.lang() == "ko" else c["line_en"]
-	box.add_child(UiKit.make_label(str(line), 14, UiKit.BROWN_LIGHT))
-	var shape: String = c["shape"]
-	var lacquer: String = c["lacquer"]
-	var shape_name: String = GameData.SHAPES[shape]["name_ko" if I18n.lang() == "ko" else "name_en"]
-	var lac_name: String = GameData.LACQUERS[lacquer]["name_ko" if I18n.lang() == "ko" else "name_en"]
+	var nk := "name_ko" if I18n.lang() == "ko" else "name_en"
+	var patron_name: String = str(c[nk])
+	box.add_child(UiKit.make_label(patron_name, 18))
+	var line_key := "line_ko" if I18n.lang() == "ko" else "line_en"
+	var line_text: String = str(c[line_key])
+	box.add_child(UiKit.make_label(line_text, 14, UiKit.BROWN_LIGHT))
+	var shape: String = str(c["shape"])
+	var lacquer: String = str(c["lacquer"])
+	var shape_name: String = str(GameData.SHAPES[shape][nk])
+	var lac_name: String = str(GameData.LACQUERS[lacquer][nk])
 	var motif_bits: PackedStringArray = []
-	for m in c.get("motifs", {}).keys():
-		var mn: String = GameData.MOTIFS[m]["name_ko" if I18n.lang() == "ko" else "name_en"]
-		motif_bits.append("%s×%s" % [mn, c["motifs"][m]])
+	var motifs: Dictionary = c.get("motifs", {})
+	for m in motifs.keys():
+		var mn: String = str(GameData.MOTIFS[m][nk])
+		motif_bits.append("%s×%s" % [mn, motifs[m]])
 	box.add_child(UiKit.make_label("%s · %s · %s" % [shape_name, lac_name, ", ".join(motif_bits)], 13))
 	var row := HBoxContainer.new()
 	box.add_child(row)
@@ -67,6 +70,7 @@ func _card(c: Dictionary) -> PanelContainer:
 	reward.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(reward)
 	var accept := UiKit.make_button(I18n.t("board.accept"), UiKit.PINK, 42)
-	accept.pressed.connect(func(): GameState.start_craft(c))
+	var commission: Dictionary = c
+	accept.pressed.connect(func(): GameState.start_craft(commission))
 	row.add_child(accept)
 	return panel

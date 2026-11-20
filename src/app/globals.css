@@ -85,7 +85,11 @@ b {
 .title-screen {
   background:
     radial-gradient(ellipse at 50% 40%, rgba(10, 6, 4, 0.18) 0, rgba(10, 6, 4, 0.45) 100%),
-    url("/images/bgbgbg.png") center / cover no-repeat;
+    image-set(
+      url("/images/bgbgbg.webp") type("image/webp"),
+      url("/images/bgbgbg.png") type("image/png")
+    )
+      center / cover no-repeat;
   overflow: hidden;
 }
 .title-screen::before {
@@ -1334,6 +1338,18 @@ button.step-dot:focus-visible {
   color: #fff8e6;
   text-shadow: 0 0 6px rgba(214, 180, 110, 0.9), 0 0 12px rgba(169, 198, 180, 0.6);
   animation: twinkle 3.4s ease-in-out infinite;
+  contain: layout style;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sparkle,
+  .float,
+  .stamp-in,
+  .reveal,
+  .pop-in,
+  .event-toast.pop-in {
+    animation: none !important;
+  }
 }
 
 @keyframes pop-in {

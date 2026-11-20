@@ -69,12 +69,12 @@ export default function TitleScreen() {
 
   const canResume = !!craftProgress && craftProgress.stepIdx >= 1;
 
-  const signSrc = lang === "en" ? "/images/ui/sign-en.png" : "/images/ui/sign-ko.png";
+  const signSrc = lang === "en" ? "/images/ui/sign-en.webp" : "/images/ui/sign-ko.webp";
   const signSize = lang === "en" ? { width: 770, height: 346 } : { width: 528, height: 233 };
 
   return (
     <div className="screen title-screen">
-      <Sparkles count={16} />
+      <Sparkles count={10} />
       <div className="flex justify-end p-3">
         <SoundToggle />
       </div>

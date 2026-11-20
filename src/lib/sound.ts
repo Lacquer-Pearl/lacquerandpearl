@@ -6,12 +6,11 @@ type LoopKind = "brush" | "sand" | "saw" | "iron" | "peel";
 type MusicMode = "mp3" | "synth";
 
 /** public/audio 곡 목록 — 한 곡이 끝나면 다른 곡을 랜덤 재생 */
-const MUSIC_TRACKS = [
+const MUSIC_TRACKS: readonly string[] = [
   "/audio/arirang.mp3",
   "/audio/minjokaria.mp3",
   "/audio/aegukga.mp3",
-  "/audio/usanthem.mp3",
-] as const;
+];
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -302,7 +301,8 @@ function playMp3Track(src: string) {
   if (typeof window === "undefined") return;
   if (!musicEl) {
     musicEl = new Audio();
-    musicEl.preload = "auto";
+    // 한 곡만 필요할 때 받도록 — 전곡 선행 로드를 피한다
+    musicEl.preload = "metadata";
     onTrackEnded = () => {
       if (!musicWanted) return;
       playMp3Track(pickNextTrack());
