@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import WorkshopNav from "@/components/WorkshopNav";
 import ReputationModal from "@/components/ReputationModal";
 import UiIcon from "@/components/UiIcon";
 import { Btn, Coin, Modal, SoundToggle } from "@/components/ui";
@@ -25,38 +26,12 @@ const CRAFT_STEPS: ("design" | StepId)[] = [
   "sand",
 ];
 
-function TitleMenuBtn({
-  children,
-  size = "lg",
-  onClick,
-  className = "",
-}: {
-  children: React.ReactNode;
-  size?: "lg" | "md";
-  onClick?: () => void;
-  className?: string;
-}) {
-  return (
-    <button
-      type="button"
-      className={`title-menu-btn title-menu-btn-${size} ${className}`}
-      onClick={() => {
-        sfx.click();
-        onClick?.();
-      }}
-    >
-      <span className="title-menu-btn-label">{children}</span>
-    </button>
-  );
-}
-
 export default function TitleScreen() {
   const go = useUI((s) => s.go);
   const startCraft = useUI((s) => s.startCraft);
   const resumeCraft = useUI((s) => s.resumeCraft);
   const money = useSave((s) => s.money);
   const rep = useSave((s) => s.reputation);
-  const galleryCount = useSave((s) => s.gallery.length);
   const craftProgress = useSave((s) => s.craftProgress);
 
   const setTutorialSeen = useSave((s) => s.setTutorialSeen);
@@ -75,95 +50,57 @@ export default function TitleScreen() {
   return (
     <div className="screen title-screen">
 
-      <div className="flex justify-end p-3">
-        <SoundToggle />
-      </div>
-      <div className="flex flex-1 flex-col items-center justify-center gap-5 px-5 pb-8">
-        <div className="demo-hero w-full"><div className="demo-hero-sign">
+      <header className="room-header">
+        <h1 className="room-sign">
           <Image
-            key={signSrc}
-            src={signSrc}
-            alt={lang === "en" ? "Lacquer & Pearl — Master the Korean Traditional Craft" : "나전공방 — Master the Korean Traditional Craft"}
-            width={signSize.width}
-            height={signSize.height}
-            priority
-            className="h-auto w-full"
+            key={signSrc} src={signSrc}
+            alt={lang === "en" ? "Lacquer & Pearl" : "나전공방"}
+            width={signSize.width} height={signSize.height} priority className="h-auto w-full"
           />
-        </div>
-        </div>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            className="chip"
-            aria-haspopup="dialog"
-            onClick={() => {
-              sfx.click();
-              setRepOpen(true);
-            }}
-          >
-            <UiIcon id="medal" className="ui-icon-sm" /> {rankTitle(lang, rep)}
+        </h1>
+        <div className="room-tools">
+          <button type="button" className="room-tool" onClick={() => { sfx.click(); go("shop"); }}>
+            <UiIcon id="market" /> {t(lang, "title.shop")}
           </button>
-          <span className="chip">
-            <Coin /> {money.toLocaleString()}
-          </span>
-          <span className="chip">
-            <UiIcon id="star" className="ui-icon-sm" /> {rep}
-          </span>
-        </div>
-        <div className="grid w-full max-w-[360px] grid-cols-1 gap-3">
-          {canResume && craftProgress && (
-            <div className="flex flex-col gap-1">
-              <TitleMenuBtn size="lg" className="title-menu-btn-resume" onClick={() => resumeCraft()}>
-                <UiIcon id="hanji" />
-                {t(lang, "craft.resume")}
-              </TitleMenuBtn>
-              <div className="text-center text-xs text-white/85 drop-shadow">
-                {t(lang, "craft.resumeStep", {
-                  step: stepName(lang, CRAFT_STEPS[Math.min(craftProgress.stepIdx, CRAFT_STEPS.length - 1)]),
-                })}
-              </div>
-            </div>
-          )}
-          {!canResume && <TitleMenuBtn size="lg" className="title-menu-btn-primary" onClick={() => {
-            startCraft();
-            useUI.getState().setDraft({ shape:"box", lacquer:"black", lacquerChosen:true, pearl:"white",
-              pieces:[{ ...newPiece("butterfly", "white"), x:153, y:139 }] });
-          }}>{lang === "ko" ? "첫 작품 만들기 · 나비문 보석함" : "First piece · Butterfly jewel box"}</TitleMenuBtn>}
-          <TitleMenuBtn size="lg" onClick={() => go("board")}>
-            <UiIcon id="scroll" />
-            {lang === "ko" ? "공방 이야기 · 의뢰 받기" : "Workshop story & commissions"}
-          </TitleMenuBtn>
-          <TitleMenuBtn size="lg" onClick={() => startCraft(undefined)}>
-            <UiIcon id="frame" />
-            {t(lang, "title.freeDesign")}
-          </TitleMenuBtn>
-          {process.env.NODE_ENV === "development" && (
-            <TitleMenuBtn size="md" onClick={() => beginDevCraft()}>
-              <UiIcon id="pencil" />
-              {loadDevProgress()
-                ? lang === "en"
-                  ? "Resume stage test"
-                  : "단계 시험 이어하기"
-                : lang === "en"
-                  ? "Stage test"
-                  : "단계 시험"}
-            </TitleMenuBtn>
-          )}
-          <div className="grid grid-cols-2 gap-3">
-            <TitleMenuBtn size="md" onClick={() => go("gallery")}>
-              <UiIcon id="cabinet" />
-              {t(lang, "title.workshop")} {galleryCount > 0 && <small>({galleryCount})</small>}
-            </TitleMenuBtn>
-            <TitleMenuBtn size="md" onClick={() => go("shop")}>
-              <UiIcon id="market" />
-              {t(lang, "title.shop")}
-            </TitleMenuBtn>
-          </div>
-          <TitleMenuBtn size="md" className="title-menu-btn-settings" onClick={() => setSettings(true)}>
+          <button type="button" className="room-tool" aria-label={t(lang, "title.settings")}
+            onClick={() => { sfx.click(); setSettings(true); }}>
             <UiIcon id="gear" />
-            {t(lang, "title.settings")}
-          </TitleMenuBtn>
+          </button>
+          <SoundToggle />
         </div>
+        <div className="room-status">
+          <button type="button" aria-haspopup="dialog" onClick={() => { sfx.click(); setRepOpen(true); }}>
+            <UiIcon id="medal" /> {rankTitle(lang, rep)}
+          </button>
+          <span><Coin /> {money.toLocaleString()}</span>
+          <span><UiIcon id="star" /> {rep}</span>
+        </div>
+      </header>
+      <div className="room-dock">
+        <button type="button" className="room-primary" onClick={() => {
+          sfx.click();
+          if (canResume) {
+            resumeCraft();
+            return;
+          }
+          startCraft();
+          useUI.getState().setDraft({
+            shape: "box", lacquer: "black", lacquerChosen: true, pearl: "white",
+            pieces: [{ ...newPiece("butterfly", "white"), x: 153, y: 139 }],
+          });
+        }}>
+          <span>{canResume ? t(lang, "craft.resume") : lang === "ko" ? "첫 작품 만들기" : "Make your first piece"}</span>
+          <small>{canResume && craftProgress
+            ? stepName(lang, CRAFT_STEPS[Math.min(craftProgress.stepIdx, CRAFT_STEPS.length - 1)])
+            : lang === "ko" ? "나비문 보석함" : "Butterfly jewel box"}</small>
+        </button>
+        <WorkshopNav />
+        {process.env.NODE_ENV === "development" && (
+          <button type="button" className="room-dev" onClick={() => beginDevCraft()}>
+            {loadDevProgress() ? lang === "en" ? "Resume stage test" : "단계 시험 이어하기"
+              : lang === "en" ? "Stage test" : "단계 시험"}
+          </button>
+        )}
       </div>
 
       {repOpen && <ReputationModal lang={lang} rep={rep} onClose={() => setRepOpen(false)} />}

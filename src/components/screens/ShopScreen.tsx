@@ -1,5 +1,7 @@
 "use client";
 
+import WorkshopNav from "@/components/WorkshopNav";
+
 import { useState } from "react";
 import UiIcon, { MATERIAL_ICONS } from "@/components/UiIcon";
 import { Btn, Coin, Modal, TopBar } from "@/components/ui";
@@ -41,6 +43,7 @@ export default function ShopScreen() {
   return (
     <div className="screen">
       <TopBar title={t(lang, "shop.title")} onBack={back} />
+      <WorkshopNav />
       <div className="screen-body">
         <div className="shop-sign">
           <UiIcon id="market" className="ui-icon-xl" />

@@ -405,13 +405,15 @@ export const useSave = create<SaveState>()(
 export type Screen = "title" | "board" | "craft" | "result" | "gallery" | "shop";
 
 /** CraftFlow 마운트 시 한 번 읽어 이어하기 (Strict Mode 리마운트에도 유지) */
-let craftBoot: CraftProgress | null = null;
+export type DesignStage = "art" | "shell" | "review";
+type CraftBoot = CraftProgress & { designStage?: DesignStage };
+let craftBoot: CraftBoot | null = null;
 
 export function takeCraftBoot() {
   return craftBoot;
 }
 
-export function setCraftBoot(progress: CraftProgress | null) {
+export function setCraftBoot(progress: CraftBoot | null) {
   craftBoot = progress;
 }
 

@@ -1,5 +1,7 @@
 "use client";
 
+import WorkshopNav from "@/components/WorkshopNav";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import Artwork from "@/components/Artwork";
 import Avatar, { type Mood } from "@/components/Avatar";
@@ -102,6 +104,7 @@ export default function ResultScreen() {
   return (
     <div className="screen">
       <TopBar title={t(lang, "result.title")} />
+      <WorkshopNav />
       <div className="screen-body">
         <div className="display-silk demo-display relative overflow-hidden">
 

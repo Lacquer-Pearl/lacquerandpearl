@@ -1,5 +1,7 @@
 "use client";
 
+import WorkshopNav, { type WorkshopExit } from "@/components/WorkshopNav";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Artwork from "@/components/Artwork";
 import UiIcon, { STEP_ICONS } from "@/components/UiIcon";
@@ -30,7 +32,7 @@ import AttachStep from "./AttachStep";
 import NestStep, { motifPolygons } from "./NestStep";
 import ClothStep from "./ClothStep";
 import CutStep from "./CutStep";
-import DesignStep from "./DesignStep";
+import DesignStep, { type DesignCheckpoint } from "./DesignStep";
 import { TutorialStage } from "./common";
 import DryStep from "./DryStep";
 import PaintStep, { type PaintStepDef } from "./PaintStep";
@@ -198,6 +200,7 @@ export default function CraftFlow() {
   const saveCraftProgress = useSave((s) => s.saveCraftProgress);
 
   const [resumed] = useState(takeCraftBoot);
+  const designCheckpoint = useRef<DesignCheckpoint | null>(null);
   const devSession = process.env.NODE_ENV === "development" && !!resumed?.dev;
 
   const design: Design = useMemo(
@@ -217,7 +220,7 @@ export default function CraftFlow() {
   const [nestPending, setNestPending] = useState(() => !!resumed?.nestPending);
   const [placed, setPlaced] = useState<PlacedPiece[]>(() => resumed?.placed ?? []);
   const [toast, setToast] = useState<{ score: number; label: string } | null>(null);
-  const [confirmExit, setConfirmExit] = useState(false);
+  const [exitTo, setExitTo] = useState<WorkshopExit | "title" | null>(null);
   const scores = useRef<StepScores>({ ...(resumed?.scores ?? {}) });
   const sandStats = useRef<PaintStats | null>(
     resumed?.sandOver != null
@@ -408,9 +411,19 @@ export default function CraftFlow() {
             setDraft(undefined);
             clearCraftBoot();
             go(devSession || !commission ? "title" : "board");
-          } else setConfirmExit(true);
+          } else setExitTo("title");
         }}
       />
+      <WorkshopNav onLeaveCraft={target => {
+        if (toast) return;
+        if (stepIdx > 0) setExitTo(target);
+        else {
+          const checkpoint = designCheckpoint.current;
+          setCraftBoot({ ...progressNow(null), shellPlan: checkpoint?.plan, designStage: checkpoint?.stage, dev: devSession });
+          setDraft(design);
+          go(target);
+        }
+      }} />
       <div className="steps-bar">
         {STEPS.map((s, i) => {
           const className = `step-dot ${i < stepIdx ? "done" : i === stepIdx ? "now" : ""}`;
@@ -452,6 +465,8 @@ export default function CraftFlow() {
             ledger={shellLedger}
             stock={shellStock}
             initialPlan={planRef.current}
+            initialStage={resumed?.designStage}
+            checkpoint={designCheckpoint}
             onStart={(plan) => {
               if (!devSession) {
                 const result = startWorkshop({ ...progressNow(null), stepIdx: 1, shellPlan: plan },
@@ -611,8 +626,8 @@ export default function CraftFlow() {
         </div>
       )}
 
-      {confirmExit && (
-        <Modal onClose={() => setConfirmExit(false)}>
+      {exitTo && (
+        <Modal onClose={() => setExitTo(null)}>
           <div className="flex flex-col gap-3 text-center">
             <div className="flex justify-center">
               <UiIcon id="chest" className="ui-icon-xl" />
@@ -623,7 +638,7 @@ export default function CraftFlow() {
               <small>{t(lang, "craft.quitWarn")}</small>
             </p>
             <div className="grid grid-cols-2 gap-2">
-              <Btn variant="cream" onClick={() => setConfirmExit(false)}>
+              <Btn variant="cream" onClick={() => setExitTo(null)}>
                 {t(lang, "craft.continue")}
               </Btn>
               <Btn
@@ -635,7 +650,7 @@ export default function CraftFlow() {
                   } else saveCraftProgress(payload);
                   clearCraftBoot();
                   setDraft(undefined);
-                  go("title");
+                  go(exitTo);
                 }}
               >
                 {t(lang, "craft.quit")}

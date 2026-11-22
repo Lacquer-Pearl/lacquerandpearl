@@ -52,7 +52,7 @@ import {
   type ShellPlan,
   type ShellStock,
 } from "@/lib/shellNest";
-import { costFor, useSave } from "@/lib/store";
+import { costFor, useSave, type DesignStage } from "@/lib/store";
 import { StepHeader } from "./common";
 import NestStep, { motifPolygons, needsLargeSheet, type NestActions, type NestStatus } from "./NestStep";
 
@@ -60,8 +60,8 @@ const MAX_PIECES = 32;
 const MIN_S = 0.5;
 const MAX_S = 2.5;
 
-type Stage = "art" | "shell" | "review";
-const STAGES: Stage[] = ["art", "shell", "review"];
+export type DesignCheckpoint = { stage: DesignStage; plan: ShellPlan };
+const STAGES: DesignStage[] = ["art", "shell", "review"];
 
 type PatternPiece = Pick<PlacedPiece, "motif" | "x" | "y" | "s" | "r"> & { pearl: PearlId };
 const BOX_PATTERNS: { ko: string; en: string; pieces: PatternPiece[] }[] = [
@@ -143,6 +143,8 @@ export default function DesignStep({
   ledger,
   stock,
   initialPlan,
+  initialStage,
+  checkpoint,
   onStart,
 }: {
   design: Design;
@@ -151,13 +153,16 @@ export default function DesignStep({
   ledger: ShellLedger;
   stock: ShellStock;
   initialPlan?: ShellPlan;
+  initialStage?: DesignStage;
+  checkpoint: React.RefObject<DesignCheckpoint | null>;
   onStart: (plan: ShellPlan) => { ok: true } | { ok: false; missing: PearlId; large?: boolean };
 }) {
   const [selected, setSelectedIds] = useState<string[]>([]);
-  const [view, setView] = useState<Stage>("art");
+  const [view, setView] = useState<DesignStage>(initialStage ?? "art");
   const [nestStatus, setNestStatus] = useState<NestStatus | null>(null);
   const nestActions = useRef<NestActions | null>(null);
   const [plan, setPlan] = useState<ShellPlan>(initialPlan ?? { sheets: [], placements: [] });
+  useEffect(() => { checkpoint.current = { stage: view, plan }; }, [checkpoint, view, plan]);
   const [shellMsg, setShellMsg] = useState<string | null>(null);
   const [marquee, setMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const shapeHit = useMemo(() => {
@@ -201,9 +206,9 @@ export default function DesignStep({
     ? (Object.entries(commission.motifs) as [MotifId, number][]).reduce((sum, [m, n]) => sum + Math.max(0, n - (counts[m] ?? 0)), 0)
     : 0;
   const lacquerReady = !commission || !!design.lacquerChosen;
-  const stageOpen = (stage: Stage) =>
+  const stageOpen = (stage: DesignStage) =>
     stage === "art" || (design.pieces.length > 0 && (stage === "shell" || nestLeft === 0));
-  const goStage = (stage: Stage) => {
+  const goStage = (stage: DesignStage) => {
     if (!stageOpen(stage)) return;
     if (stage === "review" && view === "art") { setView("shell"); window.scrollTo({ top: 0 }); return; }
     if (stage === "review" && view === "shell") { nestActions.current?.confirm(); return; }
