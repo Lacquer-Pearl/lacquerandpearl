@@ -6,6 +6,8 @@ import { hasBrokenShape, pointsToPath } from "@/lib/cutFragments";
 import { piecePearl, type Design, type PlacedPiece } from "@/lib/game";
 import { NACRE_TILE, useNacreTexture } from "@/lib/nacre";
 
+const FINISH_MARK_OPACITY = 0.8;
+
 const prefersReducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 function subscribeMotion(listener: () => void) {
   const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -665,7 +667,7 @@ export default function Artwork({
           <feComposite in="ink" in2="blur" operator="in" />
         </filter>
         <radialGradient id={`${ids.lac}-scuff`}>
-          <stop stopColor="#c4b8a9" stopOpacity=".6" />
+          <stop stopColor="#c4b8a9" stopOpacity={0.6 * FINISH_MARK_OPACITY} />
           <stop offset="1" stopColor="#c4b8a9" stopOpacity="0" />
         </radialGradient>
         <clipPath id={ids.clip}>
@@ -702,13 +704,13 @@ export default function Artwork({
         )}
 
         {design.finish?.creases?.map((p, i) => (
-          <g key={i} transform={`translate(${p.x} ${p.y}) rotate(${p.angle})`} opacity={0.12 + p.strength * 0.22} pointerEvents="none">
+          <g key={i} transform={`translate(${p.x} ${p.y}) rotate(${p.angle})`} opacity={(0.12 + p.strength * 0.22) * FINISH_MARK_OPACITY} pointerEvents="none">
             <path d="M0 -21 Q4 -11 0 0 T1 21" fill="none" stroke="#120e0c" strokeWidth="1.5" />
             <path d="M1 -21 Q5 -11 1 0 T2 21" fill="none" stroke="#d5bda0" strokeWidth=".6" />
           </g>
         ))}
         {isLac && [...(design.finish?.lacquer ?? []), ...(design.finish?.fill ?? [])].map((p, i) => (
-          <g key={i} transform={`translate(${p.x} ${p.y}) scale(${0.55 + p.strength})`} pointerEvents="none">
+          <g key={i} transform={`translate(${p.x} ${p.y}) scale(${0.55 + p.strength})`} opacity={FINISH_MARK_OPACITY} pointerEvents="none">
             <path d="M0 -3 C1 0 3 5 2 8 Q0 11 -1 7 Z" fill={lac.deep} opacity=".58" />
             <path d="M1 0 Q3 5 1.4 7" fill="none" stroke="#dfc4ae" strokeWidth=".65" opacity=".5" />
           </g>
@@ -780,9 +782,9 @@ export default function Artwork({
             pointerEvents="none"
           />
         )}
-        {isLac && design.finish?.unpolished && <path d={design.finish.unpolished} fill={lac.color} opacity=".68" filter={`url(#${ids.soft})`} pointerEvents="none" />}
+        {isLac && design.finish?.unpolished && <path d={design.finish.unpolished} fill={lac.color} opacity={0.68 * FINISH_MARK_OPACITY} filter={`url(#${ids.soft})`} pointerEvents="none" />}
         {isLac && design.finish?.iron?.map((p, i) => (
-          <ellipse key={i} cx={p.x} cy={p.y} rx={5 + 7 * p.strength} ry="5" fill="#704026" opacity={0.18 + 0.24 * p.strength} pointerEvents="none" />
+          <ellipse key={i} cx={p.x} cy={p.y} rx={5 + 7 * p.strength} ry="5" fill="#704026" opacity={(0.18 + 0.24 * p.strength) * FINISH_MARK_OPACITY} pointerEvents="none" />
         ))}
         {isLac && design.finish?.sand?.map((p, i) => (
           <ellipse key={i} cx={p.x} cy={p.y} rx={8 + 12 * p.strength} ry={5 + 8 * p.strength} fill={`url(#${ids.lac}-scuff)`} pointerEvents="none" />
