@@ -12,6 +12,12 @@ import { StepHeader } from "./common";
 const H_ZONE: [number, number] = [70, 85];
 const T_ZONE: [number, number] = [20, 30];
 const TICK = 100;
+const PRACTICE = [
+  { dh: 6, dt: 0, ko: "가습을 눌러 습도계가 얼마나 오르는지 보세요.", en: "Press Humidify and watch the humidity rise." },
+  { dh: -6, dt: 0, ko: "습도가 높아졌습니다. 환기를 눌러 적정 범위로 되돌리세요.", en: "Humidity is high. Vent the cabinet to bring it back into range." },
+  { dh: 0, dt: 2, ko: "불을 지펴 온도계의 변화를 보세요.", en: "Stoke the fire and watch the temperature rise." },
+  { dh: 0, dt: -2, ko: "온도가 높아졌습니다. 식히기를 눌러 건조를 시작하세요.", en: "Cool the cabinet back into range to start drying." },
+];
 
 type Phase = "open" | "closing" | "inside";
 
@@ -29,14 +35,15 @@ function NudgeLabel({ text }: { text: string }) {
 
 export default function DryStep({ design, onDone }: { design: Design; onDone: (score: number) => void }) {
   const lang = useSave((s) => s.lang);
+  const [guided] = useState(() => !useSave.getState().learned.includes("dry"));
   const [phase, setPhase] = useState<Phase>("open");
   const [running, setRunning] = useState(false);
-  const [h, setH] = useState(52);
-  const [t, setT] = useState(15);
+  const [h, setH] = useState(81);
+  const [t, setT] = useState(29);
   const [progress, setProgress] = useState(0);
   const [event, setEvent] = useState<string | null>(null);
   const stats = useRef({ ticks: 0, good: 0 });
-  const live = useRef({ h: 52, t: 15, p: 0 });
+  const live = useRef({ h: 81, t: 29, p: 0 });
   const finished = useRef(false);
 
   useEffect(() => {
@@ -79,11 +86,18 @@ export default function DryStep({ design, onDone }: { design: Design; onDone: (s
     return () => clearInterval(id);
   }, [running, onDone, lang]);
 
+  const [practice, setPractice] = useState(0);
+  const cue = guided && !running && progress === 0 ? PRACTICE[practice] : undefined;
   const nudge = (dh: number, dt: number) => {
+    if (cue && (cue.dh !== dh || cue.dt !== dt)) return;
     live.current.h = Math.max(20, Math.min(100, live.current.h + dh));
     live.current.t = Math.max(5, Math.min(40, live.current.t + dt));
     setH(live.current.h);
     setT(live.current.t);
+    if (cue) {
+      setPractice(practice + 1);
+      if (practice + 1 === PRACTICE.length) setRunning(true);
+    }
     sfx.bubble();
   };
 
@@ -93,7 +107,7 @@ export default function DryStep({ design, onDone }: { design: Design; onDone: (s
     sfx.click();
     window.setTimeout(() => {
       setPhase("inside");
-      setRunning(true);
+      if (!guided) setRunning(true);
       sfx.place();
     }, 1100);
   };
@@ -119,6 +133,7 @@ export default function DryStep({ design, onDone }: { design: Design; onDone: (s
           </>
         )}
       </StepHeader>
+      {(!inside || cue) && <p className="demo-hint" aria-live="polite">{inside ? cue?.[lang] : (lang === "ko" ? "건조장 문을 닫아 주세요." : "Close the cabinet.")}</p>}
       <div className="workbench relative">
         <div className={`cabinet ${phase}${inside && inT ? " warm" : ""}`}>
           <div className="cabinet-chamber">
@@ -182,16 +197,16 @@ export default function DryStep({ design, onDone }: { design: Design; onDone: (s
       )}
       {inside && (
         <div className="grid grid-cols-4 gap-2">
-          <Btn size="sm" variant="lavender" sound={false} onClick={() => nudge(6, 0)} disabled={!running}>
+          <Btn size="sm" variant="lavender" sound={false} onClick={() => nudge(6, 0)} disabled={progress >= 100 || !!cue && cue.dh !== 6}>
             <NudgeLabel text={tr(lang, "dry.humidify")} />
           </Btn>
-          <Btn size="sm" variant="cream" sound={false} onClick={() => nudge(-6, 0)} disabled={!running}>
+          <Btn size="sm" variant="cream" sound={false} onClick={() => nudge(-6, 0)} disabled={progress >= 100 || !!cue && cue.dh !== -6}>
             <NudgeLabel text={tr(lang, "dry.vent")} />
           </Btn>
-          <Btn size="sm" variant="pink" sound={false} onClick={() => nudge(0, 2)} disabled={!running}>
+          <Btn size="sm" variant="pink" sound={false} onClick={() => nudge(0, 2)} disabled={progress >= 100 || !!cue && cue.dt !== 2}>
             <NudgeLabel text={tr(lang, "dry.heat")} />
           </Btn>
-          <Btn size="sm" variant="mint" sound={false} onClick={() => nudge(0, -2)} disabled={!running}>
+          <Btn size="sm" variant="mint" sound={false} onClick={() => nudge(0, -2)} disabled={progress >= 100 || !!cue && cue.dt !== -2}>
             <NudgeLabel text={tr(lang, "dry.cool")} />
           </Btn>
         </div>

@@ -171,6 +171,10 @@ export const sfx = {
   },
   tick: () => tone(1500, { type: "sine", dur: 0.03, vol: 0.08 }),
   cut: () => noiseBurst(0.07, 3800, 0.35, 4),
+  paperLift: () => {
+    noiseBurst(0.22, 1800, 0.12, 0.8);
+    tone(1318, { type: "sine", vol: 0.04, dur: 0.32, delay: 0.12 });
+  },
   shimmer: () => [7, 8, 6, 8].forEach((n, i) => tone(PENTA[n] * 2, { dur: 0.3, vol: 0.05, delay: i * 0.07 })),
   bubble: () => tone(300 + Math.random() * 200, { type: "sine", dur: 0.1, vol: 0.12, slide: 400 }),
 };

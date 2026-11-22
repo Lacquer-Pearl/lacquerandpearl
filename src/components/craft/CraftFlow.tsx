@@ -31,6 +31,7 @@ import NestStep, { motifPolygons } from "./NestStep";
 import ClothStep from "./ClothStep";
 import CutStep from "./CutStep";
 import DesignStep from "./DesignStep";
+import { TutorialStage } from "./common";
 import DryStep from "./DryStep";
 import PaintStep, { type PaintStepDef } from "./PaintStep";
 import type { PaintStats } from "./PaintCanvas";
@@ -60,9 +61,9 @@ function paintDefs(design: Design, lang: Locale): Record<"lacquer" | "iron" | "f
         brushRadius: 22,
         // 한 획을 더 진하게. opaqueAt≈range[0] → 삼베가 안 비칠 때부터 '고르게'
         passAmount: 0.82,
-        range: [0.52, 3.4],
+        range: [0.52, 3.1],
         // 알맞음과 흘러내림이 겹치지 않게 과다 기준을 충분히 올림
-        over: 4.2,
+        over: 3.7,
         opaqueAt: 0.52,
         mode: "paint",
         color: lac.color,
@@ -122,6 +123,7 @@ function paintDefs(design: Design, lang: Locale): Record<"lacquer" | "iron" | "f
         passAmount: 0.8,
         range: [0.5, 3.3],
         over: 4.1,
+        inkDecay: 0.994,
         opaqueAt: 0.5,
         mode: "paint",
         color: lac.color,
@@ -186,7 +188,7 @@ export default function CraftFlow() {
   const setDraft = useUI((s) => s.setDraft);
   const go = useUI((s) => s.go);
   const showResult = useUI((s) => s.showResult);
-  const consumeFor = useSave((s) => s.consumeFor);
+  const startWorkshop = useSave(s => s.startWorkshop);
   const inventory = useSave((s) => s.inventory);
   const shellLedger = useSave((s) => s.shellLedger);
   const commitShellPlan = useSave((s) => s.commitShellPlan);
@@ -194,10 +196,9 @@ export default function CraftFlow() {
   const sealShellPiece = useSave((s) => s.sealShellPiece);
   const finishArtwork = useSave((s) => s.finishArtwork);
   const saveCraftProgress = useSave((s) => s.saveCraftProgress);
-  const clearCraftProgress = useSave((s) => s.clearCraftProgress);
 
-  const resumed = useRef(takeCraftBoot());
-  const devSession = useRef(process.env.NODE_ENV === "development" && !!resumed.current?.dev);
+  const [resumed] = useState(takeCraftBoot);
+  const devSession = process.env.NODE_ENV === "development" && !!resumed?.dev;
 
   const design: Design = useMemo(
     () =>
@@ -211,27 +212,27 @@ export default function CraftFlow() {
     [draft, commission],
   );
 
-  const [stepIdx, setStepIdx] = useState(() => resumed.current?.stepIdx ?? 0);
+  const [stepIdx, setStepIdx] = useState(() => resumed?.stepIdx ?? 0);
   const [devNonce, setDevNonce] = useState(0);
-  const [nestPending, setNestPending] = useState(() => !!resumed.current?.nestPending);
-  const [placed, setPlaced] = useState<PlacedPiece[]>(() => resumed.current?.placed ?? []);
+  const [nestPending, setNestPending] = useState(() => !!resumed?.nestPending);
+  const [placed, setPlaced] = useState<PlacedPiece[]>(() => resumed?.placed ?? []);
   const [toast, setToast] = useState<{ score: number; label: string } | null>(null);
   const [confirmExit, setConfirmExit] = useState(false);
-  const scores = useRef<StepScores>({ ...(resumed.current?.scores ?? {}) });
+  const scores = useRef<StepScores>({ ...(resumed?.scores ?? {}) });
   const sandStats = useRef<PaintStats | null>(
-    resumed.current?.sandOver != null
-      ? { touched: 0, thin: 0, inRange: 0, over: resumed.current.sandOver, mean: 0 }
+    resumed?.sandOver != null
+      ? { touched: 0, thin: 0, inRange: 0, over: resumed.sandOver, mean: 0 }
       : null,
   );
-  const placedRef = useRef<PlacedPiece[]>(resumed.current?.placed ?? []);
-  const cutResultsRef = useRef<PieceCutResult[]>(resumed.current?.cutResults ?? []);
-  const planRef = useRef<ShellPlan | undefined>(resumed.current?.shellPlan);
-  const legacyPearl = useRef(!!resumed.current?.legacyPearlPaid);
-  const recutRef = useRef<RecutSession | null>(resumed.current?.recutSession ?? null);
+  const placedRef = useRef<PlacedPiece[]>(resumed?.placed ?? []);
+  const cutResultsRef = useRef<PieceCutResult[]>(resumed?.cutResults ?? []);
+  const planRef = useRef<ShellPlan | undefined>(resumed?.shellPlan);
+  const legacyPearl = useRef(!!resumed?.legacyPearlPaid);
+  const recutRef = useRef<RecutSession | null>(resumed?.recutSession ?? null);
   const shellStock = pearlStock(inventory);
 
   const step = STEPS[stepIdx];
-  const progressNow = (session: RecutSession | null): CraftProgress => ({
+  const progressNow = useCallback((session: RecutSession | null): CraftProgress => ({
     design,
     commission,
     stepIdx,
@@ -245,7 +246,7 @@ export default function CraftFlow() {
     recutSession: session ?? undefined,
     sandOver: sandStats.current?.over,
     savedAt: Date.now(),
-  });
+  }), [design, commission, stepIdx, nestPending]);
   const built: Design = { ...design, pieces: placed.length ? placed : design.pieces };
   const defs = paintDefs(design, lang);
 
@@ -275,17 +276,15 @@ export default function CraftFlow() {
       gloss: 0.25 + (sand / 100) * 0.6,
       dull: Math.min(0.7, (sandStats.current?.over ?? 0) * 2.5),
     };
-    if (process.env.NODE_ENV === "development" && devSession.current) {
+    if (process.env.NODE_ENV === "development" && devSession) {
       clearDevProgress();
       clearCraftBoot();
       showResult(art);
       return;
     }
     clearCraftBoot();
-    clearCraftProgress();
-    finishArtwork(art, reputationGain(grade, !!commission));
-    showResult(art);
-  }, [design, commission, finishArtwork, showResult, lang, clearCraftProgress]);
+    showResult(finishArtwork(art, reputationGain(grade, !!commission)));
+  }, [design, commission, finishArtwork, showResult, lang, devSession]);
 
   const stepRef = useRef(step);
   const completeRef = useRef(complete);
@@ -300,14 +299,17 @@ export default function CraftFlow() {
   }, [stepIdx, nestPending]);
 
   useEffect(() => {
-    if (process.env.NODE_ENV !== "development" || !devSession.current) return;
+    if (!devSession) {
+      if (stepIdx > 0) saveCraftProgress(progressNow(recutRef.current));
+      return;
+    }
     const payload = { ...progressNow(recutRef.current), dev: true as const };
     writeDevProgress(payload);
     setCraftBoot(payload);
-  }, [stepIdx, design, nestPending]);
+  }, [stepIdx, progressNow, devSession, saveCraftProgress]);
 
   const jumpDev = (index: number) => {
-    if (process.env.NODE_ENV !== "development" || !devSession.current) return;
+    if (process.env.NODE_ENV !== "development" || !devSession) return;
     const progress = devProgress(index, design);
     planRef.current = progress.shellPlan;
     cutResultsRef.current = progress.cutResults ?? [];
@@ -330,6 +332,7 @@ export default function CraftFlow() {
     if (finishedStep.current === id) return;
     finishedStep.current = id;
     scores.current[id] = score;
+    if (!devSession) useSave.getState().learn(id);
     setToast({ score, label: cheer(lang, score) });
     if (score >= 75) sfx.success();
     else sfx.pop();
@@ -338,7 +341,7 @@ export default function CraftFlow() {
       if (id === "sand") completeRef.current();
       else setStepIdx((i) => i + 1);
     }, 1500);
-  }, [lang]);
+  }, [lang, devSession]);
 
   const onCutDone = useCallback(
     (score: number, results: PieceCutResult[]) => {
@@ -380,31 +383,38 @@ export default function CraftFlow() {
 
   const onPaintDone = useCallback(
     (score: number, stats: PaintStats) => {
-      if (stepRef.current === "sand") sandStats.current = stats;
+      const stage = stepRef.current;
+      if (stage === "sand") sandStats.current = stats;
+      if (stage === "lacquer" || stage === "fill" || stage === "iron" || stage === "sand") {
+        const finish = { ...design.finish, [stage]: stats.marks ?? [] };
+        if (stage === "sand") finish.unpolished = stats.unpolished;
+        setDraft({ ...design, finish });
+      }
       onStepDone(score);
     },
-    [onStepDone],
+    [onStepDone, design, setDraft],
   );
 
   return (
-    <div className="screen">
+    <div className="screen craft-screen">
       <TopBar
         title={commission ? t(lang, "craft.commission") : t(lang, "craft.free")}
         onBack={() => {
+          if (toast) return;
           if (stepIdx === 0) {
-            if (process.env.NODE_ENV === "development" && devSession.current) {
+            if (process.env.NODE_ENV === "development" && devSession) {
               writeDevProgress({ ...progressNow(recutRef.current), dev: true });
             }
             setDraft(undefined);
             clearCraftBoot();
-            go(devSession.current || !commission ? "title" : "board");
+            go(devSession || !commission ? "title" : "board");
           } else setConfirmExit(true);
         }}
       />
       <div className="steps-bar">
         {STEPS.map((s, i) => {
           const className = `step-dot ${i < stepIdx ? "done" : i === stepIdx ? "now" : ""}`;
-          if (process.env.NODE_ENV === "development" && devSession.current) {
+          if (process.env.NODE_ENV === "development" && devSession) {
             return (
               <button
                 key={s}
@@ -419,20 +429,21 @@ export default function CraftFlow() {
             );
           }
           return (
-            <div key={s} className={className} title={stepName(lang, s)}>
+            <div key={s} className={className} title={stepName(lang, s)} aria-current={i === stepIdx ? "step" : undefined}>
               <UiIcon id={STEP_ICONS[s]} />
             </div>
           );
         })}
       </div>
-      {process.env.NODE_ENV === "development" && devSession.current && (
+      <div className="workshop-stage-label">{stepIdx + 1} / {STEPS.length} · {stepName(lang, step)}</div>
+      {process.env.NODE_ENV === "development" && devSession && (
         <p className="dev-step-hint">
           {lang === "en" ? "Dev test · tap a stage to jump · " : "개발자 시험 · 단계를 누르면 이동합니다 · "}
           {stepName(lang, step)}
         </p>
       )}
 
-      <div className="screen-body" key={process.env.NODE_ENV === "development" && devSession.current ? `${step}-${devNonce}` : step}>
+      <TutorialStage.Provider value={step}><div className="screen-body" key={process.env.NODE_ENV === "development" && devSession ? `${step}-${devNonce}` : step}>
         {step === "design" && (
           <DesignStep
             design={design}
@@ -442,18 +453,14 @@ export default function CraftFlow() {
             stock={shellStock}
             initialPlan={planRef.current}
             onStart={(plan) => {
-              if (useSave.getState().missingFor(design).length) return { ok: false, missing: design.pearl };
-              const result = commitShellPlan(
-                plan,
-                (placement) => motifPolygons(placement.motifId),
-                false,
-                design.pieces.map((piece) => piece.id),
-              );
-              if (!result.ok) return result;
-              if (!consumeFor(design)) return { ok: false, missing: design.pearl };
+              if (!devSession) {
+                const result = startWorkshop({ ...progressNow(null), stepIdx: 1, shellPlan: plan },
+                  placement => motifPolygons(placement.motifId));
+                if (!result.ok) return result;
+                useSave.getState().learn("design");
+              }
               sfx.success();
               clearCraftBoot();
-              clearCraftProgress();
               planRef.current = { ...plan, confirmed: true };
               legacyPearl.current = false;
               setNestPending(false);
@@ -463,7 +470,10 @@ export default function CraftFlow() {
             }}
           />
         )}
-        {step === "cloth" && <ClothStep design={design} onDone={onStepDone} />}
+        {step === "cloth" && <ClothStep design={design} onDone={(score, creases) => {
+          setDraft({ ...design, finish: { ...design.finish, creases } });
+          onStepDone(score);
+        }} />}
         {step === "lacquer" && (
           <PaintStep
             def={defs.lacquer}
@@ -506,7 +516,10 @@ export default function CraftFlow() {
             ledger={shellLedger}
             stock={shellStock}
             session={recutRef.current}
-            onPiece={(results) => (cutResultsRef.current = results)}
+            onPiece={(results) => {
+              cutResultsRef.current = [...results];
+              if (!devSession) saveCraftProgress(progressNow(null));
+            }}
             onPieceCut={markShellCut}
             onSeal={(pieceId) => {
               sealShellPiece(pieceId);
@@ -518,12 +531,12 @@ export default function CraftFlow() {
             }}
             onSession={(next) => {
               recutRef.current = next;
-              const payload = { ...progressNow(next), dev: devSession.current || undefined };
-              if (process.env.NODE_ENV === "development" && devSession.current) writeDevProgress(payload);
+              const payload = { ...progressNow(next), dev: devSession || undefined };
+              if (process.env.NODE_ENV === "development" && devSession) writeDevProgress(payload);
               else saveCraftProgress(payload);
             }}
             onCommitPlan={(plan, pieceId) => {
-              if (process.env.NODE_ENV !== "development" || !devSession.current) {
+              if (process.env.NODE_ENV !== "development" || !devSession) {
                 const result = commitShellPlan(plan, (placement) => motifPolygons(placement.motifId), false, [pieceId]);
                 if (!result.ok) return result;
               }
@@ -537,8 +550,8 @@ export default function CraftFlow() {
               return { ok: true };
             }}
             onShop={() => {
-              const payload = { ...progressNow(recutRef.current), dev: devSession.current || undefined };
-              if (process.env.NODE_ENV === "development" && devSession.current) {
+              const payload = { ...progressNow(recutRef.current), dev: devSession || undefined };
+              if (process.env.NODE_ENV === "development" && devSession) {
                 setCraftBoot(writeDevProgress(payload));
               } else {
                 saveCraftProgress(payload);
@@ -548,8 +561,8 @@ export default function CraftFlow() {
               go("shop");
             }}
             onPause={() => {
-              const payload = { ...progressNow(recutRef.current), dev: devSession.current || undefined };
-              if (process.env.NODE_ENV === "development" && devSession.current) writeDevProgress(payload);
+              const payload = { ...progressNow(recutRef.current), dev: devSession || undefined };
+              if (process.env.NODE_ENV === "development" && devSession) writeDevProgress(payload);
               else saveCraftProgress(payload);
               clearCraftBoot();
               setDraft(undefined);
@@ -587,7 +600,7 @@ export default function CraftFlow() {
             onDone={onPaintDone}
           />
         )}
-      </div>
+      </div></TutorialStage.Provider>
 
       {toast && (
         <div className="score-toast-wrap">
@@ -616,8 +629,8 @@ export default function CraftFlow() {
               <Btn
                 variant="pink"
                 onClick={() => {
-                  const payload = { ...progressNow(recutRef.current), dev: devSession.current || undefined };
-                  if (process.env.NODE_ENV === "development" && devSession.current) {
+                  const payload = { ...progressNow(recutRef.current), dev: devSession || undefined };
+                  if (process.env.NODE_ENV === "development" && devSession) {
                     writeDevProgress(payload);
                   } else saveCraftProgress(payload);
                   clearCraftBoot();

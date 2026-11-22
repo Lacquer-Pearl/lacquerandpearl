@@ -26,7 +26,9 @@ import { MACHINE_CUT_COST, useSave } from "@/lib/store";
 import MotifIcon from "@/components/MotifIcon";
 import UiIcon from "@/components/UiIcon";
 import { StepHeader } from "./common";
-import { claimCraftPointer, isForeignCraftPointer, releaseCraftPointer, toolLift, useBlockCraftScroll } from "./craftTouch";
+import { claimCraftPointer, isForeignCraftPointer, releaseCraftPointer, useBlockCraftScroll } from "./craftTouch";
+
+const SAW_GRIP_OFFSET = 30;
 
 type Method = "jul" | "kkeun" | "auto";
 type Choice = Method | "each";
@@ -585,34 +587,24 @@ export function JulStep({
     timers.current.push(window.setTimeout(() => setShake(false), 400));
 
     const reusable = result.condition === "reusable-broken";
-    if (reusable || s.breaks >= 3) {
-      pending.current = result;
-      setBreakFx({ result, gap: reusable ? 2.6 : 1.45 });
-      setWarn(t(lang, reusable ? "cut.reusable" : "cut.scrapped"));
-      timers.current.push(window.setTimeout(() => setBreakFx({ result, gap: 1 }), 420));
-      timers.current.push(window.setTimeout(() => finish(), 780));
-      return;
-    }
-
-    setBreakFx({ result, gap: 1.7 });
-    setWarn(t(lang, "cut.recut"));
-    timers.current.push(
-      window.setTimeout(() => {
-        s.route = 0;
-        s.idx = 0;
-        s.phase = "saw";
-        s.stress = 0;
-        s.off = 0;
-        s.last = null;
-        s.breaking = false;
-        setBreakFx(null);
-        setWarn(null);
-        setRouteIdx(0);
-        setPhase("saw");
-        setIdx(0);
-        setStress(0);
-      }, 640),
-    );
+    const broken = reusable && pending.current ? pending.current : result;
+    pending.current = broken;
+    setBreakFx({ result: broken, gap: reusable ? 2.6 : 1.45 });
+    setWarn(t(lang, reusable ? "cut.reusable" : "cut.scrapped"));
+    timers.current.push(window.setTimeout(() => setBreakFx({ result: broken, gap: 1 }), 420));
+    timers.current.push(window.setTimeout(() => {
+      if (!reusable) {
+        finish();
+        return;
+      }
+      s.breaking = false;
+      s.down = false;
+      s.stress = 0;
+      s.last = null;
+      setStress(0);
+      setBreakFx(null);
+      setWarn(lang === "ko" ? "쓸 수 있는 파편이에요. 밝은 점부터 남은 선을 마저 잘라 주세요." : "Keep these fragments. Resume cutting at the bright dot.");
+    }, 780));
   };
 
   const advance = (to: number, err: number, speed: number) => {
@@ -654,7 +646,7 @@ export function JulStep({
 
   const toLocal = (e: { clientX: number; clientY: number; pointerType?: string }) => {
     const r = svgRef.current!.getBoundingClientRect();
-    const lift = toolLift(e.pointerType);
+    const lift = e.pointerType === "touch" ? r.height * SAW_GRIP_OFFSET / 300 : 0;
     return {
       x: ((e.clientX - r.left) / r.width) * 300,
       y: ((e.clientY - lift - r.top) / r.height) * 300,
@@ -781,6 +773,7 @@ export function JulStep({
     ...(phase === "saw" ? [active.pts.slice(0, idx + 1)] : []),
   ].filter((part) => part.length > 1);
   const next = phase === "hop" ? active.pts[0] : active.pts[Math.min(active.pts.length - 1, idx + 1)];
+  const ahead = active.pts[Math.min(active.pts.length - 1, idx + 5)];
   const total = routes.reduce((sum, route) => sum + Math.max(1, route.pts.length - 1), 0);
   const done =
     routes.slice(0, routeIdx).reduce((sum, route) => sum + Math.max(1, route.pts.length - 1), 0) +
@@ -800,7 +793,7 @@ export function JulStep({
         </button>
       )}
       <p className="craft-status-line">
-        {phase === "hop" ? t(lang, "cut.hop", { n: routeIdx + 1, max: routes.length }) : t(lang, "cut.liftHint")}
+        {phase === "hop" ? t(lang, "cut.hop", { n: routeIdx + 1, max: routes.length }) : (lang === "ko" ? "밝은 점에서 화살표를 따라 그으세요. 터치는 톱끝보다 손가락 한 마디 아래를 잡으세요." : "Trace from the bright dot along the arrow. On touchscreens, hold a finger below the tip.")}
       </p>
       <div className={`workbench relative ${shake ? "shake" : ""}`}>
         <svg
@@ -941,7 +934,7 @@ export function JulStep({
             />
           ))}
           {next && phase === "saw" && (
-            <circle cx={next.x} cy={next.y} r="7" fill="#d9b25f" stroke="#fff" strokeWidth="1.5" className="pulse" />
+            <g pointerEvents="none"><path d="M -4 -3 L 1 0 L -4 3" transform={`translate(${ahead.x} ${ahead.y}) rotate(${Math.atan2(ahead.y-next.y,ahead.x-next.x)*180/Math.PI})`} fill="none" stroke="#34271c" strokeWidth="2.2"/><circle cx={next.x} cy={next.y} r="5" fill="#d9b25f" stroke="#fff" strokeWidth="1.5" className="pulse" /></g>
           )}
           {phase === "hop" && next && (
             <g className="pointer-events-none">
@@ -952,6 +945,12 @@ export function JulStep({
               </text>
             </g>
           )}
+          {next && !breakFx && <g className="touch-grip" aria-hidden="true" transform={`translate(${next.x} ${next.y})`}>
+            <path d={`M0 8 V${SAW_GRIP_OFFSET - 5}`} stroke="#fff0ce" strokeWidth="1.4" strokeDasharray="3 2" />
+            <g transform={`translate(0 ${SAW_GRIP_OFFSET})`} fill="#e8d7b5" stroke="#594735" strokeWidth="1.2" strokeLinejoin="round">
+              <path d="M0 0 V-5 Q1 -8 3 -6 L4 0 Q6 -3 8 -1 Q11 -2 12 1 Q15 0 15 4 V9 Q15 14 11 16 H5 Q3 14 0 10 L-5 5 Q-6 2 -3 2 L0 4 Z" />
+            </g>
+          </g>}
           {saw && (
             <g className="pointer-events-none">
               <g transform={`translate(${saw.x - TOOL_TIP.saw[0] * 0.9} ${saw.y - TOOL_TIP.saw[1] * 0.9}) scale(0.9)`}>

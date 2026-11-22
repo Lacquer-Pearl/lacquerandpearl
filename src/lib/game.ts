@@ -13,6 +13,7 @@ import {
 } from "./data";
 import type { PieceBreakState } from "./cutFragments";
 import type { ShellPlacement } from "./shellNest";
+import type { Achievement } from "./workshopStory";
 import { pickPatron, rememberNpcs, type Patron, type PatronRequest } from "./npcs";
 
 export interface PlacedPiece {
@@ -32,7 +33,23 @@ export interface PlacedPiece {
   breakState?: PieceBreakState;
 }
 
+export interface SurfaceMark {
+  x: number;
+  y: number;
+  strength: number;
+}
+
+export interface Finish {
+  unpolished?: string;
+  creases?: (SurfaceMark & { angle: number })[];
+  lacquer?: SurfaceMark[];
+  fill?: SurfaceMark[];
+  iron?: SurfaceMark[];
+  sand?: SurfaceMark[];
+}
+
 export interface Design {
+  finish?: Finish;
   shape: ShapeId;
   lacquer: LacquerId;
   /** 새로 놓는 조각의 자개 종류 */
@@ -69,6 +86,7 @@ export type StepId =
 export type StepScores = Partial<Record<StepId, number>>;
 
 export interface Artwork {
+  achievements?: Achievement[];
   id: string;
   createdAt: number;
   design: Design;
@@ -176,34 +194,30 @@ export function cutJobs(design: Design, placements: ShellPlacement[] = []): CutJ
 export function snapToPattern(piece: PlacedPiece, others: PlacedPiece[]): PlacedPiece {
   const tile = MOTIFS[piece.motif].tile;
   if (!tile) return piece;
-  let best: PlacedPiece | undefined;
-  let bestD = Infinity;
-  for (const o of others) {
-    if (o.id === piece.id || o.motif !== piece.motif || Math.abs(o.s - piece.s) > 0.01) continue;
-    if ((((o.r - piece.r) % 360) + 360) % 360 > 0.5) continue;
-    const d = Math.hypot(o.x - piece.x, o.y - piece.y);
-    if (d < bestD) {
-      bestD = d;
-      best = o;
+  let closest = piece;
+  const spacing = Math.min(Math.hypot(...tile.a), Math.hypot(...tile.b)) * piece.s;
+  let distance = Math.min(20, spacing * 0.45);
+  for (const neighbor of others) {
+    if (neighbor.id === piece.id || neighbor.motif !== piece.motif || Math.abs(neighbor.s - piece.s) > 0.01) continue;
+    const angle = ((neighbor.r - piece.r + 540) % 360) - 180;
+    if (Math.abs(angle) > 0.5 || !!neighbor.flipX !== !!piece.flipX) continue;
+    for (const [i, j] of TILE_NEIGHBORS) {
+      const slot = latticePos(neighbor, i, j);
+      const delta = Math.hypot(slot.x - piece.x, slot.y - piece.y);
+      if (delta >= distance || slot.x < 8 || slot.x > 292 || slot.y < 8 || slot.y > 292) continue;
+      if (others.some(p => p.id !== piece.id && p.motif === piece.motif && Math.hypot(p.x - slot.x, p.y - slot.y) < 2)) continue;
+      closest = { ...piece, ...slot };
+      distance = delta;
     }
   }
-  if (!best) return piece;
-  const { a, b } = tile;
-  const th = (-best.r * Math.PI) / 180;
-  const vx = ((piece.x - best.x) * Math.cos(th) - (piece.y - best.y) * Math.sin(th)) / best.s;
-  const vy = ((piece.x - best.x) * Math.sin(th) + (piece.y - best.y) * Math.cos(th)) / best.s;
-  const det = a[0] * b[1] - a[1] * b[0];
-  const i = Math.round((vx * b[1] - vy * b[0]) / det);
-  const j = Math.round((a[0] * vy - a[1] * vx) / det);
-  const pos = latticePos(best, i, j);
-  const reach = Math.hypot(a[0], a[1]) * best.s * 0.6;
-  if ((i === 0 && j === 0) || Math.hypot(pos.x - piece.x, pos.y - piece.y) > reach) return piece;
-  return { ...piece, ...pos };
+  return closest;
 }
+
+const TILE_NEIGHBORS: [number, number][] = [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]];
 
 function latticePos(o: PlacedPiece, i: number, j: number) {
   const { a, b } = MOTIFS[o.motif].tile!;
-  const lx = (i * a[0] + j * b[0]) * o.s;
+  const lx = (i * a[0] + j * b[0]) * o.s * (o.flipX ? -1 : 1);
   const ly = (i * a[1] + j * b[1]) * o.s;
   const th = (o.r * Math.PI) / 180;
   return { x: o.x + lx * Math.cos(th) - ly * Math.sin(th), y: o.y + lx * Math.sin(th) + ly * Math.cos(th) };
@@ -211,8 +225,7 @@ function latticePos(o: PlacedPiece, i: number, j: number) {
 
 /** 패턴 조각 옆 빈자리에 이어 붙일 위치 (빈자리가 없으면 undefined) */
 export function nextPatternSlot(o: PlacedPiece, pieces: PlacedPiece[]) {
-  const dirs: [number, number][] = [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]];
-  for (const [i, j] of dirs) {
+  for (const [i, j] of TILE_NEIGHBORS) {
     const pos = latticePos(o, i, j);
     if (pos.x < 8 || pos.x > 292 || pos.y < 8 || pos.y > 292) continue;
     if (pieces.some((p) => p.motif === o.motif && Math.hypot(p.x - pos.x, p.y - pos.y) < 2)) continue;

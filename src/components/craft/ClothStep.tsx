@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Artwork from "@/components/Artwork";
 import { Btn, Meter } from "@/components/ui";
 import { SHAPES } from "@/lib/data";
-import type { Design } from "@/lib/game";
+import type { Design, Finish } from "@/lib/game";
 import { t, tNode } from "@/lib/i18n";
 import { loopLevel, sfx, startLoop, stopLoop } from "@/lib/sound";
 import { useSave } from "@/lib/store";
@@ -103,7 +103,7 @@ function StripGraphic({ s, fill, rolling }: { s: Pick<Strip, "x" | "y" | "a" | "
   );
 }
 
-export default function ClothStep({ design, onDone }: { design: Design; onDone: (score: number) => void }) {
+export default function ClothStep({ design, onDone }: { design: Design; onDone: (score: number, creases: Finish["creases"]) => void }) {
   const lang = useSave((s) => s.lang);
   const shapePath = SHAPES[design.shape].path;
   const mask = useMemo(() => {
@@ -156,6 +156,7 @@ export default function ClothStep({ design, onDone }: { design: Design; onDone: 
       <StepHeader title={t(lang, "cloth.title")} icon="hemp">
         {tNode(lang, "cloth.tip", { b: <b>{t(lang, "cloth.tipB")}</b> })}
       </StepHeader>
+      {!strips.length && <p className="demo-hint">{lang === "ko" ? "나무 한쪽 끝을 누르고 반대쪽까지 곧게 끌어 첫 삼베를 붙이세요." : "Press one edge and drag straight across to lay the first strip."}</p>}
       <div className="workbench">
         <svg
           ref={svgRef}
@@ -222,6 +223,10 @@ export default function ClothStep({ design, onDone }: { design: Design; onDone: 
             </clipPath>
           </defs>
           <Artwork design={design} surface="wood" showPieces={false} />
+          {!strips.length && !active && <g className="cloth-direction" pointerEvents="none">
+            <path d="M55 145 H243 M236 140 L243 145 L236 150" fill="none" stroke="#fff9e8" strokeWidth="2" strokeDasharray="5 3" />
+            <circle cx="55" cy="145" r="5" fill="#d6b16c" stroke="#fff9e8" strokeWidth="1.5" />
+          </g>}
           <g opacity="0.3" pointerEvents="none">
             {strips.map((s, i) => (
               <StripGraphic key={i} s={s} fill="url(#hemp-weave)" />
@@ -277,7 +282,13 @@ export default function ClothStep({ design, onDone }: { design: Design; onDone: 
           disabled={!ready || done}
           onClick={() => {
             setDone(true);
-            onDone(score());
+            const creases = strips.flatMap(strip => strip.creases.map(distance => ({
+              x: Math.round(strip.x + Math.cos(strip.a) * distance),
+              y: Math.round(strip.y + Math.sin(strip.a) * distance),
+              angle: Math.round(strip.a * 180 / Math.PI),
+              strength: strip.wrinkle,
+            }))).filter(p => p.x >= 0 && p.y >= 0 && p.x <= 300 && p.y <= 300);
+            onDone(score(), creases.slice(0, 64));
           }}
         >
           {ready ? t(lang, "common.done") : t(lang, "common.doneMore")}

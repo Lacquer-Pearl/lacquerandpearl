@@ -4,10 +4,10 @@ import Image from "next/image";
 import { useState } from "react";
 import ReputationModal from "@/components/ReputationModal";
 import UiIcon from "@/components/UiIcon";
-import { Btn, Coin, Modal, Sparkles, SoundToggle } from "@/components/ui";
+import { Btn, Coin, Modal, SoundToggle } from "@/components/ui";
 import { MasterTip } from "@/components/craft/common";
 import { rankTitle, stepName, t, tNode, type Locale } from "@/lib/i18n";
-import type { StepId } from "@/lib/game";
+import { newPiece, type StepId } from "@/lib/game";
 import { beginDevCraft, loadDevProgress } from "@/lib/devCraft";
 import { sfx } from "@/lib/sound";
 import { useSave, useUI } from "@/lib/store";
@@ -58,7 +58,7 @@ export default function TitleScreen() {
   const rep = useSave((s) => s.reputation);
   const galleryCount = useSave((s) => s.gallery.length);
   const craftProgress = useSave((s) => s.craftProgress);
-  const tutorialSeen = useSave((s) => s.tutorialSeen);
+
   const setTutorialSeen = useSave((s) => s.setTutorialSeen);
   const resetSave = useSave((s) => s.resetSave);
   const lang = useSave((s) => s.lang);
@@ -74,12 +74,12 @@ export default function TitleScreen() {
 
   return (
     <div className="screen title-screen">
-      <Sparkles count={10} />
+
       <div className="flex justify-end p-3">
         <SoundToggle />
       </div>
       <div className="flex flex-1 flex-col items-center justify-center gap-5 px-5 pb-8">
-        <div className="float logo-plaque w-full max-w-[440px]">
+        <div className="demo-hero w-full"><div className="demo-hero-sign">
           <Image
             key={signSrc}
             src={signSrc}
@@ -89,6 +89,7 @@ export default function TitleScreen() {
             priority
             className="h-auto w-full"
           />
+        </div>
         </div>
         <div className="flex gap-2">
           <button
@@ -123,9 +124,14 @@ export default function TitleScreen() {
               </div>
             </div>
           )}
+          {!canResume && <TitleMenuBtn size="lg" className="title-menu-btn-primary" onClick={() => {
+            startCraft();
+            useUI.getState().setDraft({ shape:"box", lacquer:"black", lacquerChosen:true, pearl:"white",
+              pieces:[{ ...newPiece("butterfly", "white"), x:153, y:139 }] });
+          }}>{lang === "ko" ? "첫 작품 만들기 · 나비문 보석함" : "First piece · Butterfly jewel box"}</TitleMenuBtn>}
           <TitleMenuBtn size="lg" onClick={() => go("board")}>
             <UiIcon id="scroll" />
-            {t(lang, "title.commission")}
+            {lang === "ko" ? "공방 이야기 · 의뢰 받기" : "Workshop story & commissions"}
           </TitleMenuBtn>
           <TitleMenuBtn size="lg" onClick={() => startCraft(undefined)}>
             <UiIcon id="frame" />
@@ -162,7 +168,7 @@ export default function TitleScreen() {
 
       {repOpen && <ReputationModal lang={lang} rep={rep} onClose={() => setRepOpen(false)} />}
 
-      {(!tutorialSeen || settings) && (
+      {settings && (
         <Modal
           onClose={() => {
             setTutorialSeen();

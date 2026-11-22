@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import Artwork from "@/components/Artwork";
 import Avatar from "@/components/Avatar";
+import StoryCommission from "./StoryCommission";
 import MotifIcon, { NacreSwatch } from "@/components/MotifIcon";
 import { Btn, Coin, TopBar } from "@/components/ui";
 import { LACQUERS, type MotifId } from "@/lib/data";
@@ -30,6 +31,7 @@ export default function BoardScreen() {
     <div className="screen">
       <TopBar title={t(lang, "board.title")} onBack={() => go("title")} />
       <div className="screen-body">
+        <StoryCommission />
         <p className="panel text-sm leading-relaxed text-[var(--brown)]">{t(lang, "board.repHint")}</p>
         {commissions.map((c) => {
           const client = clientLabel(lang, c);

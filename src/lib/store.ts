@@ -18,6 +18,7 @@ import {
   largeKey,
   markCut,
   reconcileProgress,
+  releaseReservation,
   sealCut,
   sanitizeLedger,
   type ShellLedger,
@@ -27,6 +28,7 @@ import {
 } from "./shellNest";
 import type { Locale } from "./i18n";
 import { rememberNpcs, sanitizePatron } from "./npcs";
+import { ACHIEVEMENTS, earnedAchievements, GIFT_ID, VISITOR_ID, type Achievement, type Apprentice, type WorkshopStory } from "./workshopStory";
 
 export type Inventory = Record<MaterialId, number>;
 
@@ -69,6 +71,10 @@ const START_INVENTORY: Inventory = {
 };
 
 interface SaveState {
+  startWorkshop: (progress: CraftProgress, polygonsFor: (placement: ShellPlacement) => { x: number; y: number }[][]) => { ok: true } | { ok: false; missing: PearlId; large?: boolean };
+  story: WorkshopStory;
+  achievements: Achievement[];
+  chooseApprentice: (apprentice: Apprentice) => void;
   money: number;
   reputation: number;
   inventory: Inventory;
@@ -78,6 +84,8 @@ interface SaveState {
   musicOn: boolean;
   lang: Locale;
   tutorialSeen: boolean;
+  learned: string[];
+  learn: (stage: string) => void;
   realCraftInterest: string[];
   redeemedCoupons: string[];
   surveyClaimed: boolean;
@@ -108,7 +116,7 @@ interface SaveState {
   sealShellPiece: (pieceId: string) => void;
   ensureCommissions: () => void;
   refreshCommissions: () => void;
-  finishArtwork: (art: Artwork, repGain: number) => void;
+  finishArtwork: (art: Artwork, repGain: number) => Artwork;
   sellArtwork: (id: string) => void;
   setMuted: (m: boolean) => void;
   setMusic: (m: boolean) => void;
@@ -145,6 +153,8 @@ function applyPearlStock(inventory: Inventory, stock: ShellStock): Inventory {
 }
 
 const initial = {
+  story: { chapter: "gift" } as WorkshopStory,
+  achievements: [] as Achievement[],
   money: 150,
   reputation: 0,
   inventory: START_INVENTORY,
@@ -154,6 +164,7 @@ const initial = {
   musicOn: true,
   lang: "ko" as Locale,
   tutorialSeen: false,
+  learned: [] as string[],
   realCraftInterest: [] as string[],
   redeemedCoupons: [] as string[],
   surveyClaimed: false,
@@ -174,6 +185,21 @@ export const useSave = create<SaveState>()(
   persist(
     (set, get) => ({
       ...initial,
+      startWorkshop: (progress, polygonsFor) => {
+        const s = get();
+        if (!progress.shellPlan || s.missingFor(progress.design).length) return { ok: false, missing: progress.design.pearl };
+        let ledger = s.shellLedger;
+        for (const piece of s.craftProgress?.design.pieces ?? []) ledger = releaseReservation(ledger, piece.id, polygonsFor);
+        const result = commitNest({ stock: pearlStock(s.inventory), ledger, plan: progress.shellPlan, polygonsFor });
+        if (!result.ok) return result;
+        const inventory = applyPearlStock(s.inventory, result.stock);
+        for (const [key, cost] of Object.entries(CRAFT_COST) as [MaterialId, number][]) inventory[key] -= cost;
+        set({ inventory, shellLedger: result.ledger, craftProgress: { ...progress, shellPlan: result.plan } });
+        return { ok: true };
+      },
+      chooseApprentice: (apprentice) => {
+        if (!get().story.apprentice) set({ story: { ...get().story, apprentice } });
+      },
 
       buy: (id) => {
         const m = MATERIALS[id];
@@ -256,17 +282,27 @@ export const useSave = create<SaveState>()(
 
       finishArtwork: (art, repGain) => {
         const s = get();
+        const existing = s.gallery.find(a => a.id === art.id);
+        if (existing) return existing;
+        const awards = earnedAchievements(art, s.achievements);
+        const recorded = { ...art, achievements: awards };
+        const chapter = art.commissionId === GIFT_ID && s.story.chapter === "gift"
+          ? "visitor" : art.commissionId === VISITOR_ID && s.story.chapter === "visitor" ? "ending" : s.story.chapter;
         const done = s.commissions.find((c) => c.id === art.commissionId);
         set({
-          gallery: [art, ...s.gallery].slice(0, 60),
-          money: s.money + art.earned,
-          reputation: s.reputation + repGain,
+          gallery: [recorded, ...s.gallery].slice(0, 60),
+          craftProgress: null,
+          story: { ...s.story, chapter },
+          achievements: [...s.achievements, ...awards],
+          money: s.money + art.earned + awards.reduce((n, id) => n + ACHIEVEMENTS[id].coins, 0),
+          reputation: s.reputation + repGain + awards.reduce((n, id) => n + ACHIEVEMENTS[id].rep, 0),
           npcRecent: done?.patron ? rememberNpcs(s.npcRecent, [done.patron.id]) : s.npcRecent,
           commissions: art.commissionId
             ? s.commissions.filter((c) => c.id !== art.commissionId)
             : s.commissions,
         });
         get().ensureCommissions();
+        return recorded;
       },
 
       sellArtwork: (id) => {
@@ -283,6 +319,9 @@ export const useSave = create<SaveState>()(
       setMusic: (musicOn) => set({ musicOn }),
       setLang: (lang) => set({ lang }),
       setTutorialSeen: () => set({ tutorialSeen: true }),
+      learn: (stage) => {
+        if (!get().learned.includes(stage)) set({ learned: [...get().learned, stage] });
+      },
       toggleInterest: (id) => {
         const list = get().realCraftInterest;
         set({ realCraftInterest: list.includes(id) ? list.filter((x) => x !== id) : [...list, id] });
@@ -306,6 +345,9 @@ export const useSave = create<SaveState>()(
           ...current,
           ...p,
           lang,
+          learned: Array.isArray(p?.learned) ? p.learned.filter(stage => typeof stage === "string") : [],
+          story: p?.story && ["gift", "visitor", "ending"].includes(p.story.chapter) ? p.story : initial.story,
+          achievements: Array.isArray(p?.achievements) ? p.achievements.filter(id => id in ACHIEVEMENTS) : [],
           craftProgress: p?.craftProgress
             ? reconcileProgress({
                 ...p.craftProgress,
@@ -337,6 +379,8 @@ export const useSave = create<SaveState>()(
         };
       },
       partialize: (s) => ({
+        achievements: s.achievements,
+        story: s.story,
         money: s.money,
         reputation: s.reputation,
         inventory: s.inventory,
@@ -346,6 +390,7 @@ export const useSave = create<SaveState>()(
         musicOn: s.musicOn,
         lang: s.lang,
         tutorialSeen: s.tutorialSeen,
+        learned: s.learned,
         realCraftInterest: s.realCraftInterest,
         redeemedCoupons: s.redeemedCoupons,
         surveyClaimed: s.surveyClaimed,

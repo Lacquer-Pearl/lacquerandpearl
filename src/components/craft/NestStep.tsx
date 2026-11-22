@@ -180,7 +180,19 @@ export default function NestStep({
   const [placements, setPlacements] = useState<ShellPlacement[]>(boot.placements);
   const [pearl, setPearl] = useState<PearlId>(piecePearl(design.pieces[0], design));
   const [activeId, setActiveId] = useState<string | null>(boot.sheets.find((sheet) => sheet.pearl === piecePearl(design.pieces[0], design))?.id ?? null);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, select] = useState<string | null>(null);
+  const pendingOverlap = useRef<{ id: string; previous?: ShellPlacement } | null>(null);
+  const setSelected = (id: string | null) => {
+    const pending = pendingOverlap.current;
+    if (pending && pending.id !== id) {
+      pendingOverlap.current = null;
+      setPlacements(items => {
+        const kept = items.filter(item => item.pieceId !== pending.id);
+        return pending.previous ? [...kept, pending.previous] : kept;
+      });
+    }
+    select(id);
+  };
   const zoom = 1;
   const [drag, setDrag] = useState<NestDrag | null>(null);
   const [trayDrag, setTrayDrag] = useState<TrayDrag | null>(null);
@@ -195,7 +207,7 @@ export default function NestStep({
     onChangeRef.current = onChange;
     onStatusRef.current = onStatus;
   });
-  selectedRef.current = selected;
+  useLayoutEffect(() => { selectedRef.current = selected; }, [selected]);
 
   const clearSelected = () => {
     if (selectedRef.current === null) return;
@@ -271,7 +283,9 @@ export default function NestStep({
     onStatusRef.current?.({ unplaced: unplaced.length, total: design.pieces.length });
   }, [unplaced.length, design.pieces.length]);
 
-  const say = (_key?: "nest.outside" | "nest.overlap" | "nest.fit" | "nest.cutLocked" | "nest.needLarge") => {
+  const [notice, setNotice] = useState("");
+  const say = (key?: "nest.outside" | "nest.overlap" | "nest.fit" | "nest.cutLocked" | "nest.needLarge") => {
+    setNotice(t(lang, key ?? "nest.fit"));
     sfx.fail();
   };
 
@@ -375,17 +389,23 @@ export default function NestStep({
     const taken = occupied(active, id);
     let reason: ReturnType<typeof placementFits> = "outside";
     let turn = r;
+    let overlappingTurn: number | undefined;
     for (const candidate of turns) {
       reason = placementFits(active, toNest(source, design), { x, y, r: candidate }, taken);
       turn = candidate;
       if (reason === "ok") break;
+      if (reason === "overlap") overlappingTurn ??= candidate;
     }
-    if (reason !== "ok") {
+    if (reason !== "ok" && overlappingTurn !== undefined) { reason = "overlap"; turn = overlappingTurn; }
+    if (reason !== "ok" && reason !== "overlap") {
       if (reason === "outside" && tooBig(id) && sheetSize(active) === "standard") say("nest.needLarge");
-      else say(reason === "overlap" ? "nest.overlap" : "nest.outside");
+      else say("nest.outside");
       return false;
     }
     remember();
+    if (reason === "overlap") pendingOverlap.current ??= { id, previous: current };
+    else if (pendingOverlap.current?.id === id) pendingOverlap.current = null;
+    setNotice(reason === "overlap" ? t(lang, "nest.overlap") : "");
     const next = {
       pieceId: id,
       motifId: source.motif,
@@ -442,6 +462,13 @@ export default function NestStep({
       return;
     }
     const used = new Set(placements.map((item) => item.sheetId));
+    for (const item of placements) {
+      const sheet = sheets.find((entry) => entry.id === item.sheetId);
+      const piece = design.pieces.find((entry) => entry.id === item.pieceId);
+      if (!sheet || !piece) { say("nest.fit"); return; }
+      const reason = placementFits(sheet, toNest(piece, design), item, occupied(sheet, item.pieceId));
+      if (reason !== "ok") { setActiveId(sheet.id); setSelected(item.pieceId); say(reason === "overlap" ? "nest.overlap" : "nest.outside"); return; }
+    }
     const plan: ShellPlan = {
       sheets: sheets.filter((sheet) => used.has(sheet.id) && !ledgerIds.has(sheet.id)),
       placements,
@@ -619,6 +646,7 @@ export default function NestStep({
           {t(lang, "nest.newLarge")}
         </Btn>
       </div>
+      {notice && <p role="status" className="demo-hint">{notice}</p>}
       <div ref={benchRef} className="workbench overflow-auto" style={{ maxHeight: 440 }}>
         {shown ? (
           <svg

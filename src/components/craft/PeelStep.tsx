@@ -61,7 +61,7 @@ export default function PeelStep({ design, onDone }: { design: Design; onDone: (
     if (s.p >= 1 && !s.done) {
       s.done = true;
       loopLevel(0);
-      sfx.success();
+      sfx.paperLift();
       setTimeout(() => onDone(Math.max(15, 100 - s.lifts * 16)), 300);
     }
   };
@@ -106,15 +106,21 @@ export default function PeelStep({ design, onDone }: { design: Design; onDone: (
             loopLevel(0);
           }}
         >
-          <Artwork design={design} className="pointer-events-none absolute inset-0 h-full w-full" gloss={0.2} />
+          <Artwork design={design} className="pointer-events-none absolute inset-0 h-full w-full" gloss={0.2 + 0.48 * progress} />
           <svg viewBox="0 0 300 300" className="pointer-events-none absolute inset-0 h-full w-full">
             <defs>
+              <linearGradient id="paper-fold" x2="0" y2="1">
+                <stop stopColor="#a28e70" />
+                <stop offset=".6" stopColor="#fff8e5" />
+                <stop offset="1" stopColor="#d6c6a7" />
+              </linearGradient>
               <clipPath id="peel-clip">
                 <path d={shape.path} />
               </clipPath>
             </defs>
             <g clipPath="url(#peel-clip)">
               <rect x="0" y={top} width="300" height={300 - top} fill={wet ? "#e9dcc0" : "#f6eedc"} opacity="0.8" />
+              {progress > 0 && progress < 1 && <path d={`M0 ${top - 3} Q120 ${top + 9} 300 ${top - 4} v8 Q140 ${top + 18} 0 ${top + 4} Z`} fill="url(#paper-fold)" />}
               {wet &&
                 Array.from({ length: 14 }, (_, i) => (
                   <circle key={i} cx={(i * 47) % 300} cy={top + 20 + ((i * 71) % Math.max(1, 280 - top))} r="3" fill="#cfe9f5" opacity="0.7" />
@@ -122,7 +128,7 @@ export default function PeelStep({ design, onDone }: { design: Design; onDone: (
             </g>
             {progress < 1 && (
               <>
-                <ellipse cx="150" cy={top} rx="140" ry="9" fill="#fffaf0" stroke="#d9c7b3" strokeWidth="2" />
+                {progress === 0 && <ellipse cx="150" cy={top} rx="140" ry="9" fill="#fffaf0" stroke="#d9c7b3" strokeWidth="2" />}
                 <text x="150" y={top + 30} textAnchor="middle" fontSize="22">
                   👇
                 </text>

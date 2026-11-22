@@ -2,11 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { SHAPES, type ShapeId } from "@/lib/data";
+import type { SurfaceMark } from "@/lib/game";
 import { loopLevel, startLoop, stopLoop } from "@/lib/sound";
 import { ToolCursor, WorkPoint, type ToolId } from "@/components/Tools";
 import { claimCraftPointer, isForeignCraftPointer, releaseCraftPointer, toolLift, useBlockCraftScroll } from "./craftTouch";
 
 export interface PaintStats {
+  marks?: SurfaceMark[];
+  unpolished?: string;
   /** 조금이라도 작업된 칸 비율 */
   touched: number;
   /** 닿았지만 아직 연한(목표 범위 미달) 칸 비율 */
@@ -342,17 +345,41 @@ export default function PaintCanvas({
         sum = 0;
       const g = grid.current;
       const m = mask.current;
+      const peaks = new Map<number, SurfaceMark>();
+      const remaining: string[] = [];
+      const polishing = cfgRef.current.mode === "erase";
+      let runStart = -1;
       for (let k = 0; k < g.length; k++) {
+        if (polishing) {
+          const covered = m[k] && g[k] < range[0] * 0.45;
+          const col = k % N;
+          if (covered && runStart < 0) runStart = col;
+          if (runStart >= 0 && (!covered || col === N - 1)) {
+            const width = (col - runStart + (covered ? 1 : 0)) * CELL;
+            remaining.push(`M${runStart * CELL} ${Math.floor(k / N) * CELL}h${width}v${CELL}h-${width}Z`);
+            runStart = -1;
+          }
+        }
         if (!m[k]) continue;
         const v = g[k];
         sum += v;
         if (v > 0.05) touched++;
         if (v > 0.05 && v < range[0]) thin++;
         if (v >= range[0] && v <= range[1]) inRange++;
-        if (v > over) overN++;
+        if (v > over) {
+          overN++;
+          const col = k % N;
+          const row = Math.floor(k / N);
+          const tile = Math.floor(row / 5) * 10 + Math.floor(col / 5);
+          const strength = Math.min(1, (v - over) / over + 0.16);
+          if ((peaks.get(tile)?.strength ?? 0) < strength) {
+            peaks.set(tile, { x: (col + 0.5) * CELL, y: (row + 0.5) * CELL, strength });
+          }
+        }
       }
       const n = masked.current || 1;
-      statsRef.current({ touched: touched / n, thin: thin / n, inRange: inRange / n, over: overN / n, mean: sum / n });
+      statsRef.current({ touched: touched / n, thin: thin / n, inRange: inRange / n, over: overN / n,
+        mean: sum / n, marks: [...peaks.values()], unpolished: polishing ? remaining.join("") : undefined });
       redrawQuality();
       if (cfgRef.current.inkDecay && inkRef) inkCb.current?.(inkRef.current);
     });

@@ -3,13 +3,27 @@
 import { inlineNacreImages } from "./nacre";
 
 /** 작품 SVG를 PNG로 변환해 공유(지원 시) 또는 다운로드합니다. */
-export async function saveArtworkImage(svg: SVGSVGElement, title: string, subtitle: string) {
+export async function saveArtworkImage(svg: SVGSVGElement, title: string, subtitle: string, offerShare = true) {
   const clone = svg.cloneNode(true) as SVGSVGElement;
-  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  clone.setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns", "http://www.w3.org/2000/svg");
   clone.setAttribute("width", "720");
   clone.setAttribute("height", "720");
   clone.querySelectorAll("animateTransform").forEach((n) => n.remove());
   inlineNacreImages(clone);
+  const images = Array.from(clone.querySelectorAll("image"));
+  const paths = new Set(images.map(el => el.getAttribute("href")).filter((s): s is string => !!s && s.startsWith("/")));
+  await Promise.all(Array.from(paths, async path => {
+    const response = await fetch(path);
+    if (!response.ok) throw new Error("Could not load artwork image");
+    const blob = await response.blob();
+    const data = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+    for (const el of images) if (el.getAttribute("href") === path) el.setAttribute("href", data);
+  }));
   const xml = new XMLSerializer().serializeToString(clone);
   const url = URL.createObjectURL(new Blob([xml], { type: "image/svg+xml;charset=utf-8" }));
   const img = await loadImage(url);
@@ -55,7 +69,7 @@ export async function saveArtworkImage(svg: SVGSVGElement, title: string, subtit
   const blob: Blob = await new Promise((res) => canvas.toBlob((b) => res(b!), "image/png"));
   const file = new File([blob], `lacquer-pearl-${Date.now()}.png`, { type: "image/png" });
   const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
-  if (nav.canShare?.({ files: [file] })) {
+  if (offerShare && nav.canShare?.({ files: [file] })) {
     try {
       await nav.share({ files: [file], title: "Lacquer & Pearl", text: `${title} — 내가 만든 나전칠기 ✨` });
       return "shared";

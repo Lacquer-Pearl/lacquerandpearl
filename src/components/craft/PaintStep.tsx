@@ -66,6 +66,7 @@ export default function PaintStep({
       <StepHeader title={def.title} icon={def.icon}>
         {def.tip}
       </StepHeader>
+      {stats.touched === 0 && <p className="demo-hint">{usesInk && !ink ? (lang === "ko" ? "먼저 붓을 옻에 적셔 주세요." : "Dip your brush first.") : def.config.mode === "erase" ? (lang === "ko" ? "숫돌로 문질러 자개를 드러내세요. 빛이 나면 옆으로 옮기세요." : "Rub until the shell shines, then move on.") : def.config.mode === "stamp" ? (lang === "ko" ? "자개 위에 인두를 누른 뒤 적당한 때 떼세요." : "Press the iron onto the shell, then lift.") : (lang === "ko" ? "작업면에 붓을 대고 한 획을 그으세요." : "Draw a stroke across the surface.")}</p>}
       <div className="workbench">
         <PaintCanvas
           shape={shape}
@@ -86,7 +87,7 @@ export default function PaintStep({
         <div className="panel flex items-center gap-3 py-2">
           <button
             className={`lacquer-bowl ${dipping ? "dip" : ""}`}
-            onPointerDown={dip}
+            onClick={dip}
             aria-label={t(lang, "lacquer.dip")}
             disabled={done}
           >

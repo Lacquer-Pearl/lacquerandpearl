@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import Artwork from "@/components/Artwork";
 import UiIcon, { MATERIAL_ICONS } from "@/components/UiIcon";
-import { Btn, Coin } from "@/components/ui";
+import { Btn, Coin, Modal } from "@/components/ui";
 import MotifIcon, { NacreSwatch } from "@/components/MotifIcon";
 import {
   LACQUERS,
@@ -12,6 +12,7 @@ import {
   MOTIFS,
   PATTERN_MOTIFS,
   PEARL_LIST,
+  SHAPES,
   SHAPE_LIST,
   type PearlId,
   SHAPE_MOTIFS,
@@ -61,6 +62,20 @@ const MAX_S = 2.5;
 
 type Stage = "art" | "shell" | "review";
 const STAGES: Stage[] = ["art", "shell", "review"];
+
+type PatternPiece = Pick<PlacedPiece, "motif" | "x" | "y" | "s" | "r"> & { pearl: PearlId };
+const BOX_PATTERNS: { ko: string; en: string; pieces: PatternPiece[] }[] = [
+  { ko: "모란나비문", en: "Peonies & butterfly", pieces: [
+    { motif: "peony", x: 94, y: 185, s: 1.14, r: -14, pearl: "white" },
+    { motif: "peony", x: 160, y: 143, s: 1, r: 20, pearl: "abalone" },
+    { motif: "butterfly", x: 214, y: 99, s: 0.85, r: -24, pearl: "white" },
+  ] },
+  { ko: "송학문", en: "Pine & crane", pieces: [
+    { motif: "pine", x: 99, y: 164, s: 1.25, r: -8, pearl: "abalone" },
+    { motif: "crane", x: 182, y: 125, s: 1.3, r: -12, pearl: "white" },
+    { motif: "moon", x: 216, y: 88, s: 0.55, r: 0, pearl: "white" },
+  ] },
+];
 
 const capCache = new Map<string, number>();
 /** 대형 자개패 한 장에 들어가는 가장 큰 배율 */
@@ -145,6 +160,11 @@ export default function DesignStep({
   const [plan, setPlan] = useState<ShellPlan>(initialPlan ?? { sheets: [], placements: [] });
   const [shellMsg, setShellMsg] = useState<string | null>(null);
   const [marquee, setMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const shapeHit = useMemo(() => {
+    const ctx = document.createElement("canvas").getContext("2d");
+    const path = new Path2D(SHAPES[design.shape].path);
+    return (x: number, y: number) => ctx?.isPointInPath(path, x, y) ?? true;
+  }, [design.shape]);
   const svgRef = useRef<SVGSVGElement>(null);
   const drag = useRef<DragState | null>(null);
   const piecesRef = useRef(design.pieces);
@@ -156,6 +176,9 @@ export default function DesignStep({
   const money = useSave((s) => s.money);
   const buy = useSave((s) => s.buy);
   const missingFor = useSave((s) => s.missingFor);
+  const hasSavedWork = useSave(s => !!s.craftProgress);
+  const [confirmReplacement, setConfirmReplacement] = useState(false);
+  const cloudUnlocked = useSave(s => s.achievements.includes("first"));
 
   const counts = countMotifs(design.pieces);
   const missing = missingFor(design);
@@ -182,6 +205,8 @@ export default function DesignStep({
     stage === "art" || (design.pieces.length > 0 && (stage === "shell" || nestLeft === 0));
   const goStage = (stage: Stage) => {
     if (!stageOpen(stage)) return;
+    if (stage === "review" && view === "art") { setView("shell"); window.scrollTo({ top: 0 }); return; }
+    if (stage === "review" && view === "shell") { nestActions.current?.confirm(); return; }
     setView(stage);
     window.scrollTo({ top: 0 });
   };
@@ -195,7 +220,17 @@ export default function DesignStep({
   const cost = costFor(design);
   const setSelected = (id?: string) => setSelectedIds(id ? [id] : []);
 
+  const undoStack = useRef<PlacedPiece[][]>([]);
+  const [canUndo, setCanUndo] = useState(false);
+  const dragStart = useRef<PlacedPiece[] | null>(null);
+  const remember = (before: PlacedPiece[]) => {
+    undoStack.current.push(before);
+    setCanUndo(true);
+    if (undoStack.current.length > 30) undoStack.current.shift();
+  };
   const update = (pieces: PlacedPiece[]) => {
+    if (drag.current) dragStart.current ??= piecesRef.current;
+    else remember(piecesRef.current);
     piecesRef.current = pieces;
     setDesign({ ...design, pieces });
   };
@@ -212,7 +247,7 @@ export default function DesignStep({
         : [...design.pieces].reverse().find((x) => x.motif === m && MOTIFS[m].tile);
     if (origin) {
       const slot = nextPatternSlot(origin, design.pieces);
-      if (slot)
+      if (slot && shapeHit(slot.x, slot.y))
         p = {
           ...p,
           ...slot,
@@ -223,6 +258,7 @@ export default function DesignStep({
         };
     }
     p = capPiece(p, piecePearl(p, design));
+    if (!shapeHit(p.x, p.y)) p = { ...p, x: 150, y: 150 };
     update([...design.pieces, p]);
     setSelected(p.id);
   };
@@ -255,10 +291,17 @@ export default function DesignStep({
       if (hit.length) sfx.tick();
       return;
     }
+    if (dragStart.current) { remember(dragStart.current); dragStart.current = null; }
     if (d.kind !== "move" || d.origins.length !== 1) return;
     const id = d.origins[0].id;
     const pieces = piecesRef.current;
-    update(pieces.map((p) => (p.id === id ? snapToPattern(p, pieces) : p)));
+    const snapped = pieces.map((p) => {
+      if (p.id !== id) return p;
+      const candidate = snapToPattern(p, pieces);
+      return shapeHit(candidate.x, candidate.y) ? candidate : p;
+    });
+    piecesRef.current = snapped;
+    setDesign({ ...design, pieces: snapped });
   };
 
   const removeSelected = () => {
@@ -268,14 +311,22 @@ export default function DesignStep({
 
   const duplicateSelected = () => {
     if (design.pieces.length + selPieces.length > MAX_PIECES) return;
-    const copies = selPieces.map((p) => ({
-      ...p,
-      id: uid(),
-      x: Math.min(285, p.x + 22),
-      y: Math.min(285, p.y + 14),
-    }));
+    const copies = selPieces.map(p => {
+      const offset = [[22, 14], [-22, -14], [0, 0]].find(([dx, dy]) => shapeHit(p.x + dx, p.y + dy));
+      return { ...p, id: uid(), x: offset ? p.x + offset[0] : 150, y: offset ? p.y + offset[1] : 150 };
+    });
     update([...design.pieces, ...copies]);
     setSelectedIds(copies.map((c) => c.id));
+  };
+
+  const begin = () => {
+    setConfirmReplacement(false);
+    const result = onStart(readyPlan());
+    if (result.ok) { setShellMsg(null); return; }
+    sfx.fail();
+    setShellMsg(result.large
+      ? t(lang, "nest.noLarge", { name: pearlName(lang, result.missing) })
+      : t(lang, "design.shellShort", { name: pearlName(lang, result.missing), n: 1 }));
   };
 
   const capture = (e: React.PointerEvent) => {
@@ -377,6 +428,11 @@ export default function DesignStep({
       )}
       {view === "art" && (
         <>
+      <button className="demo-undo" disabled={!canUndo} onClick={() => {
+        const pieces = undoStack.current.pop();
+        setCanUndo(undoStack.current.length > 0);
+        if (pieces) { piecesRef.current = pieces; setDesign({ ...design, pieces }); setSelectedIds([]); }
+      }}>{t(lang, "nest.undo")}</button>
       <div className="workbench sketch-paper">
         <svg
           ref={svgRef}
@@ -400,6 +456,7 @@ export default function DesignStep({
                 dx = Math.max(10 - o.x, Math.min(290 - o.x, dx));
                 dy = Math.max(10 - o.y, Math.min(290 - o.y, dy));
               }
+              if (d.origins.some(o => !shapeHit(o.x + dx, o.y + dy))) return;
               const at = new Map(d.origins.map((o) => [o.id, o]));
               update(
                 piecesRef.current.map((pc) => {
@@ -621,6 +678,22 @@ export default function DesignStep({
       </div>
 
       <div className="panel flex flex-col gap-3 py-3">
+        {!commission && design.shape === "box" && <fieldset>
+          <legend className="label">{lang === "ko" ? "보석함 도안 불러오기" : "Jewel box patterns"}</legend>
+          <div className="box-patterns">
+            {BOX_PATTERNS.map(pattern => {
+              const pieces = pattern.pieces.map((piece, i) => ({ ...piece, id: `pattern-${i}` }));
+              return <button key={pattern.en} type="button" onClick={() => {
+                update(pieces.map(piece => capPiece({ ...piece, id: uid() }, piece.pearl)));
+                setSelectedIds([]);
+                svgRef.current?.scrollIntoView({ block: "center" });
+              }}>
+                <Artwork design={{ ...design, pieces }} className="pattern-preview" shimmer={false} />
+                <span>{pattern[lang]}</span>
+              </button>;
+            })}
+          </div>
+        </fieldset>}
         {!commission && (
           <div>
             <div className="label">{t(lang, "design.shape")}</div>
@@ -631,12 +704,15 @@ export default function DesignStep({
                   className={`opt-btn ${design.shape === s.id ? "on" : ""}`}
                   onClick={() => {
                     sfx.click();
-                    setDesign({ ...design, shape: s.id });
+                    const ctx = document.createElement("canvas").getContext("2d");
+                    const path = new Path2D(s.path);
+                    const pieces = design.pieces.map(p => ctx && !ctx.isPointInPath(path, p.x, p.y) ? { ...p, x: 150, y: 150 } : p);
+                    undoStack.current = [];
+                    setCanUndo(false);
+                    setDesign({ ...design, shape: s.id, pieces });
                   }}
                 >
-                  <svg viewBox="0 0 300 300" className="h-8 w-8">
-                    <path d={s.path} fill="#a77c52" />
-                  </svg>
+                  <Artwork design={{ ...design, shape: s.id, pieces: [] }} className="h-12 w-12" shimmer={false} />
                   <span>{shapeName(lang, s.id)}</span>
                 </button>
               ))}
@@ -726,7 +802,7 @@ export default function DesignStep({
         <div>
           <div className="label">{t(lang, "design.motifs", { n: design.pieces.length, max: MAX_PIECES })}</div>
           <div className="grid grid-cols-4 gap-2">
-            {SHAPE_MOTIFS.map((m) => (
+            {(cloudUnlocked ? [...SHAPE_MOTIFS, MOTIFS.cloudLine] : SHAPE_MOTIFS).map((m) => (
               <button key={m.id} className="motif-btn" onClick={() => addMotif(m.id)} title={motifMeaning(lang, m.id)}>
                 <MotifIcon motif={m.id} pearl={design.pearl} className="h-9 w-9" />
                 <span>{motifName(lang, m.id)}</span>
@@ -866,17 +942,8 @@ export default function DesignStep({
                 setTimeout(() => document.getElementById("design-lacquer")?.scrollIntoView({ block: "center" }), 0);
                 return;
               }
-              const result = onStart(readyPlan());
-              if (!result.ok) {
-                sfx.fail();
-                setShellMsg(
-                  result.large
-                    ? t(lang, "nest.noLarge", { name: pearlName(lang, result.missing) })
-                    : t(lang, "design.shellShort", { name: pearlName(lang, result.missing), n: 1 }),
-                );
-                return;
-              }
-              setShellMsg(null);
+              if (hasSavedWork) setConfirmReplacement(true);
+              else begin();
             }}
           >
             {!lacquerReady
@@ -887,6 +954,13 @@ export default function DesignStep({
           </Btn>
         )}
       </div>
+      {confirmReplacement && <Modal onClose={() => setConfirmReplacement(false)}>
+        <p>{lang === "ko" ? "이 작품을 시작하면 이어 만들던 작품을 대신합니다. 아직 자르지 않은 자개 자리는 다시 쓸 수 있습니다." : "Starting this piece will replace your saved work. Uncut shell areas can be used again."}</p>
+        <div className="mt-3 flex gap-2">
+          <Btn variant="cream" onClick={() => setConfirmReplacement(false)}>{t(lang, "common.cancel")}</Btn>
+          <Btn variant="gold" onClick={begin}>{lang === "ko" ? "새 작품 시작" : "Start new piece"}</Btn>
+        </div>
+      </Modal>}
     </div>
   );
 }

@@ -495,11 +495,12 @@ export function commitNest(input: CommitInput): CommitResult {
   return { ok: true, stock, ledger: { sheets: nextSheets }, plan, charged };
 }
 
-export function releaseReservation(ledger: ShellLedger, pieceId: string): ShellLedger {
+export function releaseReservation(ledger: ShellLedger, pieceId: string, polygonsFor?: (placement: ShellPlacement) => CrackPoint[][]): ShellLedger {
   return {
     sheets: ledger.sheets.map((sheet) => {
-      if (sheet.cutPieceIds.includes(pieceId)) return sheet;
-      return { ...sheet, placements: sheet.placements.filter((item) => item.pieceId !== pieceId) };
+      if (sheet.cutPieceIds.includes(pieceId) || !sheet.placements.some(p => p.pieceId === pieceId)) return sheet;
+      const updated = { ...sheet, placements: sheet.placements.filter((item) => item.pieceId !== pieceId) };
+      return polygonsFor ? { ...updated, status: sheetStatus(updated, polygonsFor) } : updated;
     }),
   };
 }

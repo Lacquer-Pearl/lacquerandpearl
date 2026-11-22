@@ -15,6 +15,7 @@ import {
 import { saveArtworkImage } from "@/lib/exportImage";
 import { sfx } from "@/lib/sound";
 import { useSave, useUI } from "@/lib/store";
+import { ACHIEVEMENTS, achievementHint, type Achievement } from "@/lib/workshopStory";
 
 function localizedTitle(lang: Parameters<typeof artworkTitle>[0], art: ArtworkT) {
   return artworkTitle(lang, art.design.shape, art.design.lacquer, topMotif(art.design));
@@ -23,6 +24,7 @@ function localizedTitle(lang: Parameters<typeof artworkTitle>[0], art: ArtworkT)
 export default function GalleryScreen() {
   const back = useUI((s) => s.back);
   const gallery = useSave((s) => s.gallery);
+  const achievements = useSave(s => s.achievements);
   const rep = useSave((s) => s.reputation);
   const lang = useSave((s) => s.lang);
   const [open, setOpen] = useState<ArtworkT | null>(null);
@@ -36,6 +38,11 @@ export default function GalleryScreen() {
           <div className="text-sm opacity-80">{t(lang, "gallery.of", { rank: rankTitle(lang, rep) })}</div>
           <div className="text-2xl">{t(lang, "gallery.name")}</div>
         </div>
+        <details className="seal-album">
+          <summary>{lang === "ko" ? "공방 낙관첩" : "Workshop seals"} · {achievements.length} / {Object.keys(ACHIEVEMENTS).length}</summary>
+          {(Object.keys(ACHIEVEMENTS) as Achievement[]).map(id =>
+            <p key={id}><b>{achievements.includes(id) ? "✓ " : "◇ "}{ACHIEVEMENTS[id][lang]}</b> · {achievementHint(id, lang)}</p>)}
+        </details>
         {gallery.length === 0 ? (
           <div className="panel py-10 text-center text-[var(--brown)] whitespace-pre-line">
             <div className="flex justify-center py-2">

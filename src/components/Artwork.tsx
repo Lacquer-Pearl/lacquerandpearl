@@ -1,10 +1,17 @@
 "use client";
 
-import { useId } from "react";
+import { useId, useSyncExternalStore } from "react";
 import { LACQUERS, MOTIFS, PEARLS, SHAPES, motifOutline, motifParts, type MotifId } from "@/lib/data";
 import { hasBrokenShape, pointsToPath } from "@/lib/cutFragments";
 import { piecePearl, type Design, type PlacedPiece } from "@/lib/game";
 import { NACRE_TILE, useNacreTexture } from "@/lib/nacre";
+
+const prefersReducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function subscribeMotion(listener: () => void) {
+  const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+  media.addEventListener("change", listener);
+  return () => media.removeEventListener("change", listener);
+}
 
 export type Surface = "wood" | "hemp" | "lacquer";
 
@@ -23,6 +30,7 @@ export interface ArtworkProps {
   selectedIds?: string[];
   className?: string;
   shimmer?: boolean;
+  oneShot?: boolean;
   shadow?: boolean;
   children?: React.ReactNode;
   onPiecePointerDown?: (e: React.PointerEvent, piece: PlacedPiece) => void;
@@ -137,7 +145,7 @@ export function NacreDefs({ id, pearl, scale = 1 }: { id: string; pearl: Design[
 }
 
 /** 빛이 자개 위를 비스듬히 훑고 지나가는 반사광 */
-export function SheenGradient({ id, animate = true, size = 300 }: { id: string; animate?: boolean; size?: number }) {
+export function SheenGradient({ id, animate = true, size = 300, oneShot = false }: { id: string; animate?: boolean; size?: number; oneShot?: boolean }) {
   return (
     <linearGradient
       id={id}
@@ -162,8 +170,8 @@ export function SheenGradient({ id, animate = true, size = 300 }: { id: string; 
           type="translate"
           values={`${-size} ${-size * 0.8}; ${size} ${size * 0.8}; ${size} ${size * 0.8}`}
           keyTimes="0; 0.5; 1"
-          dur="7s"
-          repeatCount="indefinite"
+          dur={oneShot ? "1.2s" : "7s"}
+          repeatCount={oneShot ? 1 : "indefinite"}
         />
       )}
     </linearGradient>
@@ -467,12 +475,15 @@ export default function Artwork({
   selectedId,
   selectedIds,
   className,
-  shimmer = true,
+  shimmer: requestedShimmer = true,
+  oneShot = false,
   shadow = true,
   children,
   onPiecePointerDown,
   svgRef,
 }: ArtworkProps) {
+  const reduceMotion = useSyncExternalStore(subscribeMotion, prefersReducedMotion, () => true);
+  const shimmer = requestedShimmer && !reduceMotion;
   const uid = useId().replace(/:/g, "");
   const shape = SHAPES[design.shape];
   const lac = LACQUERS[design.lacquer];
@@ -497,6 +508,7 @@ export default function Artwork({
     rimHi: `rh${uid}`,
   };
   const isLac = surface === "lacquer";
+  const overallDull = design.finish?.sand ? 0 : dull;
   const rimTone = darkenedRim(lac.color);
   const rimHighlight = liftedLight(lac.light);
   const pearls = [...new Set(showPieces ? list.map((p) => piecePearl(p, design)) : [])];
@@ -507,7 +519,7 @@ export default function Artwork({
         {pearls.map((pl) => (
           <NacreDefs key={pl} id={`${ids.nacre}-${pl}`} pearl={pl} />
         ))}
-        <SheenGradient id={ids.sheen} animate={shimmer} />
+        <SheenGradient id={ids.sheen} animate={shimmer} oneShot={oneShot} />
         {showPieces && list.length > 0 && (
           <>
             <MotifMasks id={ids.cuts} motifs={list.map((p) => p.motif)} />
@@ -583,8 +595,8 @@ export default function Artwork({
               type="translate"
               values="-220 -165; 220 165; 220 165"
               keyTimes="0; 0.55; 1"
-              dur="4s"
-              repeatCount="indefinite"
+              dur={oneShot ? "1.2s" : "4s"}
+              repeatCount={oneShot ? 1 : "indefinite"}
             />
           )}
         </linearGradient>
@@ -652,6 +664,10 @@ export default function Artwork({
           <feFlood floodColor="#120c08" floodOpacity="0.72" result="ink" />
           <feComposite in="ink" in2="blur" operator="in" />
         </filter>
+        <radialGradient id={`${ids.lac}-scuff`}>
+          <stop stopColor="#c4b8a9" stopOpacity=".6" />
+          <stop offset="1" stopColor="#c4b8a9" stopOpacity="0" />
+        </radialGradient>
         <clipPath id={ids.clip}>
           <path d={shape.path} />
         </clipPath>
@@ -661,6 +677,9 @@ export default function Artwork({
         <path d={shape.path} transform="translate(3 9)" fill="#1a0f0a" opacity="0.45" filter={`url(#${ids.shadow})`} />
       )}
 
+      {isLac && design.shape !== "mirror" && (
+        <path d={shape.path} transform={`translate(0 ${design.shape === "box" ? 12 : 6})`} fill={`url(#${ids.rim})`} stroke={rimTone.shadow} strokeWidth="3" />
+      )}
       <g clipPath={`url(#${ids.clip})`}>
         {surface === "wood" && (
           <>
@@ -677,10 +696,23 @@ export default function Artwork({
         {isLac && (
           <>
             <rect width="300" height="300" fill={`url(#${ids.lac})`} />
+            {design.shape === "box" && design.lacquer === "black" && <image href="/images/demo/lid.webp" x="30" y="55" width="240" height="190" preserveAspectRatio="none" />}
             <rect width="300" height="300" filter={`url(#${ids.micro})`} opacity="0.05" />
           </>
         )}
 
+        {design.finish?.creases?.map((p, i) => (
+          <g key={i} transform={`translate(${p.x} ${p.y}) rotate(${p.angle})`} opacity={0.12 + p.strength * 0.22} pointerEvents="none">
+            <path d="M0 -21 Q4 -11 0 0 T1 21" fill="none" stroke="#120e0c" strokeWidth="1.5" />
+            <path d="M1 -21 Q5 -11 1 0 T2 21" fill="none" stroke="#d5bda0" strokeWidth=".6" />
+          </g>
+        ))}
+        {isLac && [...(design.finish?.lacquer ?? []), ...(design.finish?.fill ?? [])].map((p, i) => (
+          <g key={i} transform={`translate(${p.x} ${p.y}) scale(${0.55 + p.strength})`} pointerEvents="none">
+            <path d="M0 -3 C1 0 3 5 2 8 Q0 11 -1 7 Z" fill={lac.deep} opacity=".58" />
+            <path d="M1 0 Q3 5 1.4 7" fill="none" stroke="#dfc4ae" strokeWidth=".65" opacity=".5" />
+          </g>
+        ))}
         {ghosts?.map((p) => (
           <g key={`g${p.id}`} transform={pieceTransform(p)} pointerEvents="none">
             <path d={motifOutline(p.motif)} fill="rgba(255,255,255,0.1)" stroke="rgba(20,10,5,0.5)" strokeWidth={3 / p.s} />
@@ -703,7 +735,7 @@ export default function Artwork({
                 mask={motifMask(ids.cuts, p.motif)}
                 light={pieceLight(p)}
                 s={p.s}
-                dull={dull}
+                dull={overallDull}
                 clipPrefix={`${ids.clip}-${p.id}`}
                 selected={selectedId === p.id || !!selectedIds?.includes(p.id)}
                 onPointerDown={onPiecePointerDown ? (e) => onPiecePointerDown(e, p) : undefined}
@@ -714,7 +746,7 @@ export default function Artwork({
 
         {/* 기본 광택(항상) + 훑는 직선 띠 */}
         {gloss > 0 && (
-          <g pointerEvents="none" opacity={1 - Math.min(0.55, dull)}>
+          <g pointerEvents="none" opacity={1 - Math.min(0.55, overallDull)}>
             <path d={shape.path} fill={`url(#${ids.lac}-base)`} />
             <path d={shape.path} fill={`url(#${ids.lac}-brShade)`} />
             <path d={shape.path} fill={`url(#${ids.lac}-rimLight)`} />
@@ -733,7 +765,7 @@ export default function Artwork({
                 height="300"
                 fill={`url(#${ids.sheen})`}
                 mask={`url(#${ids.pieceMask})`}
-                opacity={0.42 * gloss * (1 - Math.min(0.7, dull))}
+                opacity={0.42 * gloss * (1 - Math.min(0.7, overallDull))}
               />
             )}
           </g>
@@ -744,10 +776,17 @@ export default function Artwork({
             height="300"
             fill={`url(#${ids.sheen})`}
             mask={`url(#${ids.pieceMask})`}
-            opacity={0.38 * (1 - Math.min(0.8, dull))}
+            opacity={0.38 * (1 - Math.min(0.8, overallDull))}
             pointerEvents="none"
           />
         )}
+        {isLac && design.finish?.unpolished && <path d={design.finish.unpolished} fill={lac.color} opacity=".68" filter={`url(#${ids.soft})`} pointerEvents="none" />}
+        {isLac && design.finish?.iron?.map((p, i) => (
+          <ellipse key={i} cx={p.x} cy={p.y} rx={5 + 7 * p.strength} ry="5" fill="#704026" opacity={0.18 + 0.24 * p.strength} pointerEvents="none" />
+        ))}
+        {isLac && design.finish?.sand?.map((p, i) => (
+          <ellipse key={i} cx={p.x} cy={p.y} rx={8 + 12 * p.strength} ry={5 + 8 * p.strength} fill={`url(#${ids.lac}-scuff)`} pointerEvents="none" />
+        ))}
         <path
           d={shape.path}
           fill="none"
@@ -779,6 +818,16 @@ export default function Artwork({
           pointerEvents="none"
         />
       )}
+      {isLac && design.shape === "box" && <g pointerEvents="none">
+        <path d="M138 247 Q150 245 162 247 L160 251 Q150 254 140 251 Z" fill="#8c7350" stroke="#342b20" strokeWidth=".8" />
+        <path d="M140 247.5 Q150 246.2 160 247.5" fill="none" stroke="#d9c396" strokeWidth=".65" />
+        <circle cx="150" cy="249.7" r="1.2" fill="#3a3028" />
+      </g>}
+      {isLac && design.shape === "tray" && <path d={shape.path} transform="translate(150 150) scale(.89) translate(-150 -150)" fill="none" stroke={rimHighlight} strokeOpacity=".48" strokeWidth="2" pointerEvents="none" />}
+      {isLac && design.shape === "mirror" && <g fill="none" pointerEvents="none">
+        <circle cx="150" cy="280" r="3" stroke="#b7a078" strokeWidth="1.4" />
+        <path d="M150 282 Q143 300 153 297 Q159 295 151 282" stroke="#83443d" strokeWidth="1.6" />
+      </g>}
       {children}
     </svg>
   );
