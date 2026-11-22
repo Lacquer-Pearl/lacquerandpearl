@@ -32,7 +32,7 @@ export interface ArtworkProps {
   selectedIds?: string[];
   className?: string;
   shimmer?: boolean;
-  oneShot?: boolean;
+  showcase?: boolean;
   shadow?: boolean;
   children?: React.ReactNode;
   onPiecePointerDown?: (e: React.PointerEvent, piece: PlacedPiece) => void;
@@ -146,8 +146,31 @@ export function NacreDefs({ id, pearl, scale = 1 }: { id: string; pearl: Design[
   );
 }
 
+/** 완성품을 비추는 하나의 창빛을 옻면과 자개가 함께 반사합니다. */
+function ShowcaseReflection() {
+  return (
+    <animateTransform
+      attributeName="gradientTransform"
+      type="translate"
+      values="-95 -70; 95 70; -95 -70"
+      keyTimes="0; 0.5; 1"
+      calcMode="spline"
+      keySplines="0.42 0 0.58 1; 0.42 0 0.58 1"
+      dur="8s"
+      repeatCount="indefinite"
+    />
+  );
+}
+
 /** 빛이 자개 위를 비스듬히 훑고 지나가는 반사광 */
-export function SheenGradient({ id, animate = true, size = 300, oneShot = false }: { id: string; animate?: boolean; size?: number; oneShot?: boolean }) {
+export function SheenGradient({
+  id, animate = true, size = 300, showcase = false,
+}: {
+  id: string;
+  animate?: boolean;
+  size?: number;
+  showcase?: boolean;
+}) {
   return (
     <linearGradient
       id={id}
@@ -166,14 +189,15 @@ export function SheenGradient({ id, animate = true, size = 300, oneShot = false 
       <stop offset="0.54" stopColor="#d4c4e0" stopOpacity="0.26" />
       <stop offset="0.6" stopColor="#c8b8c4" stopOpacity="0" />
       <stop offset="1" stopColor="#f2f0ec" stopOpacity="0" />
-      {animate && (
+      {animate && showcase && <ShowcaseReflection />}
+      {animate && !showcase && (
         <animateTransform
           attributeName="gradientTransform"
           type="translate"
           values={`${-size} ${-size * 0.8}; ${size} ${size * 0.8}; ${size} ${size * 0.8}`}
           keyTimes="0; 0.5; 1"
-          dur={oneShot ? "1.2s" : "7s"}
-          repeatCount={oneShot ? 1 : "indefinite"}
+          dur="7s"
+          repeatCount="indefinite"
         />
       )}
     </linearGradient>
@@ -478,7 +502,7 @@ export default function Artwork({
   selectedIds,
   className,
   shimmer: requestedShimmer = true,
-  oneShot = false,
+  showcase = false,
   shadow = true,
   children,
   onPiecePointerDown,
@@ -511,6 +535,7 @@ export default function Artwork({
   };
   const isLac = surface === "lacquer";
   const overallDull = design.finish?.sand ? 0 : dull;
+  const reflectedLight = showcase && gloss > 0 ? 0.18 + 0.82 * gloss : gloss;
   const rimTone = darkenedRim(lac.color);
   const rimHighlight = liftedLight(lac.light);
   const pearls = [...new Set(showPieces ? list.map((p) => piecePearl(p, design)) : [])];
@@ -521,7 +546,7 @@ export default function Artwork({
         {pearls.map((pl) => (
           <NacreDefs key={pl} id={`${ids.nacre}-${pl}`} pearl={pl} />
         ))}
-        <SheenGradient id={ids.sheen} animate={shimmer} oneShot={oneShot} />
+        <SheenGradient id={ids.sheen} animate={shimmer} showcase={showcase} />
         {showPieces && list.length > 0 && (
           <>
             <MotifMasks id={ids.cuts} motifs={list.map((p) => p.motif)} />
@@ -586,19 +611,20 @@ export default function Artwork({
         >
           <stop offset="0" stopColor="#faf7f2" stopOpacity="0" />
           <stop offset="0.38" stopColor="#faf7f2" stopOpacity="0" />
-          <stop offset="0.44" stopColor="#faf7f2" stopOpacity={0.06 * gloss} />
-          <stop offset="0.5" stopColor="#faf8f4" stopOpacity={0.18 * gloss} />
-          <stop offset="0.56" stopColor="#faf7f2" stopOpacity={0.06 * gloss} />
+          <stop offset="0.44" stopColor="#faf7f2" stopOpacity={0.06 * reflectedLight} />
+          <stop offset="0.5" stopColor="#faf8f4" stopOpacity={0.18 * reflectedLight} />
+          <stop offset="0.56" stopColor="#faf7f2" stopOpacity={0.06 * reflectedLight} />
           <stop offset="0.62" stopColor="#faf7f2" stopOpacity="0" />
           <stop offset="1" stopColor="#faf7f2" stopOpacity="0" />
-          {shimmer && gloss > 0 && (
+          {shimmer && gloss > 0 && showcase && <ShowcaseReflection />}
+          {shimmer && gloss > 0 && !showcase && (
             <animateTransform
               attributeName="gradientTransform"
               type="translate"
               values="-220 -165; 220 165; 220 165"
               keyTimes="0; 0.55; 1"
-              dur={oneShot ? "1.2s" : "4s"}
-              repeatCount={oneShot ? 1 : "indefinite"}
+              dur="4s"
+              repeatCount="indefinite"
             />
           )}
         </linearGradient>
@@ -767,7 +793,7 @@ export default function Artwork({
                 height="300"
                 fill={`url(#${ids.sheen})`}
                 mask={`url(#${ids.pieceMask})`}
-                opacity={0.42 * gloss * (1 - Math.min(0.7, overallDull))}
+                opacity={0.42 * reflectedLight * (1 - Math.min(0.7, overallDull))}
               />
             )}
           </g>

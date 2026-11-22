@@ -105,7 +105,7 @@ function ArtDetail({ art, onClose }: { art: ArtworkT; onClose: () => void }) {
     <Modal onClose={onClose}>
       <div className="flex flex-col gap-3">
         <div className="display-silk">
-          <Artwork svgRef={svgRef} design={art.design} gloss={art.gloss} dull={art.dull} className="aspect-square w-full" />
+          <Artwork svgRef={svgRef} design={art.design} showcase gloss={art.gloss} dull={art.dull} className="aspect-square w-full" />
         </div>
         <div className="text-center">
           <h3 className="step-title">{title}</h3>

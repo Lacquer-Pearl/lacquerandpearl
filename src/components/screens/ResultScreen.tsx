@@ -105,7 +105,7 @@ export default function ResultScreen() {
       <div className="screen-body">
         <div className="display-silk demo-display relative overflow-hidden">
 
-          <Artwork svgRef={svgRef} design={art.design} oneShot gloss={art.gloss} dull={art.dull} className="reveal aspect-square w-full" />
+          <Artwork svgRef={svgRef} design={art.design} showcase gloss={art.gloss} dull={art.dull} className="reveal aspect-square w-full" />
           <div className="grade-seal stamp-in" style={{ background: g.color }}>
             <div className="text-4xl leading-none">{art.grade}</div>
             <div className="text-xs">{label}</div>
