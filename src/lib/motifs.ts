@@ -4,7 +4,7 @@
 
 import {
   asanohaHex,
-  CLOUD_OUTLINE,
+  CLOUD_INLAY,
   cloudLine,
   grapeLeaf,
   grapes,
@@ -65,6 +65,8 @@ export interface MotifDef {
   meaning: string;
   /** 면으로 오린 조각들 (하위 경로마다 한 조각, 없으면 빈 문자열) */
   path: string;
+  /** 따로 오린 면마다 돌려 놓은 자개 결의 각도 (path의 조각 순서) */
+  grainAngles?: readonly number[];
   /** 가늘게 켠 자개 띠로 붙이는 선 */
   strokes?: Stroke[];
   /** 자르기 미니게임용 단일 외곽선 (없으면 path 사용) */
@@ -229,21 +231,6 @@ const CRANE2_CUTS =
   "M27.2 -1.2 L18 -0.6 M26.4 1.4 L17 1.4 M24.6 3.6 L16 3 M21.8 5.4 L14.6 4.2 M18.4 6.6 L13 5 " +
   "M8.4 -0.8 q1.4 1.4 2.8 0 q1.4 1.4 2.8 0 q1.4 1.4 2.8 0 M6 4 L12.6 6.6 M-20 0.8 C-16 2.4 -12 3 -9 3.2";
 
-/* ───────── 구름: 여의두형 구름머리 안의 되감기는 홈과 길게 빠지는 꼬리 ───────── */
-
-const CLOUD_ENGRAVING = [
-  // 옆 봉우리 밑에서 중앙 봉우리 안으로 돌아 들어가는 한 줄의 칼길.
-  "M-27 1.1 C-26.5 -3.4 -22.4 -5.6 -18.9 -3.9 C-16.5 -2.8 -16.3 -0.3 -17.6 0.8 " +
-    "C-17.2 -0.6 -18 -2.1 -19.7 -2.6 C-22.6 -3.6 -25.1 -1.9 -27 1.1 Z",
-  "M-22.4 5.6 C-16.3 8.8 -11.4 5.5 -9.1 2.2 C-7 -0.8 -10.7 -3.1 -13.1 -2 " +
-    "C-13.2 -6.4 -10.3 -10.2 -6.2 -9.8 C-3.4 -9.6 -2.2 -7.9 -1.6 -6.2 " +
-    "C-4.9 -10 -11.1 -9.2 -12 -4.3 Q-12.2 -3.7 -11.4 -3.6 C-8 -3.6 -6.2 -0.4 -8.2 2.6 " +
-    "C-10.5 6.9 -16.8 10.2 -22.4 5.6 Z",
-  // 꼬리 쪽의 선은 옻 바탕으로 열려 끝난다.
-  "M-3 3.9 C0.8 1.6 3 -1.1 7.4 -1.8 C13 -2.7 16.7 0.1 22.4 -1 " +
-    "C17.1 1.1 12.4 -1.4 7.6 -0.8 C3.4 -0.4 0.3 2.7 -3 3.9 Z",
-].join(" ");
-
 const plum = plumCuts();
 const geo = asanohaHex();
 /** public/motifs/kiku-unit.png — 원본 좌우 절반을 패턴 1단위로 사용 */
@@ -307,8 +294,7 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
     kind: "shape",
     name: "구름",
     meaning: "장수",
-    path: CLOUD_OUTLINE,
-    holes: CLOUD_ENGRAVING,
+    ...CLOUD_INLAY,
     cutting: cutting("geometry", "jul"),
   },
   peony: pngShape("peony", "모란", "부귀", cutting("outer-silhouette", "jul")),
