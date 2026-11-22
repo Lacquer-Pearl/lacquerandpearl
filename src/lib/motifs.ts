@@ -4,12 +4,10 @@
 
 import {
   asanohaHex,
-  CLOUD_INLAY,
   cloudLine,
   grapeLeaf,
   grapes,
   mountain,
-  rock,
   vine,
   type Pt,
   type Stroke,
@@ -65,8 +63,6 @@ export interface MotifDef {
   meaning: string;
   /** 면으로 오린 조각들 (하위 경로마다 한 조각, 없으면 빈 문자열) */
   path: string;
-  /** 따로 오린 면마다 돌려 놓은 자개 결의 각도 (path의 조각 순서) */
-  grainAngles?: readonly number[];
   /** 가늘게 켠 자개 띠로 붙이는 선 */
   strokes?: Stroke[];
   /** 자르기 미니게임용 단일 외곽선 (없으면 path 사용) */
@@ -243,7 +239,6 @@ const KIKU_STAMP = {
 } as const;
 const cloud2 = cloudLine();
 const mtn = mountain();
-const rk = rock();
 const vn = vine();
 const gl = grapeLeaf();
 const gr = grapes();
@@ -289,14 +284,7 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
     detailWidth: 0.34,
     cutting: cutting("geometry", "jul"),
   },
-  cloud: {
-    id: "cloud",
-    kind: "shape",
-    name: "구름",
-    meaning: "장수",
-    ...CLOUD_INLAY,
-    cutting: cutting("geometry", "jul"),
-  },
+  cloud: pngShape("cloud", "구름", "장수", cutting("outer-silhouette", "jul")),
   peony: pngShape("peony", "모란", "부귀", cutting("outer-silhouette", "jul")),
   crane: {
     id: "crane",
@@ -375,14 +363,7 @@ export const MOTIFS: Record<MotifId, MotifDef> = {
     ...mtn,
     cutting: cutting("geometry", "kkeun"),
   },
-  rock: {
-    id: "rock",
-    kind: "shape",
-    name: "바위",
-    meaning: "불변",
-    ...rk,
-    cutting: cutting("geometry", "jul"),
-  },
+  rock: pngShape("rock", "바위", "불변", cutting("outer-silhouette", "jul")),
   wave: pngShape("wave", "물결", "평안", cutting("geometry", "jul")),
   vine: {
     id: "vine",

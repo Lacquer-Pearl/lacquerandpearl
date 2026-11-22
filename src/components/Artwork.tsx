@@ -275,20 +275,9 @@ export function NacrePiece({
   const tint = light > 0 ? "#fffaf0" : "#120b08";
   const tintOpacity = Math.abs(light) * (light > 0 ? 0.07 : 0.1);
   const joint = 0.38 / s;
-  const grainAngles = MOTIFS[motif].grainAngles;
   const stampMask = stamp ? `nps${uid}` : undefined;
   return (
     <g mask={mask}>
-      {grainAngles && (
-        <defs>
-          {grainAngles.map((angle, i) => (
-            <pattern key={i} id={`${uid}-grain-${i}`} patternUnits="userSpaceOnUse"
-              x="-64" y="-64" width="128" height="128" viewBox="-64 -64 128 128" patternTransform={`rotate(${angle})`}>
-              <rect x="-64" y="-64" width="128" height="128" fill={fill} />
-            </pattern>
-          ))}
-        </defs>
-      )}
       {stamp && (
         <defs>
           <mask id={stampMask} maskUnits="userSpaceOnUse" mask-type="alpha" x={stamp.x} y={stamp.y} width={stamp.w} height={stamp.h}>
@@ -335,7 +324,7 @@ export function NacrePiece({
       )}
       {motifParts(motif).map((d, i) => (
         <g key={i}>
-          <path d={d} fill={grainAngles?.[i] !== undefined ? `url(#${uid}-grain-${i})` : fill} onPointerDown={onPointerDown} style={style} />
+          <path d={d} fill={fill} onPointerDown={onPointerDown} style={style} />
           {light !== 0 && <path d={d} fill={tint} opacity={tintOpacity} pointerEvents="none" />}
           {dull > 0 && <path d={d} fill="#a9a199" opacity={Math.min(0.75, dull)} pointerEvents="none" />}
           <path d={d} fill="none" stroke="#0a0608" strokeOpacity="0.38" strokeWidth={joint} pointerEvents="none" />
