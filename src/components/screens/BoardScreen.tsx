@@ -1,7 +1,5 @@
 "use client";
 
-import WorkshopNav from "@/components/WorkshopNav";
-
 import { useEffect } from "react";
 import Artwork from "@/components/Artwork";
 import Avatar from "@/components/Avatar";
@@ -32,7 +30,6 @@ export default function BoardScreen() {
   return (
     <div className="screen">
       <TopBar title={t(lang, "board.title")} onBack={() => go("title")} />
-      <WorkshopNav />
       <div className="screen-body">
         <StoryCommission />
         <p className="panel text-sm leading-relaxed text-[var(--brown)]">{t(lang, "board.repHint")}</p>

@@ -1,7 +1,5 @@
 "use client";
 
-import WorkshopNav from "@/components/WorkshopNav";
-
 import { useRef, useState } from "react";
 import Artwork from "@/components/Artwork";
 import UiIcon from "@/components/UiIcon";
@@ -35,7 +33,6 @@ export default function GalleryScreen() {
   return (
     <div className="screen">
       <TopBar title={t(lang, "gallery.title")} onBack={back} />
-      <WorkshopNav />
       <div className="screen-body">
         <div className="workshop-sign">
           <div className="text-sm opacity-80">{t(lang, "gallery.of", { rank: rankTitle(lang, rep) })}</div>
