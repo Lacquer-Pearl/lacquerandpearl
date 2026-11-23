@@ -147,6 +147,12 @@ const PENTA = [293.66, 329.63, 392, 440, 493.88, 587.33, 659.25, 783.99, 880];
 
 export const sfx = {
   click: () => tone(720, { type: "sine", dur: 0.08, vol: 0.18, slide: 300 }),
+  knock: () => {
+    for (const delay of [0, 0.29]) {
+      tone(165, { type: "triangle", slide: -62, dur: 0.11, vol: 0.22, delay });
+      tone(510, { slide: -170, dur: 0.035, vol: 0.085, delay });
+    }
+  },
   pop: () => tone(520, { type: "triangle", dur: 0.12, vol: 0.22, slide: 500 }),
   place: () => {
     tone(880, { type: "sine", dur: 0.12, vol: 0.18 });
