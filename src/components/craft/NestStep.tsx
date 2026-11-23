@@ -39,6 +39,7 @@ import {
   type ShellSize,
   type ShellStock,
 } from "@/lib/shellNest";
+import BenchLayout from "./BenchLayout";
 import { StepHeader } from "./common";
 import { toolLift } from "./craftTouch";
 
@@ -150,6 +151,7 @@ export default function NestStep({
   onChange,
   onConfirm,
   embedded = false,
+  toolsHeading, progressHeading, nextAction,
   confirmLabel,
   actionRef,
   onStatus,
@@ -166,6 +168,9 @@ export default function NestStep({
   onConfirm: (plan: ShellPlan) => { ok: true } | { ok: false; missing: PearlId; large?: boolean };
   /** 디자인 단계 안에 넣을 때 제목은 바깥에서 보여 준다. */
   embedded?: boolean;
+  toolsHeading?: React.ReactNode;
+  progressHeading?: React.ReactNode;
+  nextAction?: React.ReactNode;
   confirmLabel?: string;
   actionRef?: RefObject<NestActions | null>;
   onStatus?: (status: NestStatus) => void;
@@ -537,451 +542,463 @@ export default function NestStep({
   const ghostBox = ghostPiece ? motifLocalBox(ghostPiece.motif) : null;
 
   return (
-    <div className="flex flex-col gap-3" data-nest-step="1">
-      {!embedded && (
-        <StepHeader title={t(lang, "nest.title")} icon="cutter">
-          {t(lang, "nest.tip")}
-        </StepHeader>
-      )}
-      {legacyPrepaid && <p className="panel py-2 text-sm text-[var(--brown)]">{t(lang, "nest.legacy")}</p>}
-      <div className="panel nest-stock py-2">
-        <div className="nest-stock-pick">
-          {selectPearls.map((kind) => {
-            const ordered = orderPearl === kind;
-            return (
-              <button
-                key={kind}
-                type="button"
-                className={`nest-stock-pearl ${kind === pearl ? "on" : ""} ${ordered ? "ordered" : ""}`}
-                onClick={() => {
-                  sfx.click();
-                  setPearl(kind);
-                }}
-              >
-                <NacreSwatch pearl={kind} className="swatch lg shrink-0" />
-                <span className="nest-stock-pearl-text">
-                  {pearlName(lang, kind)}
-                  {ordered && <small>{t(lang, "nest.orderPearl")}</small>}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-        <div className="nest-stock-row">
-          {(
-            [
-              {
-                key: "standard" as const,
-                label: "nest.stockStd",
-                owned: ownedStd,
-                using: usingStd,
-                reused: reusedStd,
-                fresh: freshStd,
-                need: needBuyStandard,
-                material: PEARLS[pearl].material,
-              },
-              {
-                key: "large" as const,
-                label: "nest.stockLarge",
-                owned: ownedLarge,
-                using: usingLarge,
-                reused: reusedLarge,
-                fresh: freshLarge,
-                need: needBuyLarge,
-                material: PEARLS[pearl].largeMaterial,
-              },
-            ] as const
-          ).map((cell) => (
-            <div key={cell.key} className={`nest-stock-cell ${cell.need ? "lack" : ""}`}>
-              <div className="nest-stock-cell-main">
-                <span className="nest-stock-label">{t(lang, cell.label)}</span>
-                <span className="nest-stock-num">{t(lang, "nest.stockCount", { n: cell.owned })}</span>
-                <span className="nest-stock-using">
-                  {t(lang, "nest.inUseDetail", { n: cell.using })}
-                  <br />
-                  {t(lang, "nest.inUseSplit", { reused: cell.reused, fresh: cell.fresh })}
-                </span>
-              </div>
-              {!legacyPrepaid && (
-                <button
-                  type="button"
-                  className={`nest-buy ${cell.need ? "on cta-glow" : ""}`}
-                  disabled={money < MATERIALS[cell.material].price}
-                  onClick={() => {
-                    if (buy(cell.material)) sfx.coin();
-                    else sfx.fail();
-                  }}
-                >
-                  +{MATERIALS[cell.material].pack} · <Coin /> {MATERIALS[cell.material].price}
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="flex flex-wrap gap-1">
-        {visible.map((sheet, index) => (
-          <Btn key={sheet.id} size="sm" variant={sheet.id === active?.id ? "gold" : "cream"} onClick={() => setActiveId(sheet.id)}>
-            {t(lang, sheetSize(sheet) === "large" ? "nest.sheetLarge" : "nest.sheet", { n: index + 1 })}
-          </Btn>
-        ))}
-        <Btn
-          size="sm"
-          variant={needOpenStandard ? "gold" : "cream"}
-          className={needOpenStandard ? "cta-glow" : ""}
-          disabled={roomStd <= 0}
-          onClick={() => openSheet("standard")}
-        >
-          {t(lang, "nest.newSheet")}
-        </Btn>
-        <Btn
-          size="sm"
-          variant={needOpenLarge ? "gold" : "cream"}
-          className={needOpenLarge ? "cta-glow" : ""}
-          disabled={roomLarge <= 0}
-          onClick={() => openSheet("large")}
-        >
-          {t(lang, "nest.newLarge")}
-        </Btn>
-      </div>
-      {notice && <p role="status" className="demo-hint">{notice}</p>}
-      <div ref={benchRef} className="workbench overflow-auto" style={{ maxHeight: 440 }}>
-        {shown ? (
-          <svg
-            ref={svgRef}
-            viewBox={`0 0 ${shown.width} ${shown.height}`}
-            style={{ width: `${Math.round(zoom * 100)}%`, height: "auto", touchAction: "none" }}
-            onPointerMove={(e) => {
-              if (!drag) return;
-              const point = pointOf(e);
-              if (!point) return;
-              if (drag.kind === "move") {
-                setDrag({ ...drag, x: point.x + drag.dx, y: point.y + drag.dy });
-                return;
-              }
-              const ang = angleAt(drag.cx, drag.cy, point.x, point.y);
-              let liveR = drag.startR + (ang - drag.startAngle);
-              liveR = ((liveR % 360) + 360) % 360;
-              setDrag({ ...drag, liveR: +liveR.toFixed(1) });
-            }}
-            onPointerUp={() => {
-              if (!drag) return;
-              const current = placements.find((item) => item.pieceId === drag.id);
-              const next = drag;
-              setDrag(null);
-              if (!current) return;
-              if (next.kind === "move") moveTo(next.id, next.x, next.y, current.r);
-              else moveTo(next.id, current.x, current.y, next.liveR);
-            }}
-            onPointerCancel={() => setDrag(null)}
-          >
-            <rect width={shown.width} height={shown.height} rx="6" fill={PEARLS[pearl].stops[0]} stroke="#5c4030" strokeWidth="1.5" />
-            {shown.placements.map((item) => {
-              const moving = drag?.kind === "move" && drag.id === item.pieceId;
-              const rotating = drag?.kind === "rotate" && drag.id === item.pieceId;
-              const x = moving ? drag.x : item.x;
-              const y = moving ? drag.y : item.y;
-              const r = rotating ? drag.liveR : item.r;
-              const cut = cutIds.has(item.pieceId);
-              const motif = item.motifId as MotifId;
-              const stamp = MOTIFS[motif].stamp;
-              return (
-                <g
-                  key={item.pieceId}
-                  data-nest-keep-select=""
-                  transform={`translate(${x} ${y}) rotate(${r}) scale(${item.s})`}
-                  opacity={cut ? 0.38 : 1}
-                >
-                  <g pointerEvents="none">
-                    <MotifSilhouette motif={motif} color={selected === item.pieceId ? "#8d5a32" : "#f4efe4"} />
-                    <path
-                      d={motifOutline(motif)}
-                      fill="none"
-                      stroke={selected === item.pieceId ? "#4a2c1a" : "#6b4e3a"}
-                      strokeWidth={0.7}
-                    />
-                  </g>
-                  {/* 마스크 rect·두꺼운 stroke가 아니라 실제 윤곽만 집는다 (디자인 화면과 동일) */}
-                  <path
-                    d={motifOutline(motif)}
-                    fill="transparent"
-                    stroke="transparent"
-                    strokeWidth={stamp ? 2.4 / item.s : 0}
-                    style={{ pointerEvents: cut ? "none" : "auto", cursor: cut ? "default" : "grab" }}
-                    onPointerDown={(e) => {
-                      if (cut) return;
-                      e.stopPropagation();
-                      const point = pointOf(e);
-                      setSelected(item.pieceId);
-                      setDrag({
-                        kind: "move",
-                        id: item.pieceId,
-                        x: item.x,
-                        y: item.y,
-                        dx: item.x - (point?.x ?? item.x),
-                        dy: item.y - (point?.y ?? item.y),
-                      });
-                      try {
-                        svgRef.current?.setPointerCapture(e.pointerId);
-                      } catch {
-                        // 포인터를 붙잡지 못해도 시트 안에서는 그대로 따라간다.
-                      }
-                    }}
-                  />
-                </g>
-              );
-            })}
-            {selectedPlacement &&
-              selectedPlacement.sheetId === shown.id &&
-              !cutIds.has(selectedPlacement.pieceId) &&
-              (() => {
-                const live =
-                  drag?.kind === "move" && drag.id === selectedPlacement.pieceId
-                    ? { ...selectedPlacement, x: drag.x, y: drag.y }
-                    : drag?.kind === "rotate" && drag.id === selectedPlacement.pieceId
-                      ? { ...selectedPlacement, r: drag.liveR }
-                      : selectedPlacement;
+    <div data-nest-step="1">
+      <BenchLayout
+        tools={<>
+          {toolsHeading}
+          {!embedded && (
+            <StepHeader title={t(lang, "nest.title")} icon="cutter">
+              {t(lang, "nest.tip")}
+            </StepHeader>
+          )}
+          {legacyPrepaid && <p className="panel py-2 text-sm text-[var(--brown)]">{t(lang, "nest.legacy")}</p>}
+          <div className="panel nest-stock py-2">
+            <div className="nest-stock-pick">
+              {selectPearls.map((kind) => {
+                const ordered = orderPearl === kind;
                 return (
-                  <NestRotateChrome
-                    placement={live}
-                    keepSelect
-                    onRotateStart={(e) => {
-                      e.stopPropagation();
-                      const point = pointOf(e);
-                      if (!point) return;
-                      setSelected(selectedPlacement.pieceId);
-                      setDrag({
-                        kind: "rotate",
-                        id: selectedPlacement.pieceId,
-                        cx: live.x,
-                        cy: live.y,
-                        startAngle: angleAt(live.x, live.y, point.x, point.y),
-                        startR: live.r,
-                        liveR: live.r,
-                      });
-                      sfx.tick();
-                      try {
-                        svgRef.current?.setPointerCapture(e.pointerId);
-                      } catch {
-                        // 붙잡지 못해도 시트 안 이동으로 각도를 따른다.
-                      }
+                  <button
+                    key={kind}
+                    type="button"
+                    className={`nest-stock-pearl ${kind === pearl ? "on" : ""} ${ordered ? "ordered" : ""}`}
+                    onClick={() => {
+                      sfx.click();
+                      setPearl(kind);
                     }}
-                  />
+                  >
+                    <NacreSwatch pearl={kind} className="swatch lg shrink-0" />
+                    <span className="nest-stock-pearl-text">
+                      {pearlName(lang, kind)}
+                      {ordered && <small>{t(lang, "nest.orderPearl")}</small>}
+                    </span>
+                  </button>
                 );
-              })()}
-          </svg>
-        ) : (
-          <p className="flex aspect-[3/2] items-center justify-center p-4 text-center text-sm text-[var(--cream)]">{t(lang, "nest.empty")}</p>
-        )}
-      </div>
-      <div className="text-sm text-[var(--cream)]">
-        <div className="mb-1">{shown ? t(lang, "nest.free", { n: free }) : "\u00a0"}</div>
-        <Meter value={free / 100} color="var(--gold)" />
-      </div>
-      <div className="nest-tray">
-        {waiting.length > 0 ? (
-          <>
-            <span className="nest-tray-label">{t(lang, "nest.dragHint")}</span>
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {waiting.map((piece) => (
-                <button
-                  key={piece.id}
-                  type="button"
-                  data-nest-keep-select=""
-                  aria-label={motifName(lang, piece.motif)}
-                  className={`tray-piece nest-tray-piece shrink-0 ${selected === piece.id ? "ring-2 ring-[var(--gold-deep)]" : ""}`}
-                  onPointerDown={(e) => {
-                    if (trayDrag) return;
-                    try {
-                      e.currentTarget.setPointerCapture(e.pointerId);
-                    } catch {
-                      // 붙잡지 못하면 탭 선택만 된다.
-                    }
-                    setSelected(piece.id);
-                    const box = svgRef.current?.getBoundingClientRect();
-                    setTrayDrag({
-                      id: piece.id,
-                      pointerId: e.pointerId,
-                      sx: e.clientX,
-                      sy: e.clientY,
-                      x: e.clientX,
-                      y: e.clientY,
-                      moving: false,
-                      unit: box && active ? box.width / active.width : 1.6,
-                    });
-                  }}
-                  onPointerMove={(e) => {
-                    if (!trayDrag || e.pointerId !== trayDrag.pointerId) return;
-                    const moving = trayDrag.moving || Math.hypot(e.clientX - trayDrag.sx, e.clientY - trayDrag.sy) > 8;
-                    setTrayDrag({ ...trayDrag, x: e.clientX, y: e.clientY, moving });
-                  }}
-                  onPointerUp={(e) => {
-                    if (!trayDrag || e.pointerId !== trayDrag.pointerId) return;
-                    const done = { ...trayDrag, x: e.clientX, y: e.clientY };
-                    setTrayDrag(null);
-                    if (done.moving) dropTray(done);
-                  }}
-                  onPointerCancel={() => setTrayDrag(null)}
-                >
-                  <MotifIcon motif={piece.motif} className="h-10 w-10" />
-                  {tooBig(piece.id) && <span className="nest-tray-badge">{t(lang, "nest.largeBadge")}</span>}
-                </button>
+              })}
+            </div>
+            <div className="nest-stock-row">
+              {(
+                [
+                  {
+                    key: "standard" as const,
+                    label: "nest.stockStd",
+                    owned: ownedStd,
+                    using: usingStd,
+                    reused: reusedStd,
+                    fresh: freshStd,
+                    need: needBuyStandard,
+                    material: PEARLS[pearl].material,
+                  },
+                  {
+                    key: "large" as const,
+                    label: "nest.stockLarge",
+                    owned: ownedLarge,
+                    using: usingLarge,
+                    reused: reusedLarge,
+                    fresh: freshLarge,
+                    need: needBuyLarge,
+                    material: PEARLS[pearl].largeMaterial,
+                  },
+                ] as const
+              ).map((cell) => (
+                <div key={cell.key} className={`nest-stock-cell ${cell.need ? "lack" : ""}`}>
+                  <div className="nest-stock-cell-main">
+                    <span className="nest-stock-label">{t(lang, cell.label)}</span>
+                    <span className="nest-stock-num">{t(lang, "nest.stockCount", { n: cell.owned })}</span>
+                    <span className="nest-stock-using">
+                      {t(lang, "nest.inUseDetail", { n: cell.using })}
+                      <br />
+                      {t(lang, "nest.inUseSplit", { reused: cell.reused, fresh: cell.fresh })}
+                    </span>
+                  </div>
+                  {!legacyPrepaid && (
+                    <button
+                      type="button"
+                      className={`nest-buy ${cell.need ? "on cta-glow" : ""}`}
+                      disabled={money < MATERIALS[cell.material].price}
+                      onClick={() => {
+                        if (buy(cell.material)) sfx.coin();
+                        else sfx.fail();
+                      }}
+                    >
+                      +{MATERIALS[cell.material].pack} · <Coin /> {MATERIALS[cell.material].price}
+                    </button>
+                  )}
+                </div>
               ))}
             </div>
-          </>
-        ) : (
-          <span className="nest-tray-label">{design.pieces.length ? t(lang, "nest.trayEmpty") : "\u00a0"}</span>
-        )}
-      </div>
-      <div className="nest-piece-bar-slot">
-        {selectedPiece && (
-          <div
-            className="nest-piece-bar"
-            data-nest-keep-select=""
-            role="toolbar"
-            aria-label={motifName(lang, selectedPiece.motif)}
-          >
-            <div className="nest-piece-bar-head">
-              <MotifIcon motif={selectedPiece.motif} className="h-6 w-6" />
-              {motifName(lang, selectedPiece.motif)}
-            </div>
-            <div className="nest-piece-bar-actions">
-              <Btn
-                size="sm"
-                variant="cream"
-                disabled={selectedPiece.kind !== "placed"}
-                onClick={() => {
-                  if (selectedPiece.kind !== "placed") return;
-                  const { placement } = selectedPiece;
-                  moveTo(placement.pieceId, placement.x, placement.y, 0);
-                }}
-              >
-                {t(lang, "nest.resetRotation")}
-              </Btn>
-              <Btn
-                size="sm"
-                variant="cream"
-                onClick={() => {
-                  const prev = history.current.pop();
-                  if (!prev) return;
-                  setSheets(prev.sheets);
-                  setPlacements(prev.placements);
-                  sfx.click();
-                }}
-              >
-                {t(lang, "nest.undo")}
-              </Btn>
-              <Btn
-                size="sm"
-                variant="cream"
-                className="nest-piece-bar-turn"
-                aria-label={t(lang, "nest.turnL")}
-                title="-15°"
-                disabled={selectedPiece.kind !== "placed"}
-                onClick={() => {
-                  if (selectedPiece.kind !== "placed") return;
-                  const { placement } = selectedPiece;
-                  moveTo(placement.pieceId, placement.x, placement.y, turnPiece(placement.r, -1));
-                }}
-              >
-                <span className="nest-piece-bar-turn-glyph" aria-hidden>
-                  ↺
-                </span>
-              </Btn>
-              <Btn
-                size="sm"
-                variant="cream"
-                className="nest-piece-bar-turn"
-                aria-label={t(lang, "nest.turnR")}
-                title="+15°"
-                disabled={selectedPiece.kind !== "placed"}
-                onClick={() => {
-                  if (selectedPiece.kind !== "placed") return;
-                  const { placement } = selectedPiece;
-                  moveTo(placement.pieceId, placement.x, placement.y, turnPiece(placement.r, 1));
-                }}
-              >
-                <span className="nest-piece-bar-turn-glyph" aria-hidden>
-                  ↻
-                </span>
-              </Btn>
-              <Btn
-                size="sm"
-                variant="cream"
-                disabled={selectedPiece.kind !== "waiting"}
-                onClick={() => {
-                  if (selectedPiece.kind !== "waiting") return;
-                  placeWaiting(selectedPiece.piece.id);
-                }}
-              >
-                {t(lang, "nest.put")}
-              </Btn>
-              <Btn
-                size="sm"
-                variant="cream"
-                disabled={selectedPiece.kind !== "placed"}
-                onClick={() => {
-                  if (selectedPiece.kind !== "placed") return;
-                  const { placement } = selectedPiece;
-                  if (cutIds.has(placement.pieceId)) {
-                    say("nest.cutLocked");
-                    return;
-                  }
-                  remember();
-                  setPlacements(placements.filter((item) => item.pieceId !== placement.pieceId));
-                  setSelected(placement.pieceId);
-                  sfx.click();
-                }}
-              >
-                {t(lang, "nest.lift")}
-              </Btn>
-            </div>
           </div>
-        )}
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <Btn variant="gold" onClick={runAuto}>
-          {t(lang, "nest.auto")}
-        </Btn>
-        <Btn
-          variant="cream"
-          onClick={() => {
-            remember();
-            const keep = new Set(placements.filter((item) => item.locked).map((item) => item.sheetId));
-            setPlacements(placements.filter((item) => item.locked));
-            setSheets(sheets.filter((sheet) => ledgerIds.has(sheet.id) || keep.has(sheet.id)));
-            clearSelected();
-            sfx.click();
-          }}
-        >
-          {t(lang, "nest.reset")}
-        </Btn>
-        {!hideConfirm && (
-          <Btn
-            variant="pink"
-            className={`col-span-2 ${allPlaced ? "cta-glow" : ""}`}
-            disabled={unplaced.length > 0}
-            onClick={confirm}
+          <div className="flex flex-wrap gap-1">
+            {visible.map((sheet, index) => (
+              <Btn key={sheet.id} size="sm" variant={sheet.id === active?.id ? "gold" : "cream"} onClick={() => setActiveId(sheet.id)}>
+                {t(lang, sheetSize(sheet) === "large" ? "nest.sheetLarge" : "nest.sheet", { n: index + 1 })}
+              </Btn>
+            ))}
+            <Btn
+              size="sm"
+              variant={needOpenStandard ? "gold" : "cream"}
+              className={needOpenStandard ? "cta-glow" : ""}
+              disabled={roomStd <= 0}
+              onClick={() => openSheet("standard")}
+            >
+              {t(lang, "nest.newSheet")}
+            </Btn>
+            <Btn
+              size="sm"
+              variant={needOpenLarge ? "gold" : "cream"}
+              className={needOpenLarge ? "cta-glow" : ""}
+              disabled={roomLarge <= 0}
+              onClick={() => openSheet("large")}
+            >
+              {t(lang, "nest.newLarge")}
+            </Btn>
+          </div>
+        </>}
+        progress={<>
+          {progressHeading}
+          {notice && <p role="status" className="demo-hint">{notice}</p>}
+          <div className="text-sm text-[var(--cream)]">
+            <div className="mb-1">{shown ? t(lang, "nest.free", { n: free }) : "\u00a0"}</div>
+            <Meter value={free / 100} color="var(--gold)" />
+          </div>
+          <div className="nest-tray">
+            {waiting.length > 0 ? (
+              <>
+                <span className="nest-tray-label">{t(lang, "nest.dragHint")}</span>
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {waiting.map((piece) => (
+                    <button
+                      key={piece.id}
+                      type="button"
+                      data-nest-keep-select=""
+                      aria-label={motifName(lang, piece.motif)}
+                      className={`tray-piece nest-tray-piece shrink-0 ${selected === piece.id ? "ring-2 ring-[var(--gold-deep)]" : ""}`}
+                      onPointerDown={(e) => {
+                        if (trayDrag) return;
+                        try {
+                          e.currentTarget.setPointerCapture(e.pointerId);
+                        } catch {
+                          // 붙잡지 못하면 탭 선택만 된다.
+                        }
+                        setSelected(piece.id);
+                        const box = svgRef.current?.getBoundingClientRect();
+                        setTrayDrag({
+                          id: piece.id,
+                          pointerId: e.pointerId,
+                          sx: e.clientX,
+                          sy: e.clientY,
+                          x: e.clientX,
+                          y: e.clientY,
+                          moving: false,
+                          unit: box && active ? box.width / active.width : 1.6,
+                        });
+                      }}
+                      onPointerMove={(e) => {
+                        if (!trayDrag || e.pointerId !== trayDrag.pointerId) return;
+                        const moving = trayDrag.moving || Math.hypot(e.clientX - trayDrag.sx, e.clientY - trayDrag.sy) > 8;
+                        setTrayDrag({ ...trayDrag, x: e.clientX, y: e.clientY, moving });
+                      }}
+                      onPointerUp={(e) => {
+                        if (!trayDrag || e.pointerId !== trayDrag.pointerId) return;
+                        const done = { ...trayDrag, x: e.clientX, y: e.clientY };
+                        setTrayDrag(null);
+                        if (done.moving) dropTray(done);
+                      }}
+                      onPointerCancel={() => setTrayDrag(null)}
+                    >
+                      <MotifIcon motif={piece.motif} className="h-10 w-10" />
+                      {tooBig(piece.id) && <span className="nest-tray-badge">{t(lang, "nest.largeBadge")}</span>}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <span className="nest-tray-label">{design.pieces.length ? t(lang, "nest.trayEmpty") : "\u00a0"}</span>
+            )}
+          </div>
+          <div className="nest-piece-bar-slot">
+            {selectedPiece && (
+              <div
+                className="nest-piece-bar"
+                data-nest-keep-select=""
+                role="toolbar"
+                aria-label={motifName(lang, selectedPiece.motif)}
+              >
+                <div className="nest-piece-bar-head">
+                  <MotifIcon motif={selectedPiece.motif} className="h-6 w-6" />
+                  {motifName(lang, selectedPiece.motif)}
+                </div>
+                <div className="nest-piece-bar-actions">
+                  <Btn
+                    size="sm"
+                    variant="cream"
+                    disabled={selectedPiece.kind !== "placed"}
+                    onClick={() => {
+                      if (selectedPiece.kind !== "placed") return;
+                      const { placement } = selectedPiece;
+                      moveTo(placement.pieceId, placement.x, placement.y, 0);
+                    }}
+                  >
+                    {t(lang, "nest.resetRotation")}
+                  </Btn>
+                  <Btn
+                    size="sm"
+                    variant="cream"
+                    onClick={() => {
+                      const prev = history.current.pop();
+                      if (!prev) return;
+                      setSheets(prev.sheets);
+                      setPlacements(prev.placements);
+                      sfx.click();
+                    }}
+                  >
+                    {t(lang, "nest.undo")}
+                  </Btn>
+                  <Btn
+                    size="sm"
+                    variant="cream"
+                    className="nest-piece-bar-turn"
+                    aria-label={t(lang, "nest.turnL")}
+                    title="-15°"
+                    disabled={selectedPiece.kind !== "placed"}
+                    onClick={() => {
+                      if (selectedPiece.kind !== "placed") return;
+                      const { placement } = selectedPiece;
+                      moveTo(placement.pieceId, placement.x, placement.y, turnPiece(placement.r, -1));
+                    }}
+                  >
+                    <span className="nest-piece-bar-turn-glyph" aria-hidden>
+                      ↺
+                    </span>
+                  </Btn>
+                  <Btn
+                    size="sm"
+                    variant="cream"
+                    className="nest-piece-bar-turn"
+                    aria-label={t(lang, "nest.turnR")}
+                    title="+15°"
+                    disabled={selectedPiece.kind !== "placed"}
+                    onClick={() => {
+                      if (selectedPiece.kind !== "placed") return;
+                      const { placement } = selectedPiece;
+                      moveTo(placement.pieceId, placement.x, placement.y, turnPiece(placement.r, 1));
+                    }}
+                  >
+                    <span className="nest-piece-bar-turn-glyph" aria-hidden>
+                      ↻
+                    </span>
+                  </Btn>
+                  <Btn
+                    size="sm"
+                    variant="cream"
+                    disabled={selectedPiece.kind !== "waiting"}
+                    onClick={() => {
+                      if (selectedPiece.kind !== "waiting") return;
+                      placeWaiting(selectedPiece.piece.id);
+                    }}
+                  >
+                    {t(lang, "nest.put")}
+                  </Btn>
+                  <Btn
+                    size="sm"
+                    variant="cream"
+                    disabled={selectedPiece.kind !== "placed"}
+                    onClick={() => {
+                      if (selectedPiece.kind !== "placed") return;
+                      const { placement } = selectedPiece;
+                      if (cutIds.has(placement.pieceId)) {
+                        say("nest.cutLocked");
+                        return;
+                      }
+                      remember();
+                      setPlacements(placements.filter((item) => item.pieceId !== placement.pieceId));
+                      setSelected(placement.pieceId);
+                      sfx.click();
+                    }}
+                  >
+                    {t(lang, "nest.lift")}
+                  </Btn>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Btn variant="gold" onClick={runAuto}>
+              {t(lang, "nest.auto")}
+            </Btn>
+            <Btn
+              variant="cream"
+              onClick={() => {
+                remember();
+                const keep = new Set(placements.filter((item) => item.locked).map((item) => item.sheetId));
+                setPlacements(placements.filter((item) => item.locked));
+                setSheets(sheets.filter((sheet) => ledgerIds.has(sheet.id) || keep.has(sheet.id)));
+                clearSelected();
+                sfx.click();
+              }}
+            >
+              {t(lang, "nest.reset")}
+            </Btn>
+            {!hideConfirm && (
+              <Btn
+                variant="pink"
+                className={`col-span-2 ${allPlaced ? "cta-glow" : ""}`}
+                disabled={unplaced.length > 0}
+                onClick={confirm}
+              >
+                {confirmLabel ?? t(lang, "nest.confirm")}
+              </Btn>
+            )}
+          </div>
+        </>}
+        next={<>
+          {nextAction}
+        </>}
+      >
+        <div ref={benchRef} className="workbench overflow-auto" style={{ maxHeight: 440 }}>
+          {shown ? (
+            <svg
+              ref={svgRef}
+              viewBox={`0 0 ${shown.width} ${shown.height}`}
+              style={{ width: `${Math.round(zoom * 100)}%`, height: "auto", touchAction: "none" }}
+              onPointerMove={(e) => {
+                if (!drag) return;
+                const point = pointOf(e);
+                if (!point) return;
+                if (drag.kind === "move") {
+                  setDrag({ ...drag, x: point.x + drag.dx, y: point.y + drag.dy });
+                  return;
+                }
+                const ang = angleAt(drag.cx, drag.cy, point.x, point.y);
+                let liveR = drag.startR + (ang - drag.startAngle);
+                liveR = ((liveR % 360) + 360) % 360;
+                setDrag({ ...drag, liveR: +liveR.toFixed(1) });
+              }}
+              onPointerUp={() => {
+                if (!drag) return;
+                const current = placements.find((item) => item.pieceId === drag.id);
+                const next = drag;
+                setDrag(null);
+                if (!current) return;
+                if (next.kind === "move") moveTo(next.id, next.x, next.y, current.r);
+                else moveTo(next.id, current.x, current.y, next.liveR);
+              }}
+              onPointerCancel={() => setDrag(null)}
+            >
+              <rect width={shown.width} height={shown.height} rx="6" fill={PEARLS[pearl].stops[0]} stroke="#5c4030" strokeWidth="1.5" />
+              {shown.placements.map((item) => {
+                const moving = drag?.kind === "move" && drag.id === item.pieceId;
+                const rotating = drag?.kind === "rotate" && drag.id === item.pieceId;
+                const x = moving ? drag.x : item.x;
+                const y = moving ? drag.y : item.y;
+                const r = rotating ? drag.liveR : item.r;
+                const cut = cutIds.has(item.pieceId);
+                const motif = item.motifId as MotifId;
+                const stamp = MOTIFS[motif].stamp;
+                return (
+                  <g
+                    key={item.pieceId}
+                    data-nest-keep-select=""
+                    transform={`translate(${x} ${y}) rotate(${r}) scale(${item.s})`}
+                    opacity={cut ? 0.38 : 1}
+                  >
+                    <g pointerEvents="none">
+                      <MotifSilhouette motif={motif} color={selected === item.pieceId ? "#8d5a32" : "#f4efe4"} />
+                      <path
+                        d={motifOutline(motif)}
+                        fill="none"
+                        stroke={selected === item.pieceId ? "#4a2c1a" : "#6b4e3a"}
+                        strokeWidth={0.7}
+                      />
+                    </g>
+                    {/* 마스크 rect·두꺼운 stroke가 아니라 실제 윤곽만 집는다 (디자인 화면과 동일) */}
+                    <path
+                      d={motifOutline(motif)}
+                      fill="transparent"
+                      stroke="transparent"
+                      strokeWidth={stamp ? 2.4 / item.s : 0}
+                      style={{ pointerEvents: cut ? "none" : "auto", cursor: cut ? "default" : "grab" }}
+                      onPointerDown={(e) => {
+                        if (cut) return;
+                        e.stopPropagation();
+                        const point = pointOf(e);
+                        setSelected(item.pieceId);
+                        setDrag({
+                          kind: "move",
+                          id: item.pieceId,
+                          x: item.x,
+                          y: item.y,
+                          dx: item.x - (point?.x ?? item.x),
+                          dy: item.y - (point?.y ?? item.y),
+                        });
+                        try {
+                          svgRef.current?.setPointerCapture(e.pointerId);
+                        } catch {
+                          // 포인터를 붙잡지 못해도 시트 안에서는 그대로 따라간다.
+                        }
+                      }}
+                    />
+                  </g>
+                );
+              })}
+              {selectedPlacement &&
+                selectedPlacement.sheetId === shown.id &&
+                !cutIds.has(selectedPlacement.pieceId) &&
+                (() => {
+                  const live =
+                    drag?.kind === "move" && drag.id === selectedPlacement.pieceId
+                      ? { ...selectedPlacement, x: drag.x, y: drag.y }
+                      : drag?.kind === "rotate" && drag.id === selectedPlacement.pieceId
+                        ? { ...selectedPlacement, r: drag.liveR }
+                        : selectedPlacement;
+                  return (
+                    <NestRotateChrome
+                      placement={live}
+                      keepSelect
+                      onRotateStart={(e) => {
+                        e.stopPropagation();
+                        const point = pointOf(e);
+                        if (!point) return;
+                        setSelected(selectedPlacement.pieceId);
+                        setDrag({
+                          kind: "rotate",
+                          id: selectedPlacement.pieceId,
+                          cx: live.x,
+                          cy: live.y,
+                          startAngle: angleAt(live.x, live.y, point.x, point.y),
+                          startR: live.r,
+                          liveR: live.r,
+                        });
+                        sfx.tick();
+                        try {
+                          svgRef.current?.setPointerCapture(e.pointerId);
+                        } catch {
+                          // 붙잡지 못해도 시트 안 이동으로 각도를 따른다.
+                        }
+                      }}
+                    />
+                  );
+                })()}
+            </svg>
+          ) : (
+            <p className="flex aspect-[3/2] items-center justify-center p-4 text-center text-sm text-[var(--cream)]">{t(lang, "nest.empty")}</p>
+          )}
+        </div>
+        {ghostPiece && ghostBox && trayDrag && (
+          <svg
+            className="nest-drag-ghost"
+            viewBox={`${ghostBox.x} ${ghostBox.y} ${ghostBox.w} ${ghostBox.h}`}
+            style={{
+              left: trayDrag.x + ghostBox.x * ghostPiece.s * unitPx,
+              top: trayDrag.y - toolLift("touch") + ghostBox.y * ghostPiece.s * unitPx,
+              width: ghostBox.w * ghostPiece.s * unitPx,
+              height: ghostBox.h * ghostPiece.s * unitPx,
+            }}
           >
-            {confirmLabel ?? t(lang, "nest.confirm")}
-          </Btn>
+            <MotifSilhouette motif={ghostPiece.motif} color="#f4efe4" />
+            <path d={motifOutline(ghostPiece.motif)} fill="none" stroke="#4a2c1a" strokeWidth={0.9 / Math.max(0.5, ghostPiece.s)} />
+          </svg>
         )}
-      </div>
-      {ghostPiece && ghostBox && trayDrag && (
-        <svg
-          className="nest-drag-ghost"
-          viewBox={`${ghostBox.x} ${ghostBox.y} ${ghostBox.w} ${ghostBox.h}`}
-          style={{
-            left: trayDrag.x + ghostBox.x * ghostPiece.s * unitPx,
-            top: trayDrag.y - toolLift("touch") + ghostBox.y * ghostPiece.s * unitPx,
-            width: ghostBox.w * ghostPiece.s * unitPx,
-            height: ghostBox.h * ghostPiece.s * unitPx,
-          }}
-        >
-          <MotifSilhouette motif={ghostPiece.motif} color="#f4efe4" />
-          <path d={motifOutline(ghostPiece.motif)} fill="none" stroke="#4a2c1a" strokeWidth={0.9 / Math.max(0.5, ghostPiece.s)} />
-        </svg>
-      )}
+      </BenchLayout>
     </div>
   );
 }

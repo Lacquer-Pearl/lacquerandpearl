@@ -31,6 +31,8 @@ import NestStep, { motifPolygons } from "./NestStep";
 import ClothStep from "./ClothStep";
 import CutStep from "./CutStep";
 import DesignStep from "./DesignStep";
+import { GIFT_ID } from "@/lib/workshopStory";
+import LessonGate, { GiftLessons } from "./LessonGate";
 import { TutorialStage } from "./common";
 import DryStep from "./DryStep";
 import PaintStep, { type PaintStepDef } from "./PaintStep";
@@ -443,7 +445,8 @@ export default function CraftFlow() {
         </p>
       )}
 
-      <TutorialStage.Provider value={step}><div className="screen-body" key={process.env.NODE_ENV === "development" && devSession ? `${step}-${devNonce}` : step}>
+      <GiftLessons.Provider value={!devSession && commission?.id === GIFT_ID}><TutorialStage.Provider value={step}><div className="screen-body" key={process.env.NODE_ENV === "development" && devSession ? `${step}-${devNonce}` : step}>
+        <LessonGate lesson={step === "design" ? undefined : step === "cut" && nestPending ? "shell" : step}>
         {step === "design" && (
           <DesignStep
             design={design}
@@ -600,7 +603,8 @@ export default function CraftFlow() {
             onDone={onPaintDone}
           />
         )}
-      </div></TutorialStage.Provider>
+        </LessonGate>
+      </div></TutorialStage.Provider></GiftLessons.Provider>
 
       {toast && (
         <div className="score-toast-wrap">

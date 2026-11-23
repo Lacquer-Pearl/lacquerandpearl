@@ -51,7 +51,7 @@ export function StepHeader({
   const stage = useContext(TutorialStage);
   const gift = useUI(s => s.commission?.id === GIFT_ID);
   const firstWork = useSave(s => s.gallery.length === 0);
-  const guided = gift || firstWork;
+  const guided = !gift && firstWork;
   const learned = useSave(s => s.learned.includes(stage));
   return (
     <div className="flex flex-col gap-2">
@@ -66,7 +66,7 @@ export function StepHeader({
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/npc/story/master.webp" alt="" />
         <p><b className="master-name">{t(lang, "master.name")}</b>{children}</p>
-      </div> : <details open={!learned && !(["hemp","fretsaw","whetstone","brush","torch"].includes(icon))} className="demo-help">
+      </div> : <details open={!gift && !learned && !(["hemp","fretsaw","whetstone","brush","torch"].includes(icon))} className="demo-help">
         <summary>{lang === "ko" ? "조작 도움말" : "How to play"}</summary>
         <MasterTip>{children}</MasterTip>
       </details>)}

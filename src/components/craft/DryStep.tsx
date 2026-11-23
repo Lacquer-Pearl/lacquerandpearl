@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import Artwork from "@/components/Artwork";
 import { Btn, Meter } from "@/components/ui";
 import type { Design } from "@/lib/game";
 import { t as tr, tNode } from "@/lib/i18n";
 import { sfx } from "@/lib/sound";
 import { useSave } from "@/lib/store";
+import LessonGate, { GiftLessons } from "./LessonGate";
+import BenchLayout from "./BenchLayout";
 import { StepHeader } from "./common";
 
 const H_ZONE: [number, number] = [70, 85];
@@ -35,7 +37,8 @@ function NudgeLabel({ text }: { text: string }) {
 
 export default function DryStep({ design, onDone }: { design: Design; onDone: (score: number) => void }) {
   const lang = useSave((s) => s.lang);
-  const [guided] = useState(() => !useSave.getState().learned.includes("dry"));
+  const gift = useContext(GiftLessons);
+  const [guided] = useState(() => gift || !useSave.getState().learned.includes("dry"));
   const [phase, setPhase] = useState<Phase>("open");
   const [running, setRunning] = useState(false);
   const [h, setH] = useState(81);
@@ -117,100 +120,109 @@ export default function DryStep({ design, onDone }: { design: Design; onDone: (s
   const inside = phase === "inside";
 
   return (
-    <div className="flex flex-col gap-3">
-      <StepHeader title={tr(lang, "dry.title")} icon="torch">
-        {phase === "open" ? (
-          <>{tNode(lang, "dry.tipOpen", { b: <b>{tr(lang, "dry.tipOpenB")}</b> })}</>
-        ) : phase === "closing" ? (
-          <>{tr(lang, "dry.tipClosing")}</>
-        ) : (
-          <>
-            {tNode(lang, "dry.tip", {
-              b: <b>{tr(lang, "dry.tipB")}</b>,
-              h: <b>70~85%</b>,
-              t: <b>20~30℃</b>,
-            })}
-          </>
-        )}
-      </StepHeader>
-      {(!inside || cue) && <p className="demo-hint" aria-live="polite">{inside ? cue?.[lang] : (lang === "ko" ? "건조장 문을 닫아 주세요." : "Close the cabinet.")}</p>}
-      <div className="workbench relative">
-        <div className={`cabinet ${phase}${inside && inT ? " warm" : ""}`}>
-          <div className="cabinet-chamber">
-            <Artwork design={design} showPieces={false} className="h-full w-full" shadow={false} gloss={inside ? 0.35 : 0.2} />
-            {inside && inH && running && <div className="steam">💨</div>}
-            {inside && inH && running && <div className="cabinet-mist" />}
-          </div>
-          <div className="cabinet-door left" aria-hidden>
-            <span className="cabinet-handle" />
-          </div>
-          <div className="cabinet-door right" aria-hidden>
-            <span className="cabinet-handle" />
-          </div>
-        </div>
-        {event && <div className="event-toast pop-in">{event}</div>}
-      </div>
-      {inside ? (
-        <div className="panel flex flex-col gap-3 py-3">
-          <Meter
-            value={(h - 20) / 80}
-            zone={[(H_ZONE[0] - 20) / 80, (H_ZONE[1] - 20) / 80]}
-            color={inH ? "var(--mint-deep)" : "var(--blue)"}
-            label={
+    <LessonGate keepMounted lesson={inside && cue ? (["humidify", "vent", "heat", "cool"] as const)[practice] : undefined}>
+      <BenchLayout
+        tools={<>
+          <StepHeader title={tr(lang, "dry.title")} icon="torch">
+            {phase === "open" ? (
+              <>{tNode(lang, "dry.tipOpen", { b: <b>{tr(lang, "dry.tipOpenB")}</b> })}</>
+            ) : phase === "closing" ? (
+              <>{tr(lang, "dry.tipClosing")}</>
+            ) : (
               <>
-                <span>{tr(lang, "dry.humidity")}</span>
-                <span>{Math.round(h)}%</span>
+                {tNode(lang, "dry.tip", {
+                  b: <b>{tr(lang, "dry.tipB")}</b>,
+                  h: <b>70~85%</b>,
+                  t: <b>20~30℃</b>,
+                })}
               </>
-            }
-          />
-          <Meter
-            value={(t - 5) / 35}
-            zone={[(T_ZONE[0] - 5) / 35, (T_ZONE[1] - 5) / 35]}
-            color={inT ? "var(--mint-deep)" : "var(--orange)"}
-            label={
-              <>
-                <span>{tr(lang, "dry.temp")}</span>
-                <span>{t.toFixed(1)}℃</span>
-              </>
-            }
-          />
-          <Meter
-            value={progress / 100}
-            color="var(--gold)"
-            label={
-              <>
-                <span>{tr(lang, "dry.progress")}</span>
-                <span>{Math.min(100, Math.round(progress))}%</span>
-              </>
-            }
-          />
+            )}
+          </StepHeader>
+          {(!inside || cue) && <p className="demo-hint" aria-live="polite">{inside ? cue?.[lang] : (lang === "ko" ? "건조장 문을 닫아 주세요." : "Close the cabinet.")}</p>}
+          {inside && (
+            <div className="grid grid-cols-4 gap-2">
+              <Btn size="sm" variant="lavender" sound={false} onClick={() => nudge(6, 0)} disabled={progress >= 100 || !!cue && cue.dh !== 6}>
+                <NudgeLabel text={tr(lang, "dry.humidify")} />
+              </Btn>
+              <Btn size="sm" variant="cream" sound={false} onClick={() => nudge(-6, 0)} disabled={progress >= 100 || !!cue && cue.dh !== -6}>
+                <NudgeLabel text={tr(lang, "dry.vent")} />
+              </Btn>
+              <Btn size="sm" variant="pink" sound={false} onClick={() => nudge(0, 2)} disabled={progress >= 100 || !!cue && cue.dt !== 2}>
+                <NudgeLabel text={tr(lang, "dry.heat")} />
+              </Btn>
+              <Btn size="sm" variant="mint" sound={false} onClick={() => nudge(0, -2)} disabled={progress >= 100 || !!cue && cue.dt !== -2}>
+                <NudgeLabel text={tr(lang, "dry.cool")} />
+              </Btn>
+            </div>
+          )}
+        </>}
+        progress={<>
+          {inside ? (
+            <div className="panel flex flex-col gap-3 py-3">
+              <Meter
+                value={(h - 20) / 80}
+                zone={[(H_ZONE[0] - 20) / 80, (H_ZONE[1] - 20) / 80]}
+                color={inH ? "var(--mint-deep)" : "var(--blue)"}
+                label={
+                  <>
+                    <span>{tr(lang, "dry.humidity")}</span>
+                    <span>{Math.round(h)}%</span>
+                  </>
+                }
+              />
+              <Meter
+                value={(t - 5) / 35}
+                zone={[(T_ZONE[0] - 5) / 35, (T_ZONE[1] - 5) / 35]}
+                color={inT ? "var(--mint-deep)" : "var(--orange)"}
+                label={
+                  <>
+                    <span>{tr(lang, "dry.temp")}</span>
+                    <span>{t.toFixed(1)}℃</span>
+                  </>
+                }
+              />
+              <Meter
+                value={progress / 100}
+                color="var(--gold)"
+                label={
+                  <>
+                    <span>{tr(lang, "dry.progress")}</span>
+                    <span>{Math.min(100, Math.round(progress))}%</span>
+                  </>
+                }
+              />
+            </div>
+          ) : (
+            <div className="panel py-3 text-center text-sm text-[var(--brown)]">
+              {phase === "closing" ? tr(lang, "dry.panelClosing") : tr(lang, "dry.panelOpen")}
+            </div>
+          )}
+        </>}
+        next={<>
+          {phase === "open" && (
+            <Btn variant="mint" size="lg" onClick={closeDoors}>
+              {tr(lang, "dry.start")}
+            </Btn>
+          )}
+        </>}
+      >
+        <div className="workbench relative">
+          <div className={`cabinet ${phase}${inside && inT ? " warm" : ""}`}>
+            <div className="cabinet-chamber">
+              <Artwork design={design} showPieces={false} className="h-full w-full" shadow={false} gloss={inside ? 0.35 : 0.2} />
+              {inside && inH && running && <div className="steam">💨</div>}
+              {inside && inH && running && <div className="cabinet-mist" />}
+            </div>
+            <div className="cabinet-door left" aria-hidden>
+              <span className="cabinet-handle" />
+            </div>
+            <div className="cabinet-door right" aria-hidden>
+              <span className="cabinet-handle" />
+            </div>
+          </div>
+          {event && <div className="event-toast pop-in">{event}</div>}
         </div>
-      ) : (
-        <div className="panel py-3 text-center text-sm text-[var(--brown)]">
-          {phase === "closing" ? tr(lang, "dry.panelClosing") : tr(lang, "dry.panelOpen")}
-        </div>
-      )}
-      {phase === "open" && (
-        <Btn variant="mint" size="lg" onClick={closeDoors}>
-          {tr(lang, "dry.start")}
-        </Btn>
-      )}
-      {inside && (
-        <div className="grid grid-cols-4 gap-2">
-          <Btn size="sm" variant="lavender" sound={false} onClick={() => nudge(6, 0)} disabled={progress >= 100 || !!cue && cue.dh !== 6}>
-            <NudgeLabel text={tr(lang, "dry.humidify")} />
-          </Btn>
-          <Btn size="sm" variant="cream" sound={false} onClick={() => nudge(-6, 0)} disabled={progress >= 100 || !!cue && cue.dh !== -6}>
-            <NudgeLabel text={tr(lang, "dry.vent")} />
-          </Btn>
-          <Btn size="sm" variant="pink" sound={false} onClick={() => nudge(0, 2)} disabled={progress >= 100 || !!cue && cue.dt !== 2}>
-            <NudgeLabel text={tr(lang, "dry.heat")} />
-          </Btn>
-          <Btn size="sm" variant="mint" sound={false} onClick={() => nudge(0, -2)} disabled={progress >= 100 || !!cue && cue.dt !== -2}>
-            <NudgeLabel text={tr(lang, "dry.cool")} />
-          </Btn>
-        </div>
-      )}
-    </div>
+      </BenchLayout>
+    </LessonGate>
   );
 }

@@ -8,6 +8,8 @@ import { t } from "@/lib/i18n";
 import { sfx } from "@/lib/sound";
 import { useSave } from "@/lib/store";
 import PaintCanvas, { type PaintConfig, type PaintStats } from "./PaintCanvas";
+import LessonGate from "./LessonGate";
+import BenchLayout from "./BenchLayout";
 import { StepHeader } from "./common";
 
 export interface PaintStepDef {
@@ -52,8 +54,11 @@ export default function PaintStep({
   const usesInk = !!def.config.inkDecay;
   const showMap = def.config.mode !== "stamp";
 
+  const [firstDip, setFirstDip] = useState(false);
+
   const dip = () => {
     if (done) return;
+    setFirstDip(true);
     inkRef.current = 1;
     setInk(1);
     setDipping(true);
@@ -62,127 +67,136 @@ export default function PaintStep({
   };
 
   return (
-    <div className="flex flex-col gap-3">
-      <StepHeader title={def.title} icon={def.icon}>
-        {def.tip}
-      </StepHeader>
-      {stats.touched === 0 && <p className="demo-hint">{usesInk && !ink ? (lang === "ko" ? "먼저 붓을 옻에 적셔 주세요." : "Dip your brush first.") : def.config.mode === "erase" ? (lang === "ko" ? "숫돌로 문질러 자개를 드러내세요. 빛이 나면 옆으로 옮기세요." : "Rub until the shell shines, then move on.") : def.config.mode === "stamp" ? (lang === "ko" ? "자개 위에 인두를 누른 뒤 적당한 때 떼세요." : "Press the iron onto the shell, then lift.") : (lang === "ko" ? "작업면에 붓을 대고 한 획을 그으세요." : "Draw a stroke across the surface.")}</p>}
-      <div className="workbench">
-        <PaintCanvas
-          shape={shape}
-          config={def.config}
-          background={background}
-          foreground={foreground}
-          onStats={setStats}
-          disabled={done}
-          inkRef={usesInk ? inkRef : undefined}
-          ink={ink}
-          onInk={setInk}
-          region={region}
-          regionMargin={regionMargin}
-          onSlide={onSlide}
-        />
-      </div>
-      {usesInk && (
-        <div className="panel flex items-center gap-3 py-2">
-          <button
-            className={`lacquer-bowl ${dipping ? "dip" : ""}`}
-            onClick={dip}
-            aria-label={t(lang, "lacquer.dip")}
-            disabled={done}
-          >
-            <svg viewBox="0 0 64 44" className="h-11 w-16">
-              <ellipse cx="32" cy="14" rx="28" ry="9" fill="#3a2418" />
-              <path d="M4 14 Q6 40 32 41 Q58 40 60 14 Z" fill="#7a4a2a" />
-              <path d="M8 18 Q12 36 32 37" stroke="#a46c42" strokeWidth="2" fill="none" opacity="0.6" />
-              <ellipse cx="32" cy="14" rx="24" ry="7" fill={def.config.color} />
-              <ellipse cx="24" cy="12" rx="8" ry="2" fill="#fff" opacity="0.18" />
-            </svg>
-          </button>
-          <div className="min-w-0 flex-1">
+    <LessonGate keepMounted lesson={firstDip ? "brush" : undefined}>
+      <BenchLayout
+        tools={<>
+          <StepHeader title={def.title} icon={def.icon}>
+            {def.tip}
+          </StepHeader>
+          {usesInk && (
+            <div className="panel flex items-center gap-3 py-2">
+              <button
+                className={`lacquer-bowl ${dipping ? "dip" : ""}`}
+                onClick={dip}
+                aria-label={t(lang, "lacquer.dip")}
+                disabled={done}
+              >
+                <svg viewBox="0 0 64 44" className="h-11 w-16">
+                  <ellipse cx="32" cy="14" rx="28" ry="9" fill="#3a2418" />
+                  <path d="M4 14 Q6 40 32 41 Q58 40 60 14 Z" fill="#7a4a2a" />
+                  <path d="M8 18 Q12 36 32 37" stroke="#a46c42" strokeWidth="2" fill="none" opacity="0.6" />
+                  <ellipse cx="32" cy="14" rx="24" ry="7" fill={def.config.color} />
+                  <ellipse cx="24" cy="12" rx="8" ry="2" fill="#fff" opacity="0.18" />
+                </svg>
+              </button>
+              <div className="min-w-0 flex-1">
+                <Meter
+                  value={ink}
+                  color={ink < 0.15 ? "var(--red)" : "var(--gold-deep)"}
+                  label={
+                    <>
+                      <span>{t(lang, "lacquer.load")}</span>
+                      <span>{ink < 0.03 ? t(lang, "lacquer.empty") : `${Math.round(ink * 100)}%`}</span>
+                    </>
+                  }
+                />
+                <div className="mt-1 text-xs text-[var(--brown-light)]">{t(lang, "lacquer.dipHint")}</div>
+              </div>
+            </div>
+          )}
+          {stats.touched === 0 && <p className="demo-hint">{usesInk && !ink ? (lang === "ko" ? "먼저 붓을 옻에 적셔 주세요." : "Dip your brush first.") : def.config.mode === "erase" ? (lang === "ko" ? "숫돌로 문질러 자개를 드러내세요. 빛이 나면 옆으로 옮기세요." : "Rub until the shell shines, then move on.") : def.config.mode === "stamp" ? (lang === "ko" ? "자개 위에 인두를 누른 뒤 적당한 때 떼세요." : "Press the iron onto the shell, then lift.") : (lang === "ko" ? "작업면에 붓을 대고 한 획을 그으세요." : "Draw a stroke across the surface.")}</p>}
+        </>}
+        progress={<>
+          <div className="panel flex flex-col gap-2 py-3">
+            {showMap && (
+              <div className="paint-quality-legend" aria-hidden="true">
+                <span className="paint-quality-swatch thin">{t(lang, "paint.legendThin")}</span>
+                <span className="paint-quality-swatch good">{t(lang, "paint.legendGood")}</span>
+                <span className="paint-quality-swatch over">{t(lang, "paint.legendOver")}</span>
+              </div>
+            )}
             <Meter
-              value={ink}
-              color={ink < 0.15 ? "var(--red)" : "var(--gold-deep)"}
+              value={stats.touched}
+              color="var(--gold-deep)"
+              target={def.minTouched}
               label={
                 <>
-                  <span>{t(lang, "lacquer.load")}</span>
-                  <span>{ink < 0.03 ? t(lang, "lacquer.empty") : `${Math.round(ink * 100)}%`}</span>
+                  <span>{t(lang, "paint.covered")}</span>
+                  <span>
+                    {ready
+                      ? t(lang, "paint.goalReached")
+                      : t(lang, "paint.toGoal", { n: Math.max(1, Math.ceil((def.minTouched - stats.touched) * 100)) })}
+                  </span>
                 </>
               }
             />
-            <div className="mt-1 text-xs text-[var(--brown-light)]">{t(lang, "lacquer.dipHint")}</div>
+            {def.thinLabel && (
+              <Meter
+                value={stats.thin}
+                color="#c4a574"
+                label={
+                  <>
+                    <span>{def.thinLabel}</span>
+                    <span>{Math.round(stats.thin * 100)}%</span>
+                  </>
+                }
+              />
+            )}
+            <Meter
+              value={stats.inRange}
+              color="#7a9a8a"
+              label={
+                <>
+                  <span>{def.goodLabel}</span>
+                  <span>{Math.round(stats.inRange * 100)}%</span>
+                </>
+              }
+            />
+            {def.overLabel && (
+              <Meter
+                value={Math.min(1, stats.over * 4)}
+                color="#6e3228"
+                label={
+                  <>
+                    <span>{def.overLabel}</span>
+                    <span>{Math.round(stats.over * 100)}%</span>
+                  </>
+                }
+              />
+            )}
           </div>
-        </div>
-      )}
-      <div className="panel flex flex-col gap-2 py-3">
-        {showMap && (
-          <div className="paint-quality-legend" aria-hidden="true">
-            <span className="paint-quality-swatch thin">{t(lang, "paint.legendThin")}</span>
-            <span className="paint-quality-swatch good">{t(lang, "paint.legendGood")}</span>
-            <span className="paint-quality-swatch over">{t(lang, "paint.legendOver")}</span>
-          </div>
-        )}
-        <Meter
-          value={stats.touched}
-          color="var(--gold-deep)"
-          target={def.minTouched}
-          label={
-            <>
-              <span>{t(lang, "paint.covered")}</span>
-              <span>
-                {ready
-                  ? t(lang, "paint.goalReached")
-                  : t(lang, "paint.toGoal", { n: Math.max(1, Math.ceil((def.minTouched - stats.touched) * 100)) })}
-              </span>
-            </>
-          }
-        />
-        {def.thinLabel && (
-          <Meter
-            value={stats.thin}
-            color="#c4a574"
-            label={
-              <>
-                <span>{def.thinLabel}</span>
-                <span>{Math.round(stats.thin * 100)}%</span>
-              </>
-            }
-          />
-        )}
-        <Meter
-          value={stats.inRange}
-          color="#7a9a8a"
-          label={
-            <>
-              <span>{def.goodLabel}</span>
-              <span>{Math.round(stats.inRange * 100)}%</span>
-            </>
-          }
-        />
-        {def.overLabel && (
-          <Meter
-            value={Math.min(1, stats.over * 4)}
-            color="#6e3228"
-            label={
-              <>
-                <span>{def.overLabel}</span>
-                <span>{Math.round(stats.over * 100)}%</span>
-              </>
-            }
-          />
-        )}
-      </div>
-      <Btn
-        variant="mint"
-        size="lg"
-        disabled={!ready || done}
-        onClick={() => {
-          setDone(true);
-          onDone(Math.max(0, Math.min(100, Math.round(def.score(stats)))), stats);
-        }}
+        </>}
+        next={<>
+          <Btn
+            variant="mint"
+            size="lg"
+            disabled={!ready || done}
+            onClick={() => {
+              setDone(true);
+              onDone(Math.max(0, Math.min(100, Math.round(def.score(stats)))), stats);
+            }}
+          >
+            {ready ? t(lang, "common.done") : t(lang, "common.doneMore")}
+          </Btn>
+        </>}
       >
-        {ready ? t(lang, "common.done") : t(lang, "common.doneMore")}
-      </Btn>
-    </div>
+        <div className="workbench">
+          <PaintCanvas
+            shape={shape}
+            config={def.config}
+            background={background}
+            foreground={foreground}
+            onStats={setStats}
+            disabled={done}
+            inkRef={usesInk ? inkRef : undefined}
+            ink={ink}
+            onInk={setInk}
+            region={region}
+            regionMargin={regionMargin}
+            onSlide={onSlide}
+          />
+        </div>
+      </BenchLayout>
+    </LessonGate>
   );
 }

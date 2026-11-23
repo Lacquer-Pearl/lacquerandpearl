@@ -74,6 +74,8 @@ export default function Game() {
     if (Capacitor.isNativePlatform()) {
       handles.push(
         App.addListener("backButton", () => {
+          const lesson = document.querySelector<HTMLButtonElement>("dialog.master-scene[open] button");
+          if (lesson) return lesson.click();
           const backdrop = document.querySelector<HTMLElement>(".modal-backdrop");
           if (backdrop) return backdrop.click();
           const backBtn = document.querySelector<HTMLElement>("[data-nav-back]");

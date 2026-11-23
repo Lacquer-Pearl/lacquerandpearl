@@ -19,6 +19,7 @@ import {
 import { saveArtworkImage } from "@/lib/exportImage";
 import { sfx } from "@/lib/sound";
 import { useSave, useUI } from "@/lib/store";
+import LessonGate, { GiftLessons } from "@/components/craft/LessonGate";
 import { ACHIEVEMENTS, achievementHint, GIFT_ID, VISITOR_ID } from "@/lib/workshopStory";
 
 const SURVEY_URL = {
@@ -101,6 +102,7 @@ export default function ResultScreen() {
   const visitor = art.commissionId === VISITOR_ID;
 
   return (
+    <GiftLessons.Provider value={gift}><LessonGate lesson="finish">
     <div className="screen">
       <TopBar title={t(lang, "result.title")} />
       <div className="screen-body">
@@ -273,5 +275,6 @@ export default function ResultScreen() {
       )}
 
     </div>
+    </LessonGate></GiftLessons.Provider>
   );
 }

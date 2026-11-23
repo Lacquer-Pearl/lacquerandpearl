@@ -8,6 +8,7 @@ import type { Design, Finish } from "@/lib/game";
 import { t, tNode } from "@/lib/i18n";
 import { loopLevel, sfx, startLoop, stopLoop } from "@/lib/sound";
 import { useSave } from "@/lib/store";
+import BenchLayout from "./BenchLayout";
 import { StepHeader } from "./common";
 import { claimCraftPointer, isForeignCraftPointer, releaseCraftPointer, useBlockCraftScroll } from "./craftTouch";
 
@@ -152,11 +153,67 @@ export default function ClothStep({ design, onDone }: { design: Design; onDone: 
   const score = () => Math.round(Math.max(0, Math.min(100, stats.good * 108 - stats.thick * 60 - stats.wrinkle * 30)));
 
   return (
-    <div className="flex flex-col gap-3">
-      <StepHeader title={t(lang, "cloth.title")} icon="hemp">
-        {tNode(lang, "cloth.tip", { b: <b>{t(lang, "cloth.tipB")}</b> })}
-      </StepHeader>
-      {!strips.length && <p className="demo-hint">{lang === "ko" ? "나무 한쪽 끝을 누르고 반대쪽까지 곧게 끌어 첫 삼베를 붙이세요." : "Press one edge and drag straight across to lay the first strip."}</p>}
+    <BenchLayout
+      tools={<>
+        <StepHeader title={t(lang, "cloth.title")} icon="hemp">
+          {tNode(lang, "cloth.tip", { b: <b>{t(lang, "cloth.tipB")}</b> })}
+        </StepHeader>
+        {!strips.length && <p className="demo-hint">{lang === "ko" ? "나무 한쪽 끝을 누르고 반대쪽까지 곧게 끌어 첫 삼베를 붙이세요." : "Press one edge and drag straight across to lay the first strip."}</p>}
+      </>}
+      progress={<>
+        <div className="panel flex flex-col gap-2 py-3">
+          <Meter
+            value={stats.covered}
+            color="var(--mint-deep)"
+            target={minCovered}
+            label={
+              <>
+                <span>{t(lang, "cloth.good")}</span>
+                <span>
+                  {ready
+                    ? t(lang, "paint.goalReached")
+                    : t(lang, "paint.toGoal", { n: Math.max(1, Math.ceil((minCovered - stats.covered) * 100)) })}
+                </span>
+              </>
+            }
+          />
+          <Meter
+            value={Math.min(1, stats.wrinkle + stats.thick * 2)}
+            color="var(--red)"
+            label={
+              <>
+                <span>{t(lang, "cloth.over")}</span>
+                <span>{t(lang, "cloth.count", { n: strips.length })}</span>
+              </>
+            }
+          />
+        </div>
+      </>}
+      next={<>
+        <div className="grid grid-cols-[auto_1fr] gap-2">
+          <Btn variant="cream" size="lg" disabled={!strips.length || done} onClick={() => setStrips((s) => s.slice(0, -1))}>
+            {t(lang, "cloth.undo")}
+          </Btn>
+          <Btn
+            variant="mint"
+            size="lg"
+            disabled={!ready || done}
+            onClick={() => {
+              setDone(true);
+              const creases = strips.flatMap(strip => strip.creases.map(distance => ({
+                x: Math.round(strip.x + Math.cos(strip.a) * distance),
+                y: Math.round(strip.y + Math.sin(strip.a) * distance),
+                angle: Math.round(strip.a * 180 / Math.PI),
+                strength: strip.wrinkle,
+              }))).filter(p => p.x >= 0 && p.y >= 0 && p.x <= 300 && p.y <= 300);
+              onDone(score(), creases.slice(0, 64));
+            }}
+          >
+            {ready ? t(lang, "common.done") : t(lang, "common.doneMore")}
+          </Btn>
+        </div>
+      </>}
+    >
       <div className="workbench">
         <svg
           ref={svgRef}
@@ -245,55 +302,6 @@ export default function ClothStep({ design, onDone }: { design: Design; onDone: 
           {active && <circle cx={active.x} cy={active.y} r="4" fill="#d9b25f" stroke="#fff" strokeWidth="1.2" />}
         </svg>
       </div>
-      <div className="panel flex flex-col gap-2 py-3">
-        <Meter
-          value={stats.covered}
-          color="var(--mint-deep)"
-          target={minCovered}
-          label={
-            <>
-              <span>{t(lang, "cloth.good")}</span>
-              <span>
-                {ready
-                  ? t(lang, "paint.goalReached")
-                  : t(lang, "paint.toGoal", { n: Math.max(1, Math.ceil((minCovered - stats.covered) * 100)) })}
-              </span>
-            </>
-          }
-        />
-        <Meter
-          value={Math.min(1, stats.wrinkle + stats.thick * 2)}
-          color="var(--red)"
-          label={
-            <>
-              <span>{t(lang, "cloth.over")}</span>
-              <span>{t(lang, "cloth.count", { n: strips.length })}</span>
-            </>
-          }
-        />
-      </div>
-      <div className="grid grid-cols-[auto_1fr] gap-2">
-        <Btn variant="cream" size="lg" disabled={!strips.length || done} onClick={() => setStrips((s) => s.slice(0, -1))}>
-          {t(lang, "cloth.undo")}
-        </Btn>
-        <Btn
-          variant="mint"
-          size="lg"
-          disabled={!ready || done}
-          onClick={() => {
-            setDone(true);
-            const creases = strips.flatMap(strip => strip.creases.map(distance => ({
-              x: Math.round(strip.x + Math.cos(strip.a) * distance),
-              y: Math.round(strip.y + Math.sin(strip.a) * distance),
-              angle: Math.round(strip.a * 180 / Math.PI),
-              strength: strip.wrinkle,
-            }))).filter(p => p.x >= 0 && p.y >= 0 && p.x <= 300 && p.y <= 300);
-            onDone(score(), creases.slice(0, 64));
-          }}
-        >
-          {ready ? t(lang, "common.done") : t(lang, "common.doneMore")}
-        </Btn>
-      </div>
-    </div>
+    </BenchLayout>
   );
 }

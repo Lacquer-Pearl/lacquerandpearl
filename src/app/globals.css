@@ -1721,12 +1721,7 @@ button.step-dot:focus-visible {
 .demo-undo { color:var(--on-dark); align-self:flex-end; }
 .demo-undo:disabled { opacity:.5; }
 .nest-piece-bar-slot:not(:empty) { position:sticky; bottom:8px; z-index:4; }
-@media(min-width:800px) and (min-height:580px) {
-  .app-frame:has(.craft-screen) { max-width:850px; }
-  .craft-screen .screen-body > div:has(> .workbench):not(:has(.design-stepper)):not([data-nest-step]) { display:grid; grid-template-columns:minmax(0,1.4fr) minmax(220px,1fr); align-content:start; align-items:start; }
-  .craft-screen .screen-body > div:has(> .workbench):not(:has(.design-stepper)):not([data-nest-step]) > * { grid-column:2; }
-  .craft-screen .screen-body > div:has(> .workbench):not(:has(.design-stepper)):not([data-nest-step]) > .workbench { grid-column:1; grid-row:1 / span 12; }
-}
+
 .demo-caption { color:var(--on-dark-soft); font-size:13px; text-align:center; }
 .demo-display .grade-seal { animation-delay:1.3s; }
 @media(prefers-reduced-motion:reduce) { .demo-display .grade-seal { animation:none; } }
@@ -1934,3 +1929,71 @@ button.step-dot:focus-visible {
 .game-room:has(.story-scene[data-chapter="visitor"]) .angle-entry img {
   filter: brightness(.65) saturate(.65);
 }
+
+/* The playable surface and the two rails share the available viewport. */
+.craft-screen:has(.bench-layout) { height: 100dvh; min-height: 0; }
+.craft-screen:has(.bench-layout) > :not(.screen-body) { flex-shrink: 0; }
+.craft-screen .screen-body:has(.bench-layout) { flex: 1; min-height: 0; padding: 10px clamp(8px, 1.6vw, 24px) 14px; }
+.craft-screen .screen-body :is(div:has(> .bench-layout), [data-recut-panel]):not(.bench-layout) { min-height: 0; }
+.craft-screen .screen-body > div:has(.bench-layout), [data-nest-step]:has(> .bench-layout) { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+.bench-layout { flex: 1; min-height: 0; display: grid; gap: clamp(7px,1vw,16px); grid-template: "tools surface status" minmax(0,1fr) / minmax(220px, 1fr) minmax(0,2fr) minmax(220px, 1fr); }
+.bench-tools, .bench-status { border: 1px solid #a58a6559; background: #2d241cf0; border-radius: 10px; padding: 12px; min-height: 0; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.bench-tools { grid-area: tools; overflow: auto; }
+.bench-tools > *, .bench-readings > * { flex-shrink: 0; }
+.bench-status { grid-area: status; }
+.bench-readings { min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
+.bench-next { margin-top: auto; flex: none; }
+.bench-next > button, .bench-tools > button { width: 100%; }
+.bench-next:empty, .bench-readings:empty { display: none; }
+.bench-surface { grid-area: surface; display: grid; place-items: center; min-width: 0; min-height: 0; container-type: size; }
+.bench-surface > :is(.workbench,.panel) { width: min(100cqw,100cqh); max-height: 100%; }
+.bench-surface .cut-preview { display: grid; place-items: center; aspect-ratio: 1; }
+.bench-surface > .panel > svg { max-width: min(72cqw,70cqh); width: 100%; }
+.bench-layout .design-order-bar, .bench-layout .nest-piece-bar-slot { position: static; }
+.bench-layout .design-action-bar { position: static; margin: 0; padding: 0; background: none; }
+.bench-layout .design-stepper { margin: 0; }
+.bench-layout .nest-piece-bar { flex-wrap: wrap; border-radius: 10px; }
+@media (min-width: 850px) {
+  .app-frame:has(.craft-screen) { max-width: 1560px; }
+  .craft-screen .screen-body:not(:has(.bench-layout)) { width: min(100%,650px); margin-inline: auto; }
+  .bench-tools .grid-cols-4 { grid-template-columns: repeat(auto-fit,minmax(54px,1fr)); }
+}
+@media (max-width: 849px) {
+  .bench-layout { grid-template: "surface surface" minmax(0,1fr) "tools status" minmax(0,38%) / minmax(0,1fr) minmax(0,1fr); }
+  .bench-tools, .bench-status { padding: 7px; gap: 6px; }
+  .bench-layout .panel { padding: 7px; }
+  .bench-layout .step-title { font-size: 1rem; }
+  .bench-tools .grid-cols-4, .bench-tools .nest-stock-pick, .bench-tools .nest-stock-row { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .bench-layout .design-stepper, .bench-layout .box-patterns { display: flex; flex-wrap: wrap; }
+  .bench-tools .grid-cols-2:has(.opt-btn.row) { grid-template-columns: 1fr; }
+  .bench-layout .design-sel-slot { min-height: auto; }
+  .bench-layout :is(.btn, .opt-btn, .method-card) { white-space: normal; }
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  .app-frame:has(.craft-screen) { max-width: none; }
+  .bench-layout { grid-template: "tools surface status" minmax(0,1fr) / minmax(145px,1fr) minmax(0,1.6fr) minmax(145px,1fr); }
+  .craft-screen .steps-bar { padding-block: 2px; }
+}
+
+dialog.master-scene[open] {
+  position: fixed; inset: 0; margin: 0; width: 100%; max-width: none; height: 100dvh; max-height: none;
+  display: grid; grid-template-rows: minmax(60px,1fr) auto;
+  padding: max(16px,env(safe-area-inset-top)) clamp(16px,5vw,80px) max(20px,env(safe-area-inset-bottom));
+  color: #fff3da; border: 0;
+  background: linear-gradient(180deg,#1c151455,transparent 50%,#211a1480),url("/images/workshop/bench.webp") center / cover;
+}
+.master-scene::backdrop { background: #2b211a; }
+.master-scene .story-figure img { height: min(100% + 38px, 890px); }
+.master-scene .story-dialogue { margin-bottom: 0; }
+@media (max-width: 849px) {
+  .app-frame:has(.craft-screen) { max-width: none; }
+  .bench-tools .nest-stock-row { grid-template-columns: 1fr; }
+  .bench-tools .nest-stock-pearl { max-width: 100%; }
+  .bench-next .btn-lg { font-size: 1rem; padding: 8px; min-height: 44px; }
+}
+/* Standalone practice screens sit outside the game's fixed-height stage. */
+.app-frame:not(:has(.craft-screen)) .bench-layout {
+  display: flex; flex-direction: column; gap: 10px;
+}
+.app-frame:not(:has(.craft-screen)) .bench-surface { container-type: normal; }
+.app-frame:not(:has(.craft-screen)) .bench-surface > .workbench { width: 100%; }

@@ -25,6 +25,8 @@ import { loopLevel, sfx, startLoop, stopLoop } from "@/lib/sound";
 import { MACHINE_CUT_COST, useSave } from "@/lib/store";
 import MotifIcon from "@/components/MotifIcon";
 import UiIcon from "@/components/UiIcon";
+import LessonGate from "./LessonGate";
+import BenchLayout from "./BenchLayout";
 import { StepHeader } from "./common";
 import { claimCraftPointer, releaseCraftPointer, useBlockCraftScroll } from "./craftTouch";
 
@@ -286,44 +288,12 @@ export default function CutStep({
   const recutSaw = !!hold && phase === "saw";
   if (!choice && !recutSaw)
     return (
-      <div className="flex flex-col gap-3">
-        <StepHeader title={t(lang, "cut.title")} icon="fretsaw">
+      <BenchLayout
+        tools={<>
+          <StepHeader title={t(lang, "cut.title")} icon="fretsaw">
           {tNode(lang, "cut.tip", { b: <b>{t(lang, "cut.tipB")}</b> })}
         </StepHeader>
-        {jobs.some((job) => job.placement) && <p className="panel py-2 text-sm text-[var(--brown)]">{t(lang, "cut.fromSheet")}</p>}
-        {jobs.length > 1 && (
-          <div className="panel py-2 text-center text-sm text-[var(--brown)]">
-            {t(lang, "cut.round", {
-              n: 1,
-              max: jobs.length,
-              motif: motifName(lang, jobs[0].motif),
-              pearl: pearlName(lang, jobs[0].pearl),
-            })}
-          </div>
-        )}
-        {recommended && (
-          <p className="panel py-2 text-center text-sm text-[var(--brown)]">
-            {t(lang, "cut.recommendOne", { method: t(lang, recommended === "jul" ? "cut.jul" : "cut.kkeun") })}
-          </p>
-        )}
-        {allKnown && known.length > 1 && (
-          <p className="panel py-2 text-center text-sm text-[var(--brown)]">{t(lang, "cut.recommendMixed")}</p>
-        )}
-        {openNames.length > 0 && (
-          <p className="panel py-2 text-center text-sm text-[var(--brown)]">{t(lang, "cut.recommendOpen", { names: openNames.join(", ") })}</p>
-        )}
-        {allKnown && (
-          <Btn
-            variant="pink"
-            onClick={() => {
-              sfx.click();
-              setChoice(recommended ?? "each");
-            }}
-          >
-            {t(lang, "cut.recommendStart")}
-          </Btn>
-        )}
-        {(["jul", "kkeun", "auto"] as Method[])
+          {(["jul", "kkeun", "auto"] as Method[])
           .sort((a, b) => Number(b === recommended) - Number(a === recommended))
           .map((id) => (
             <button key={id} className={`method-card ${id === recommended ? "outline outline-2 outline-[var(--gold)]" : ""}`} onClick={() => (sfx.click(), setChoice(id))}>
@@ -339,7 +309,45 @@ export default function CutStep({
               </span>
             </button>
           ))}
-      </div>
+        </>}
+        progress={<>
+          {jobs.some((job) => job.placement) && <p className="panel py-2 text-sm text-[var(--brown)]">{t(lang, "cut.fromSheet")}</p>}
+          {jobs.length > 1 && (
+          <div className="panel py-2 text-center text-sm text-[var(--brown)]">
+            {t(lang, "cut.round", {
+              n: 1,
+              max: jobs.length,
+              motif: motifName(lang, jobs[0].motif),
+              pearl: pearlName(lang, jobs[0].pearl),
+            })}
+          </div>
+        )}
+          {recommended && (
+          <p className="panel py-2 text-center text-sm text-[var(--brown)]">
+            {t(lang, "cut.recommendOne", { method: t(lang, recommended === "jul" ? "cut.jul" : "cut.kkeun") })}
+          </p>
+        )}
+          {allKnown && known.length > 1 && (
+          <p className="panel py-2 text-center text-sm text-[var(--brown)]">{t(lang, "cut.recommendMixed")}</p>
+        )}
+          {openNames.length > 0 && (
+          <p className="panel py-2 text-center text-sm text-[var(--brown)]">{t(lang, "cut.recommendOpen", { names: openNames.join(", ") })}</p>
+        )}
+        </>}
+        next={allKnown && (
+          <Btn
+            variant="pink"
+            onClick={() => {
+              sfx.click();
+              setChoice(recommended ?? "each");
+            }}
+          >
+            {t(lang, "cut.recommendStart")}
+          </Btn>
+        )}
+      >
+        <div className="workbench cut-preview"><MotifIcon motif={job.motif} pearl={job.pearl} className="w-4/5" /></div>
+      </BenchLayout>
     );
 
   const method: Method | null = recutSaw
@@ -364,7 +372,7 @@ export default function CutStep({
     return (
       <div className="flex flex-col gap-3">
         {roundBanner}
-        <JulStep
+        <LessonGate lesson="jul"><JulStep
           key={`${job.pieceId}-${attempt}`}
           motif={job.motif}
           pearl={job.pearl}
@@ -372,21 +380,21 @@ export default function CutStep({
           onDone={finishJob}
           onReview={reviewCut}
           onAbort={() => setChoice(null)}
-        />
+        /></LessonGate>
       </div>
     );
   if (method === "kkeun")
     return (
       <div className="flex flex-col gap-3">
         {roundBanner}
-        <KkeunStep key={`${jobIdx}-kkeun`} motif={job.motif} pearl={job.pearl} onDone={finishJob} />
+        <LessonGate lesson="kkeun"><KkeunStep key={`${jobIdx}-kkeun`} motif={job.motif} pearl={job.pearl} onDone={finishJob} /></LessonGate>
       </div>
     );
   if (method !== "auto") return null;
   return (
     <div className="flex flex-col gap-3">
       {roundBanner}
-      <AutoStep key={`${jobIdx}-auto`} onDone={finishJob} onAbort={() => setChoice(null)} />
+      <LessonGate lesson="auto"><AutoStep key={`${jobIdx}-auto`} onDone={finishJob} onAbort={() => setChoice(null)} /></LessonGate>
     </div>
   );
 }
@@ -813,33 +821,63 @@ export function JulStep({
     idx;
 
   return (
-    <div className="flex flex-col gap-3">
-      <StepHeader title={t(lang, "cut.julTitle")} icon="fretsaw">
-        {tNode(lang, "cut.julTip", {
-          name: <b>{motifName(lang, motif)}</b>,
-          snap: <b>{t(lang, "cut.snap")}</b>,
-        })}
-      </StepHeader>
-      {process.env.NODE_ENV === "development" && (
-        <button type="button" className="self-end text-xs text-[var(--brown)] underline" onClick={() => setDebug((on) => !on)}>
-          {t(lang, "cut.debug")}
-        </button>
-      )}
-      <div className="craft-status-line saw-instruction" aria-live="polite">
-        <strong>{phase === "ready" && routeIdx > 0 && idx === 0
-          ? t(lang, "cut.hop", { n: routeIdx + 1, max: routes.length })
-          : t(lang, "cut.piece", { n: routeIdx + 1, max: routes.length })}</strong>
-        <div className="saw-cues">
-          <span aria-hidden={phase !== "ready"}>
-            <span className="saw-mouse-copy">{t(lang, "cut.pressStart")}</span>
-            <span className="saw-touch-copy">{t(lang, "cut.gripStart")}</span>
-          </span>
-          <span aria-hidden={phase === "ready"}>
-            <span className="saw-mouse-copy">{t(lang, "cut.trace")}</span>
-            <span className="saw-touch-copy">{t(lang, "cut.liftHint")}</span>
-          </span>
+    <BenchLayout
+      tools={<>
+        <StepHeader title={t(lang, "cut.julTitle")} icon="fretsaw">
+          {tNode(lang, "cut.julTip", {
+            name: <b>{motifName(lang, motif)}</b>,
+            snap: <b>{t(lang, "cut.snap")}</b>,
+          })}
+        </StepHeader>
+        {process.env.NODE_ENV === "development" && (
+          <button type="button" className="self-end text-xs text-[var(--brown)] underline" onClick={() => setDebug((on) => !on)}>
+            {t(lang, "cut.debug")}
+          </button>
+        )}
+        <div className="craft-status-line saw-instruction" aria-live="polite">
+          <strong>{phase === "ready" && routeIdx > 0 && idx === 0
+            ? t(lang, "cut.hop", { n: routeIdx + 1, max: routes.length })
+            : t(lang, "cut.piece", { n: routeIdx + 1, max: routes.length })}</strong>
+          <div className="saw-cues">
+            <span aria-hidden={phase !== "ready"}>
+              <span className="saw-mouse-copy">{t(lang, "cut.pressStart")}</span>
+              <span className="saw-touch-copy">{t(lang, "cut.gripStart")}</span>
+            </span>
+            <span aria-hidden={phase === "ready"}>
+              <span className="saw-mouse-copy">{t(lang, "cut.trace")}</span>
+              <span className="saw-touch-copy">{t(lang, "cut.liftHint")}</span>
+            </span>
+          </div>
         </div>
-      </div>
+      </>}
+      progress={<>
+        <div className="panel flex flex-col gap-2 py-3">
+          <Meter
+            value={total > 0 ? done / total : 0}
+            color="var(--pink)"
+            label={
+              <>
+                <span>
+                  {t(lang, "cut.progress")} · {t(lang, "cut.piece", { n: Math.min(routes.length, routeIdx + 1), max: routes.length })}
+                </span>
+                <span>{total > 0 ? Math.round((done / total) * 100) : 0}%</span>
+              </>
+            }
+          />
+          <Meter
+            value={Math.min(1, stress)}
+            zone={[0, 0.6]}
+            color={stress > 0.7 ? "var(--red)" : stress > 0.4 ? "var(--orange)" : "var(--mint-deep)"}
+            label={
+              <>
+                <span>{t(lang, "cut.force")}</span>
+                <span>{t(lang, "cut.breaks", { n: breaks })}</span>
+              </>
+            }
+          />
+        </div>
+      </>}
+    >
       <div className={`workbench relative ${shake ? "shake" : ""}`}>
         <svg
           ref={svgRef}
@@ -985,32 +1023,7 @@ export function JulStep({
         </svg>
         {warn && <div className="event-toast pop-in">{warn}</div>}
       </div>
-      <div className="panel flex flex-col gap-2 py-3">
-        <Meter
-          value={total > 0 ? done / total : 0}
-          color="var(--pink)"
-          label={
-            <>
-              <span>
-                {t(lang, "cut.progress")} · {t(lang, "cut.piece", { n: Math.min(routes.length, routeIdx + 1), max: routes.length })}
-              </span>
-              <span>{total > 0 ? Math.round((done / total) * 100) : 0}%</span>
-            </>
-          }
-        />
-        <Meter
-          value={Math.min(1, stress)}
-          zone={[0, 0.6]}
-          color={stress > 0.7 ? "var(--red)" : stress > 0.4 ? "var(--orange)" : "var(--mint-deep)"}
-          label={
-            <>
-              <span>{t(lang, "cut.force")}</span>
-              <span>{t(lang, "cut.breaks", { n: breaks })}</span>
-            </>
-          }
-        />
-      </div>
-    </div>
+    </BenchLayout>
   );
 }
 
@@ -1139,16 +1152,29 @@ function KkeunStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; o
   };
 
   return (
-    <div className="flex flex-col gap-3">
-      <StepHeader title={t(lang, "cut.kkeunTitle")} icon="knife">
-        {tNode(lang, "cut.kkeunTip", { b: <b>{t(lang, "cut.kkeunTipB")}</b> })}
-      </StepHeader>
-      <div className="panel flex items-center gap-3 py-2">
-        <MotifIcon motif={motif} pearl={pearl} className="h-14 w-14 shrink-0" />
-        <p className="text-sm text-[var(--brown)]">
-          {t(lang, "cut.kkeunLen", { name: motifName(lang, motif), n: layout.count, len: Math.round(layout.piece) })}
-        </p>
-      </div>
+    <BenchLayout
+      tools={<>
+        <StepHeader title={t(lang, "cut.kkeunTitle")} icon="knife">
+          {tNode(lang, "cut.kkeunTip", { b: <b>{t(lang, "cut.kkeunTipB")}</b> })}
+        </StepHeader>
+        <div className="panel flex items-center gap-3 py-2">
+          <MotifIcon motif={motif} pearl={pearl} className="h-14 w-14 shrink-0" />
+          <p className="text-sm text-[var(--brown)]">
+            {t(lang, "cut.kkeunLen", { name: motifName(lang, motif), n: layout.count, len: Math.round(layout.piece) })}
+          </p>
+        </div>
+      </>}
+      progress={<>
+        <div className="panel py-3 text-center text-[var(--brown)]">
+          {t(lang, "cut.pieces", { n: results.filter((r) => r != null).length, max: layout.count })}
+        </div>
+      </>}
+      next={<>
+        <Btn variant="pink" size="lg" sound={false} onClick={tap}>
+          {t(lang, "cut.cutBtn")}
+        </Btn>
+      </>}
+    >
       <div
         className="workbench relative cursor-pointer select-none"
         style={{ touchAction: "manipulation" }}
@@ -1204,13 +1230,7 @@ function KkeunStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; o
         </svg>
         {flash && <div className="event-toast pop-in">{flash}</div>}
       </div>
-      <div className="panel py-3 text-center text-[var(--brown)]">
-        {t(lang, "cut.pieces", { n: results.filter((r) => r != null).length, max: layout.count })}
-      </div>
-      <Btn variant="pink" size="lg" sound={false} onClick={tap}>
-        {t(lang, "cut.cutBtn")}
-      </Btn>
-    </div>
+    </BenchLayout>
   );
 }
 
@@ -1221,16 +1241,20 @@ function AutoStep({ onDone, onAbort }: { onDone: (s: number) => void; onAbort: (
   const [paid, setPaid] = useState(false);
   if (!paid)
     return (
-      <div className="flex flex-col gap-3">
-        <StepHeader title={t(lang, "cut.autoTitle")} icon="gear">
+      <BenchLayout
+        tools={<>
+          <StepHeader title={t(lang, "cut.autoTitle")} icon="gear">
           {t(lang, "cut.autoTip")}
         </StepHeader>
-        <div className="panel flex flex-col items-center gap-2 py-4 text-center text-[var(--brown)]">
-          <UiIcon id="gear" className="ui-icon-2xl" />
+          <Btn variant="cream" onClick={onAbort}>
+          {t(lang, "cut.autoBack")}
+        </Btn>
+        </>}
+        progress={<div className="panel flex flex-col items-center gap-2 py-4 text-center text-[var(--brown)]">
           <p className="text-sm">{t(lang, "cut.autoPay", { n: MACHINE_CUT_COST, money })}</p>
           {money < MACHINE_CUT_COST && <p className="text-sm text-[var(--red)]">{t(lang, "cut.autoPoor")}</p>}
-        </div>
-        <Btn
+        </div>}
+        next={<Btn
           variant="pink"
           size="lg"
           disabled={money < MACHINE_CUT_COST}
@@ -1244,11 +1268,10 @@ function AutoStep({ onDone, onAbort }: { onDone: (s: number) => void; onAbort: (
           }}
         >
           {t(lang, "cut.autoPayBtn", { n: MACHINE_CUT_COST })}
-        </Btn>
-        <Btn variant="cream" onClick={onAbort}>
-          {t(lang, "cut.autoBack")}
-        </Btn>
-      </div>
+        </Btn>}
+      >
+        <div className="workbench cut-preview"><UiIcon id="gear" className="ui-icon-2xl" /></div>
+      </BenchLayout>
     );
   return <AutoRun onDone={onDone} />;
 }
@@ -1276,25 +1299,30 @@ function AutoRun({ onDone }: { onDone: (s: number) => void }) {
     };
   }, [onDone]);
   return (
-    <div className="flex flex-col gap-3">
-      <StepHeader title={t(lang, "cut.autoTitle")} icon="gear">
-        {t(lang, "cut.autoTip")}
-      </StepHeader>
+    <BenchLayout
+      tools={<>
+        <StepHeader title={t(lang, "cut.autoTitle")} icon="gear">
+          {t(lang, "cut.autoTip")}
+        </StepHeader>
+      </>}
+      progress={<>
+        <div className="panel py-3">
+          <Meter
+            value={p / 100}
+            color="var(--blue)"
+            label={
+              <>
+                <span>{t(lang, "cut.autoProgress")}</span>
+                <span>{p}%</span>
+              </>
+            }
+          />
+        </div>
+      </>}
+    >
       <div className="workbench flex aspect-square items-center justify-center text-7xl">
         <UiIcon id="gear" className="spin ui-icon-2xl" />
       </div>
-      <div className="panel py-3">
-        <Meter
-          value={p / 100}
-          color="var(--blue)"
-          label={
-            <>
-              <span>{t(lang, "cut.autoProgress")}</span>
-              <span>{p}%</span>
-            </>
-          }
-        />
-      </div>
-    </div>
+    </BenchLayout>
   );
 }
