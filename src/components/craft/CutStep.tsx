@@ -26,9 +26,15 @@ import { MACHINE_CUT_COST, useSave } from "@/lib/store";
 import MotifIcon from "@/components/MotifIcon";
 import UiIcon from "@/components/UiIcon";
 import { StepHeader } from "./common";
-import { claimCraftPointer, isForeignCraftPointer, releaseCraftPointer, useBlockCraftScroll } from "./craftTouch";
+import { claimCraftPointer, releaseCraftPointer, useBlockCraftScroll } from "./craftTouch";
 
-const SAW_GRIP_OFFSET = 30;
+type SawPoint = { x: number; y: number };
+type SawCursor = SawPoint & { contact?: SawPoint; loupeX?: number };
+type SawPhase = "ready" | "saw";
+
+function gripBelow(point: SawPoint) {
+  return { x: point.x, y: Math.min(point.y + 38, 284) };
+}
 
 type Method = "jul" | "kkeun" | "auto";
 type Choice = Method | "each";
@@ -469,12 +475,12 @@ export function JulStep({
     [motif, fit],
   );
   const [routeIdx, setRouteIdx] = useState(0);
-  const [phase, setPhase] = useState<"saw" | "hop">("saw");
+  const [phase, setPhase] = useState<SawPhase>("ready");
   const [debug, setDebug] = useState(false);
   const [idx, setIdx] = useState(0);
   const [stress, setStress] = useState(0);
   const [breaks, setBreaks] = useState(0);
-  const [saw, setSaw] = useState<{ x: number; y: number; lift?: number } | null>(null);
+  const [saw, setSaw] = useState<SawCursor | null>(null);
   const [warn, setWarn] = useState<string | null>(null);
   const [shake, setShake] = useState(false);
   const [breakFx, setBreakFx] = useState<null | { result: PieceCutResult; gap: number }>(null);
@@ -487,7 +493,9 @@ export function JulStep({
   const st = useRef({
     route: 0,
     idx: 0,
-    phase: "saw" as "saw" | "hop",
+    phase: "ready" as SawPhase,
+    touchOffset: null as null | SawPoint,
+    loupeX: 6,
     stress: 0,
     err: 0,
     errN: 0,
@@ -550,12 +558,28 @@ export function JulStep({
     onDone(score, result);
   };
 
+  // A completed contour disarms both pointer and wheel. Only a fresh press can start another.
+  const parkSaw = () => {
+    const s = st.current;
+    s.phase = "ready";
+    s.down = false;
+    s.last = null;
+    s.touchOffset = null;
+    s.stress = 0;
+    s.lastErr = 0;
+    setPhase("ready");
+    setStress(0);
+    setSaw(null);
+    setWarn(null);
+    loopLevel(0);
+  };
+
   const crack = () => {
     const s = st.current;
     if (s.done || s.breaking) return;
     // 재고는 여기서 깎지 않는다. 이어 붙일 수 있으면 자개패를 더 쓰지 않고, 못 쓰는 파손만 재절단한다.
     for (let i = 0; i < s.route; i++) commitScar(routes[i]?.pts ?? [], "crack");
-    if (s.phase === "saw") commitScar((routes[s.route]?.pts ?? []).slice(0, s.idx + 1), "crack");
+    commitScar((routes[s.route]?.pts ?? []).slice(0, s.idx + 1), "crack");
     flushSkewTrail();
 
     s.breaking = true;
@@ -598,10 +622,7 @@ export function JulStep({
         return;
       }
       s.breaking = false;
-      s.down = false;
-      s.stress = 0;
-      s.last = null;
-      setStress(0);
+      parkSaw();
       setBreakFx(null);
       setWarn(lang === "ko" ? "쓸 수 있는 파편이에요. 밝은 점부터 남은 선을 마저 잘라 주세요." : "Keep these fragments. Resume cutting at the bright dot.");
     }, 780));
@@ -609,7 +630,7 @@ export function JulStep({
 
   const advance = (to: number, err: number, speed: number) => {
     const s = st.current;
-    if (s.done) return;
+    if (s.done || s.breaking || s.phase !== "saw") return;
     s.err += err;
     s.errN++;
     s.lastErr = err;
@@ -635,61 +656,72 @@ export function JulStep({
       else {
         s.route += 1;
         s.idx = 0;
-        s.phase = "hop";
-        s.last = null;
+        parkSaw();
         setRouteIdx(s.route);
         setIdx(0);
-        setPhase("hop");
       }
     }
   };
 
-  const toLocal = (e: { clientX: number; clientY: number; pointerType?: string }) => {
-    const r = svgRef.current!.getBoundingClientRect();
-    const lift = e.pointerType === "touch" ? r.height * SAW_GRIP_OFFSET / 300 : 0;
-    return {
-      x: ((e.clientX - r.left) / r.width) * 300,
-      y: ((e.clientY - lift - r.top) / r.height) * 300,
-      lift: (lift / r.height) * 300,
-    };
+  const toLocal = (e: React.PointerEvent<SVGSVGElement>): SawPoint => {
+    const r = e.currentTarget.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * 300 / r.width, y: (e.clientY - r.top) * 300 / r.height };
   };
 
-  const enterRoute = (p: { x: number; y: number }) => {
+  const startStroke = (e: React.PointerEvent<SVGSVGElement>) => {
     const s = st.current;
-    const pts = routes[s.route]?.pts ?? [];
-    const start = pts[0];
-    if (!start || Math.hypot(start.x - p.x, start.y - p.y) >= 28) return false;
-    let best = 0;
-    let bestD = Infinity;
-    for (let k = 0; k < Math.min(pts.length, 12); k++) {
-      const dist = Math.hypot(pts[k].x - p.x, pts[k].y - p.y);
-      if (dist < bestD) {
-        bestD = dist;
-        best = k;
-      }
-    }
+    if (s.done || s.breaking || !e.isPrimary || e.button !== 0 || gesture.current !== null) return;
+    const pts = routes[s.route]?.pts;
+    if (!pts?.length) return;
+    const target = pts[Math.min(pts.length - 1, s.phase === "ready" ? s.idx : s.idx + 1)];
+    const contact = toLocal(e);
+    const touch = e.pointerType === "touch";
+    const grip = gripBelow(target);
+    const near = (point: SawPoint) => Math.hypot(contact.x - point.x, contact.y - point.y);
+    const radius = touch ? Math.max(16, 22 * 300 / e.currentTarget.getBoundingClientRect().width) : 16;
+    if (near(target) > radius && !(touch && near(grip) <= radius)) return;
+    if (!claimCraftPointer(e, gesture)) return;
+    // Anchor where the player actually grabbed. A direct tap and the offset handle both start on the guide.
+    s.touchOffset = touch ? { x: target.x - contact.x, y: target.y - contact.y } : null;
+    s.loupeX = target.x < 150 ? 236 : 6;
+    s.last = touch ? target : contact;
+    s.lastT = performance.now();
+    s.down = true;
     s.phase = "saw";
-    s.idx = bestD < 28 ? best : 0;
-    s.last = p;
     setPhase("saw");
-    setIdx(s.idx);
-    return true;
+    setWarn(null);
+    setSaw(touch ? { ...target, contact, loupeX: s.loupeX } : contact);
   };
 
-  const onMove = (e: React.PointerEvent) => {
-    const p = toLocal(e);
+  const endStroke = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (!releaseCraftPointer(e, gesture)) return;
     const s = st.current;
-    if (s.breaking || s.done) return;
-    setSaw(p);
-    const pts = routes[s.route]?.pts ?? [];
-    if (!s.down || pts.length === 0) return;
-    if (s.phase === "hop") {
-      enterRoute(p);
-      return;
+    if ((e.pointerType === "touch" || e.type === "pointercancel") && !s.done && !s.breaking) {
+      s.phase = "ready";
+      setPhase("ready");
     }
+    s.down = false;
+    s.last = null;
+    s.touchOffset = null;
+    setSaw(null);
+    flushSkewTrail();
+    loopLevel(0);
+  };
+
+  const onMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    const s = st.current;
+    if (gesture.current !== e.pointerId || !s.down || s.phase !== "saw" || s.breaking || s.done) return;
+    const contact = toLocal(e);
+    const p = s.touchOffset ? { x: contact.x + s.touchOffset.x, y: contact.y + s.touchOffset.y } : contact;
+    const moved = s.last ? Math.hypot(p.x - s.last.x, p.y - s.last.y) : 0;
+    if (moved < 0.8) return;
+    const pts = routes[s.route].pts;
+    if (s.touchOffset && p.y < 80 && Math.abs(p.x - (s.loupeX + 29)) < 50) {
+      s.loupeX = s.loupeX === 6 ? 236 : 6;
+    }
+    setSaw(s.touchOffset ? { ...p, contact, loupeX: s.loupeX } : p);
     const now = performance.now();
     const dt = Math.max(1, now - s.lastT);
-    const moved = s.last ? Math.hypot(p.x - s.last.x, p.y - s.last.y) : 0;
     s.last = p;
     s.lastT = now;
     const speed = moved / dt;
@@ -744,14 +776,14 @@ export function JulStep({
   const onWheel = (e: React.WheelEvent) => {
     const s = st.current;
     const pts = routes[s.route]?.pts ?? [];
-    if (s.done || s.breaking || s.phase === "hop" || pts.length === 0) return;
+    if (s.done || s.breaking || s.touchOffset || s.phase !== "saw" || e.ctrlKey || !e.deltaY || pts.length === 0) return;
     const now = performance.now();
     const dt = Math.max(8, now - s.lastT);
     s.lastT = now;
     const amount = Math.min(4, Math.abs(e.deltaY) / 40);
     const speed = (amount * 3) / dt;
     advance(Math.min(pts.length - 1, s.idx + Math.max(1, Math.round(amount))), 2.2, speed * 0.6);
-    setSaw(pts[Math.min(pts.length - 1, st.current.idx)]);
+    if (s.phase === "saw" && !s.done && !s.breaking) setSaw(pts[s.idx]);
   };
 
   if (!routes.length) {
@@ -770,14 +802,15 @@ export function JulStep({
   const active = routes[Math.min(routeIdx, routes.length - 1)];
   const sawn = [
     ...routes.slice(0, routeIdx).map((route) => route.pts),
-    ...(phase === "saw" ? [active.pts.slice(0, idx + 1)] : []),
+    active.pts.slice(0, idx + 1),
   ].filter((part) => part.length > 1);
-  const next = phase === "hop" ? active.pts[0] : active.pts[Math.min(active.pts.length - 1, idx + 1)];
+  const next = phase === "ready" ? active.pts[idx] : active.pts[Math.min(active.pts.length - 1, idx + 1)];
   const ahead = active.pts[Math.min(active.pts.length - 1, idx + 5)];
+  const arrowTransform = `translate(${ahead.x} ${ahead.y}) rotate(${Math.atan2(ahead.y - next.y, ahead.x - next.x) * 180 / Math.PI})`;
   const total = routes.reduce((sum, route) => sum + Math.max(1, route.pts.length - 1), 0);
   const done =
     routes.slice(0, routeIdx).reduce((sum, route) => sum + Math.max(1, route.pts.length - 1), 0) +
-    (phase === "saw" ? idx : 0);
+    idx;
 
   return (
     <div className="flex flex-col gap-3">
@@ -792,48 +825,32 @@ export function JulStep({
           {t(lang, "cut.debug")}
         </button>
       )}
-      <p className="craft-status-line">
-        {phase === "hop" ? t(lang, "cut.hop", { n: routeIdx + 1, max: routes.length }) : (lang === "ko" ? "밝은 점에서 화살표를 따라 그으세요. 터치는 톱끝보다 손가락 한 마디 아래를 잡으세요." : "Trace from the bright dot along the arrow. On touchscreens, hold a finger below the tip.")}
-      </p>
+      <div className="craft-status-line saw-instruction" aria-live="polite">
+        <strong>{phase === "ready" && routeIdx > 0 && idx === 0
+          ? t(lang, "cut.hop", { n: routeIdx + 1, max: routes.length })
+          : t(lang, "cut.piece", { n: routeIdx + 1, max: routes.length })}</strong>
+        <div className="saw-cues">
+          <span aria-hidden={phase !== "ready"}>
+            <span className="saw-mouse-copy">{t(lang, "cut.pressStart")}</span>
+            <span className="saw-touch-copy">{t(lang, "cut.gripStart")}</span>
+          </span>
+          <span aria-hidden={phase === "ready"}>
+            <span className="saw-mouse-copy">{t(lang, "cut.trace")}</span>
+            <span className="saw-touch-copy">{t(lang, "cut.liftHint")}</span>
+          </span>
+        </div>
+      </div>
       <div className={`workbench relative ${shake ? "shake" : ""}`}>
         <svg
           ref={svgRef}
           viewBox="0 0 300 300"
-          className="craft-touch-area aspect-square w-full"
-          onPointerDown={(e) => {
-            if (st.current.breaking || st.current.done || !claimCraftPointer(e, gesture)) return;
-            const p = toLocal(e);
-            setSaw(p);
-            st.current.down = true;
-            st.current.last = p;
-            st.current.lastT = performance.now();
-            if (st.current.phase === "hop") enterRoute(p);
-          }}
-          onPointerMove={(e) => {
-            if (isForeignCraftPointer(e, gesture)) return;
-            onMove(e);
-          }}
-          onPointerUp={(e) => {
-            if (!releaseCraftPointer(e, gesture)) return;
-            st.current.down = false;
-            flushSkewTrail();
-            loopLevel(0);
-          }}
-          onPointerCancel={(e) => {
-            if (!releaseCraftPointer(e, gesture)) return;
-            st.current.down = false;
-            flushSkewTrail();
-          }}
-          onLostPointerCapture={(e) => {
-            if (!releaseCraftPointer(e, gesture)) return;
-            st.current.down = false;
-            flushSkewTrail();
-            loopLevel(0);
-          }}
-          onPointerLeave={() => {
-            if (st.current.down) return;
-            setSaw(null);
-          }}
+          className="craft-touch-area saw-board aspect-square w-full"
+          data-phase={phase}
+          onPointerDown={startStroke}
+          onPointerMove={onMove}
+          onPointerUp={endStroke}
+          onPointerCancel={endStroke}
+          onLostPointerCapture={endStroke}
           onWheel={onWheel}
         >
           <ShellSheet pearl={pearl} />
@@ -933,30 +950,36 @@ export function JulStep({
               strokeLinejoin="round"
             />
           ))}
-          {next && phase === "saw" && (
-            <g pointerEvents="none"><path d="M -4 -3 L 1 0 L -4 3" transform={`translate(${ahead.x} ${ahead.y}) rotate(${Math.atan2(ahead.y-next.y,ahead.x-next.x)*180/Math.PI})`} fill="none" stroke="#34271c" strokeWidth="2.2"/><circle cx={next.x} cy={next.y} r="5" fill="#d9b25f" stroke="#fff" strokeWidth="1.5" className="pulse" /></g>
-          )}
-          {phase === "hop" && next && (
-            <g className="pointer-events-none">
-              <circle cx={next.x} cy={next.y} r="14" fill="none" stroke="#3ddc7a" strokeWidth="2" className="pulse" />
-              <circle cx={next.x} cy={next.y} r="5" fill="#3ddc7a" stroke="#fff" strokeWidth="1.5" />
-              <text x={next.x + 16} y={next.y + 4} fontSize="12" fill="#e7ffe8">
-                {routeIdx + 1}
-              </text>
-            </g>
-          )}
-          {next && !breakFx && <g className="touch-grip" aria-hidden="true" transform={`translate(${next.x} ${next.y})`}>
-            <path d={`M0 8 V${SAW_GRIP_OFFSET - 5}`} stroke="#fff0ce" strokeWidth="1.4" strokeDasharray="3 2" />
-            <g transform={`translate(0 ${SAW_GRIP_OFFSET})`} fill="#e8d7b5" stroke="#594735" strokeWidth="1.2" strokeLinejoin="round">
-              <path d="M0 0 V-5 Q1 -8 3 -6 L4 0 Q6 -3 8 -1 Q11 -2 12 1 Q15 0 15 4 V9 Q15 14 11 16 H5 Q3 14 0 10 L-5 5 Q-6 2 -3 2 L0 4 Z" />
-            </g>
-          </g>}
-          {saw && (
-            <g className="pointer-events-none">
-              <g transform={`translate(${saw.x - TOOL_TIP.saw[0] * 0.9} ${saw.y - TOOL_TIP.saw[1] * 0.9}) scale(0.9)`}>
-                <ToolGraphic tool="saw" />
-              </g>
-              <WorkPoint x={saw.x} y={saw.y} lift={saw.lift} />
+          {!breakFx && (
+            <g pointerEvents="none">
+              {!saw && <SawGrip tip={next} contact={gripBelow(next)} />}
+              <path d="M-4 -3 L1 0 L-4 3" transform={arrowTransform}
+                stroke="#30271e" strokeWidth="4" fill="none" strokeLinejoin="round" />
+              <path d="M-4 -3 L1 0 L-4 3" transform={arrowTransform}
+                stroke="#fff3ce" strokeWidth="1.6" fill="none" strokeLinejoin="round" />
+              <circle cx={next.x} cy={next.y} r={phase === "ready" ? 14 : 5} fill="none" stroke="#242019" strokeWidth="4" />
+              <circle cx={next.x} cy={next.y} r={phase === "ready" ? 14 : 5} fill={phase === "ready" ? "#183e3799" : "#edbd59"}
+                stroke={phase === "ready" ? "#abe9cd" : "#fff4d5"} strokeWidth="2" className="pulse" />
+              {phase === "ready" && <circle cx={next.x} cy={next.y} r="3" fill="#fff7dd" />}
+              {saw && (
+                <>
+                  {saw.contact && <SawGrip tip={saw} contact={saw.contact} active />}
+                  <g transform={`translate(${saw.x - TOOL_TIP.saw[0] * 0.75} ${saw.y - TOOL_TIP.saw[1] * 0.75}) scale(.75)`}>
+                    <ToolGraphic tool="saw" />
+                  </g>
+                  <WorkPoint x={saw.x} y={saw.y} />
+                  {saw.loupeX !== undefined && (
+                    <g transform={`translate(${saw.loupeX} 6)`} aria-hidden="true" data-saw-loupe="">
+                      <rect width="58" height="58" rx="8" fill="#28221c" stroke="#eddbb5" strokeWidth="1.5" />
+                      <svg x="3" y="3" width="52" height="52" viewBox={`${saw.x - 15} ${saw.y - 15} 30 30`} overflow="hidden">
+                        <path d={active.d} transform={motifXf} fill="none" stroke="#e4c98a" strokeWidth={1.2 / fit.scale} />
+                        <circle cx={next.x} cy={next.y} r="1.9" fill="#f4c866" />
+                        <WorkPoint x={saw.x} y={saw.y} r={3.5} />
+                      </svg>
+                    </g>
+                  )}
+                </>
+              )}
             </g>
           )}
         </svg>
@@ -988,6 +1011,21 @@ export function JulStep({
         />
       </div>
     </div>
+  );
+}
+
+/** The fingertip and saw tip share the same coordinate mapping as the gesture. */
+function SawGrip({ tip, contact, active = false }: { tip: SawPoint; contact: SawPoint; active?: boolean }) {
+  return (
+    <g className={active ? undefined : "touch-grip"} aria-hidden="true">
+      <line x1={tip.x} y1={tip.y} x2={contact.x} y2={contact.y} stroke="#30261b" strokeWidth="3" />
+      <line x1={tip.x} y1={tip.y} x2={contact.x} y2={contact.y} stroke="#f9e6bf" strokeWidth="1.4" strokeDasharray="3 2" />
+      <g transform={`translate(${contact.x} ${contact.y})`}>
+        <circle r="12" fill="#2e261dec" stroke="#f6dfb4" strokeWidth="1.5" />
+        <path d="M-3 1 V-6 Q-2 -9 0 -6 V-1 Q2 -4 4 -1 Q6 -3 7 0 Q10 -1 10 3 V6 Q10 10 7 11 H1 L-7 4 Q-9 0 -6 0 Z"
+          fill="#ffebc5" stroke="#4b3626" strokeWidth="1.1" strokeLinejoin="round" />
+      </g>
+    </g>
   );
 }
 

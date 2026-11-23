@@ -1751,8 +1751,21 @@ button.step-dot:focus-visible {
 .workshop-stage-label { color: var(--on-dark-soft); text-align: center; font-size: 12px; padding-top: 5px; }
 .nest-piece-bar-slot:not(:empty) { bottom: calc(66px + env(safe-area-inset-bottom)); z-index: 13; }
 .nest-piece-bar-slot > .nest-piece-bar { position: static; }
-.touch-grip { display: none; pointer-events: none; }
-@media (pointer: coarse) { .touch-grip { display: block; } }
+.saw-instruction { display: block; align-content: center; }
+.saw-instruction strong { display: block; color: #bee7d2; }
+.saw-cues { display: grid; }
+.saw-cues > span { grid-area: 1 / 1; }
+.saw-cues > [aria-hidden="true"] { visibility: hidden; }
+.saw-board { cursor: crosshair; }
+.saw-board[data-phase="ready"] { cursor: pointer; }
+.touch-grip, .saw-touch-copy { display: none; }
+@media (any-pointer: coarse) {
+  .touch-grip, .saw-touch-copy { display: inline; }
+  .saw-mouse-copy { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .saw-board .pulse { animation: none; }
+}
 
 @media (min-width: 850px) {
   .app-frame:has(.title-screen) { max-width: 1080px; }
