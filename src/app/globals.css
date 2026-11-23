@@ -1894,7 +1894,16 @@ button.step-dot:focus-visible {
 .story-heading button, .apprentice-language {
   border: 1px solid #d3b98e8c; border-radius: 8px; background: #21190fde; color: #fff4dc;
 }
-.story-heading button { width: 44px; height: 44px; font: 30px/1 serif; cursor: pointer; }
+.story-heading button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  font: 18px/1 var(--font-body), "Apple SD Gothic Neo", sans-serif;
+  cursor: pointer;
+}
 .story-figure { position: relative; margin: 0 auto; width: min(100%, 1080px); min-height: 0; pointer-events: none; }
 .story-figure img {
   position: absolute; left: 1%; bottom: -44px; width: 65%; height: calc(100% + 42px);

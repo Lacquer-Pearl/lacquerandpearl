@@ -59,7 +59,9 @@ export default function StoryCommission({ chapter }: { chapter: Exclude<Chapter,
   return (
     <section className="screen story-scene" data-chapter={chapter} data-shot={line.shot} data-speaker={line.speaker} aria-label={title}>
       <header className="story-heading">
-        <button type="button" data-nav-back onClick={() => go("title")} aria-label={ko ? "공방으로" : "Back to workshop"}>‹</button>
+        <button type="button" data-nav-back onClick={() => go("title")} aria-label={ko ? "공방으로" : "Back to workshop"}>
+          ◀
+        </button>
         <h1>{title}</h1>
       </header>
       <div className="story-figure" role="img" aria-label={client.name} aria-hidden={alone}>
