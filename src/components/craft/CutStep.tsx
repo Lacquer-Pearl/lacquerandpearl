@@ -27,7 +27,7 @@ import MotifIcon from "@/components/MotifIcon";
 import UiIcon from "@/components/UiIcon";
 import LessonGate, { LessonPaused } from "./LessonGate";
 import BenchLayout from "./BenchLayout";
-import { StepHeader } from "./common";
+import { StepHeader, TutorialStage } from "./common";
 import { claimCraftPointer, releaseCraftPointer, useBlockCraftScroll } from "./craftTouch";
 
 type SawPoint = { x: number; y: number };
@@ -467,6 +467,11 @@ export function JulStep({
   onAbort: () => void;
 }) {
   const lang = useSave((s) => s.lang);
+  const inWorkshop = useContext(TutorialStage) === "cut";
+  const learnedStart = useSave(s => s.learned.includes("jul-start"));
+  const [started, setStarted] = useState(false);
+  const [resumeAfterBreak, setResumeAfterBreak] = useState(false);
+  const showStartHelp = !started && !learnedStart;
   const fit = useMemo(() => motifCutFit(motif), [motif]);
   const bounds = useMemo(() => motifLocalBox(motif), [motif]);
   const polygons = useMemo(() => motifCutRoutes(motif).flatMap((cut) => pathToPolygons(cut.d)), [motif]);
@@ -632,7 +637,7 @@ export function JulStep({
       s.breaking = false;
       parkSaw();
       setBreakFx(null);
-      setWarn(lang === "ko" ? "쓸 수 있는 파편이에요. 밝은 점부터 남은 선을 마저 잘라 주세요." : "Keep these fragments. Resume cutting at the bright dot.");
+      setResumeAfterBreak(true);
     }, 780));
   };
 
@@ -689,6 +694,11 @@ export function JulStep({
     const radius = touch ? Math.max(16, 22 * 300 / e.currentTarget.getBoundingClientRect().width) : 16;
     if (near(target) > radius && !(touch && near(grip) <= radius)) return;
     if (!claimCraftPointer(e, gesture)) return;
+    if (!started) {
+      setStarted(true);
+      if (inWorkshop && !learnedStart) useSave.getState().learn("jul-start");
+    }
+    setResumeAfterBreak(false);
     // Anchor where the player actually grabbed. A direct tap and the offset handle both start on the guide.
     s.touchOffset = touch ? { x: target.x - contact.x, y: target.y - contact.y } : null;
     s.loupeX = target.x < 150 ? 236 : 6;
@@ -821,7 +831,8 @@ export function JulStep({
     idx;
 
   return (
-    <LessonGate untilComplete lesson={phase === "ready" ? (routeIdx ? "julNext" : "jul") : undefined}>
+    <LessonGate untilComplete showOutsideTutorial={resumeAfterBreak}
+      lesson={resumeAfterBreak ? "resumeCut" : showStartHelp && phase === "ready" ? "jul" : undefined}>
     <BenchLayout
       tools={<>
         <StepHeader title={t(lang, "cut.julTitle")} icon="fretsaw">
@@ -836,11 +847,9 @@ export function JulStep({
           </button>
         )}
         <div className="craft-status-line saw-instruction" aria-live="polite">
-          <strong>{phase === "ready" && routeIdx > 0 && idx === 0
-            ? t(lang, "cut.hop", { n: routeIdx + 1, max: routes.length })
-            : t(lang, "cut.piece", { n: routeIdx + 1, max: routes.length })}</strong>
+          <strong>{t(lang, "cut.piece", { n: routeIdx + 1, max: routes.length })}</strong>
           <div className="saw-cues">
-            <span aria-hidden={phase !== "ready"}>
+            <span aria-hidden={!showStartHelp || phase !== "ready"}>
               <span className="saw-mouse-copy">{t(lang, "cut.pressStart")}</span>
               <span className="saw-touch-copy">{t(lang, "cut.gripStart")}</span>
             </span>
@@ -1022,7 +1031,7 @@ export function JulStep({
             </g>
           )}
         </svg>
-        {warn && <div className="event-toast pop-in">{warn}</div>}
+        {warn && <div role="status" className="event-toast pop-in">{warn}</div>}
       </div>
     </BenchLayout>
     </LessonGate>

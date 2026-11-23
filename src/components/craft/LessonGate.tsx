@@ -32,10 +32,12 @@ const lines = {
   kkeun: ["버튼을 누르면 자개 띠가 움직인다. 그다음에는 표시가 칼날에 닿을 때마다 눌러 한 토막씩 잘라 보렴.", "Press to start the shell strip moving. Then press each time a mark reaches the blade to cut one length."],
   auto: ["기계에 맡기려면 먼저 가공비를 확인하렴. 맡기고 나면 잘린 조각을 받아 붙일 수 있단다.", "Check the fee before sending the piece to the machine. Your cut shell will be ready to place afterwards."],
   newGlue: ["아교가 말랐구나. 아교를 다시 묻힌 뒤 조각을 집어 보렴.", "The glue has dried. Apply fresh glue before picking up the shell again."],
-  join: ["두 조각의 절단면이 아직 맞물리는구나. 이대로 이어 붙여 나비 날개를 살려 보자.", "The two broken edges still fit. Keep the pieces and join the wing on the lid."],
-  recut: ["이 조각은 새로 잘라야겠구나. 남은 자개에서 다시 자를 자리를 찾아보자.", "This piece needs another cut. Find room on the remaining shell to try again."],
-  restock: ["다시 자를 패가 모자라는구나. 상점에서 필요한 자개를 채우고 돌아오렴.", "There isn’t enough shell to recut. Visit the shop for a fresh sheet."],
-  julNext: ["방금 자른 선은 끝났단다. 손을 뗀 뒤 새로 빛나는 초록 고리에서 다음 구간을 시작하렴.", "That section is finished. Lift your hand and press the new green ring to start the next one."],
+  resumeCut: ["둘로 갈라졌지만 두 조각 모두 쓸 수 있단다. 손을 뗐다가 초록 고리를 다시 짚고 남은 선을 마저 자르렴. 다 자르면 두 조각을 이어 붙일 수 있어.", "Both pieces are still usable. Lift your hand, press the green ring again and finish the outline. Once the cut is done, you can join the pieces."],
+  join: ["절단면이 서로 맞는구나. ‘두 조각을 이어 붙이기’를 고르면 붙이기 공정에서 한 조각씩 맞출 수 있단다.", "The broken edges match. Choose “Join the two pieces” to fit them together during the gluing step."],
+  recut: ["이 조각은 다시 잘라야겠구나. 쓰던 패에 자리가 있어. ‘자동 구획으로 다시 제작’을 골라 배치를 확정하고 같은 문양을 다시 자르렴.", "This piece needs a fresh cut. There’s room on the open sheet. Choose automatic layout, confirm the placement, then cut the motif again."],
+  freshCut: ["쓰던 패에는 이 문양이 들어갈 자리가 없구나. ‘새로운 자개패 사용’을 눌러 배치를 확정하고 다시 자르렴.", "The motif won’t fit on the open sheet. Choose “Use a new shell sheet”, confirm the placement, then cut it again."],
+  restock: ["이 문양을 다시 자를 만한 패가 모자라는구나. 상점에서 맞는 크기의 패를 사 오거나, 지금까지 한 작업을 저장해 두렴.", "You need a sheet large enough to cut this motif again. Visit the shop for one, or save your work for later."],
+  pauseCut: ["다시 자를 패가 모자라는구나. 일단 작업을 멈춰 두렴.", "There isn’t enough shell for another cut. You can pause here."],
   attach: ["잘라 낸 자개를 집어서 함 위 점선에 포개 보렴. 아교가 마르면 다시 묻히면 된단다.", "Pick up the cut shell and lay it inside the dashed outline. Apply fresh glue if it dries."],
   iron: ["무늬가 제자리를 찾았구나. 종이 아래 자개가 비치는 곳을 인두로 눌러라. 잘 붙으면 손을 떼고 옆자리로 옮기렴.", "The motif is in place. Hold the iron over the shell beneath the paper. Lift when it bonds and move to the next spot."],
   peel: ["이제 종이를 벗겨 보자. 물을 먹이면 부드러워져 자개가 들뜨는 걸 줄일 수 있단다.", "Now lift the paper away. Wetting it first softens the paper and helps the shell stay in place."],
@@ -61,16 +63,18 @@ const targets: Record<Lesson, string> = {
   redip: ".lacquer-bowl",
   cloth: ".bench-surface svg.craft-touch-area", lacquer: ".lacquer-bowl", brush: "[data-paint-canvas]",
   dry: "[data-lesson=dry]", humidify: "[data-lesson=humidify]", vent: "[data-lesson=vent]",
-  heat: "[data-lesson=heat]", cool: "[data-lesson=cool]", cut: "[data-lesson=cut]", jul: ".saw-board", julNext: ".saw-board",
-  join: "[data-lesson=join]", recut: "[data-lesson=recut]", restock: "[data-lesson=restock]", newGlue: "[data-lesson=newGlue]",
+  heat: "[data-lesson=heat]", cool: "[data-lesson=cool]", cut: "[data-lesson=cut]", jul: ".saw-board", resumeCut: ".saw-board",
+  join: "[data-lesson=join]", recut: "[data-lesson=recut]", freshCut: "[data-lesson=freshCut]", pauseCut: "[data-lesson=pauseCut]", restock: "[data-lesson=restock]", newGlue: "[data-lesson=newGlue]",
   kkeun: "[data-lesson=kkeun]", auto: "[data-lesson=auto]", attach: "[data-lesson=attach]", iron: "[data-paint-canvas]",
   peel: "[data-lesson=peel]", wet: ".bench-surface .craft-touch-area", fill: ".lacquer-bowl", sand: "[data-paint-canvas]",
   finish: "[data-lesson=finish]",
 };
 
-export default function LessonGate({ lesson, untilComplete = false, children }: { lesson?: Lesson; untilComplete?: boolean; children: ReactNode }) {
+export default function LessonGate({ lesson, untilComplete = false, showOutsideTutorial = false, children }: {
+  lesson?: Lesson; untilComplete?: boolean; showOutsideTutorial?: boolean; children: ReactNode;
+}) {
   const [read, setRead] = useState<readonly Lesson[]>([]);
-  const enabled = useContext(GiftLessons);
+  const enabled = useContext(GiftLessons) || showOutsideTutorial;
   const parentPaused = useContext(LessonPaused);
   const active = enabled && !parentPaused && lesson && (untilComplete || !read.includes(lesson)) ? lesson : undefined;
   const dismiss = useCallback(() => {
@@ -114,7 +118,7 @@ function PositionedHint({ target, lesson, untilComplete, dismiss }: HintProps & 
     const card = note.current!;
     const spotlightBounds = () => {
       if (lesson === "placeButterfly") return target.querySelector("[data-lid-area]")?.getBoundingClientRect() ?? target.getBoundingClientRect();
-      if (lesson !== "jul" && lesson !== "julNext") return target.getBoundingClientRect();
+      if (lesson !== "jul" && lesson !== "resumeCut") return target.getBoundingClientRect();
       const rects = [...target.querySelectorAll("circle.pulse, .touch-grip")]
         .map(el => el.getBoundingClientRect()).filter(r => r.width && r.height);
       if (!rects.length) return target.getBoundingClientRect();
@@ -165,7 +169,7 @@ function PositionedHint({ target, lesson, untilComplete, dismiss }: HintProps & 
       const el = e.target;
       if (!(el instanceof Element) || target.contains(el) || el.closest(".work-hint, .modal-backdrop, .tool-drawer header")) return;
       if (lesson === "art" && el.closest(".sketch-paper")) return;
-      if ((lesson === "join" || lesson === "recut" || lesson === "restock") && el.closest("[data-recut-panel] button")) return;
+      if (target.closest('[data-recut-panel="choose"]')?.contains(el.closest("button"))) return;
       if (!el.closest(".craft-screen .screen-body, .tool-drawer")) return;
       e.stopImmediatePropagation();
       if (e.type === "click") e.preventDefault();
