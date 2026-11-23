@@ -7,7 +7,7 @@ import UiIcon from "@/components/UiIcon";
 import { Btn, Coin, Modal, SoundToggle } from "@/components/ui";
 import { MasterTip } from "@/components/craft/common";
 import { rankTitle, stepName, t, tNode, type Locale } from "@/lib/i18n";
-import { newPiece, type StepId } from "@/lib/game";
+import type { StepId } from "@/lib/game";
 import { beginDevCraft, loadDevProgress } from "@/lib/devCraft";
 import { sfx } from "@/lib/sound";
 import { useSave, useUI } from "@/lib/store";
@@ -67,10 +67,28 @@ export default function TitleScreen() {
   const [confirmReset, setConfirmReset] = useState(false);
   const [repOpen, setRepOpen] = useState(false);
 
+  const story = useSave(s => s.story);
+  const choose = useSave(s => s.chooseApprentice);
   const canResume = !!craftProgress && craftProgress.stepIdx >= 1;
 
   const signSrc = lang === "en" ? "/images/ui/sign-en.webp" : "/images/ui/sign-ko.webp";
   const signSize = lang === "en" ? { width: 770, height: 346 } : { width: 528, height: 233 };
+
+  if (!story.apprentice) return (
+    <div className="screen apprentice-screen">
+      <div className="apprentice-language" role="group" aria-label="한국어 / English">
+        {(["ko", "en"] as const).map(code => <button key={code} aria-pressed={lang === code}
+          onClick={() => setLang(code)}>{code === "ko" ? "한국어" : "English"}</button>)}
+      </div>
+      <section className="apprentice-panel">
+        <h1>{lang === "ko" ? "어떤 견습 장인으로 시작할까요?" : "Choose your apprentice"}</h1>
+        <div className="apprentice-options">
+          <Btn variant="cream" onClick={() => choose("woman")}>{lang === "ko" ? "여성 장인" : "Woman"}</Btn>
+          <Btn variant="cream" onClick={() => choose("man")}>{lang === "ko" ? "남성 장인" : "Man"}</Btn>
+        </div>
+      </section>
+    </div>
+  );
 
   return (
     <div className="screen title-screen">
@@ -124,14 +142,11 @@ export default function TitleScreen() {
               </div>
             </div>
           )}
-          {!canResume && <TitleMenuBtn size="lg" className="title-menu-btn-primary" onClick={() => {
-            startCraft();
-            useUI.getState().setDraft({ shape:"box", lacquer:"black", lacquerChosen:true, pearl:"white",
-              pieces:[{ ...newPiece("butterfly", "white"), x:153, y:139 }] });
-          }}>{lang === "ko" ? "첫 작품 만들기 · 나비문 보석함" : "First piece · Butterfly jewel box"}</TitleMenuBtn>}
-          <TitleMenuBtn size="lg" onClick={() => go("board")}>
+          <TitleMenuBtn size="lg" className="title-menu-btn-primary" onClick={() => go("board")}>
             <UiIcon id="scroll" />
-            {lang === "ko" ? "공방 이야기 · 의뢰 받기" : "Workshop story & commissions"}
+            {story.chapter === "ending" ? t(lang, "board.title")
+              : story.chapter === "gift" ? (lang === "ko" ? "공방 이야기 · 첫 선물" : "Workshop story · The first gift")
+              : (lang === "ko" ? "공방 이야기 · 달밤의 손님" : "Workshop story · The moonlit visitor")}
           </TitleMenuBtn>
           <TitleMenuBtn size="lg" onClick={() => startCraft(undefined)}>
             <UiIcon id="frame" />

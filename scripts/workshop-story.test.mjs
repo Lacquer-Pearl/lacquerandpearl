@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { earnedAchievements, GIFT_ID, storyOrder, VISITOR_ID } from "../src/lib/workshopStory.ts";
+import { canAcceptCommission, earnedAchievements, GIFT_ID, storyOrder, VISITOR_ID } from "../src/lib/workshopStory.ts";
 
 test("the gift and visitor keep their identity, requested materials and reward", () => {
   const gift = storyOrder("man", "gift");
@@ -22,4 +22,17 @@ test("the first finish opens a motif and each seal pays once", () => {
   const royal = { scores: { sand: 85 }, commissionId: VISITOR_ID };
   assert.deepEqual(earnedAchievements(royal, ["first"]), ["polish", "patron"]);
   assert.deepEqual(earnedAchievements(royal, ["first", "polish", "patron"]), []);
+});
+
+test("only the current tutorial commission opens until the visitor's delivery is read", () => {
+  for (const chapter of ["gift", "visitor", "ending"]) {
+    assert.equal(canAcceptCommission({ chapter }, "random-order"), false);
+    const story = { apprentice: "woman", chapter };
+    assert.equal(canAcceptCommission(story, GIFT_ID), chapter === "gift");
+    assert.equal(canAcceptCommission(story, VISITOR_ID), chapter === "visitor");
+    assert.equal(canAcceptCommission(story, "random-order"), chapter === "ending");
+    for (const id of [GIFT_ID, VISITOR_ID, "random-order"]) {
+      assert.equal(canAcceptCommission({ ...story, delivery: true }, id), false);
+    }
+  }
 });

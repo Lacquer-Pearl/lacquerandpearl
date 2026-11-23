@@ -1732,19 +1732,15 @@ button.step-dot:focus-visible {
 @media(prefers-reduced-motion:reduce) { .demo-display .grade-seal { animation:none; } }
 .demo-epilogue { margin:0; }
 
-.story-letter, .seal-album {
+.seal-album {
   padding: 18px 20px;
   border: 1px solid #b5a28a;
   border-radius: 5px;
   background: #f1e9da;
   color: #392e24;
 }
-.story-letter { display: grid; gap: 12px; border-top: 3px solid #967a52; }
-.story-letter h2 { font: 700 1.35rem var(--font-title), serif; }
-.story-letter p, .seal-album p { line-height: 1.6; }
-.story-letter legend, .seal-album p { margin-bottom: 5px; }
-.story-letter b, .seal-album b, .master-name { color: #735134; }
-.story-letter > .btn { justify-self: start; }
+.seal-album p { line-height: 1.6; margin-bottom: 5px; }
+.seal-album b, .master-name { color: #735134; }
 .seal-album summary { cursor: pointer; }
 .seal-album[open] summary { margin-bottom: 10px; }
 .master-name { display: block; font-size: 12px; margin-bottom: 3px; }
@@ -1791,7 +1787,7 @@ button.step-dot:focus-visible {
 
 @media (prefers-reduced-motion: no-preference) {
   .demo-hero { animation: workshop-arrival .65s ease-out both; }
-  .screen:has(.story-letter) .screen-body { animation: workshop-door .3s ease-out; }
+  .story-figure { animation: workshop-door .3s ease-out; }
   .screen:has(.shelf) .shelf { animation: workshop-shelf .35s ease-out; }
   .craft-screen .workbench { animation: workshop-bench .25s ease-out; }
   @keyframes workshop-arrival { from { opacity: .3; } to { opacity: 1; } }
@@ -1862,4 +1858,79 @@ button.step-dot:focus-visible {
   .angle-room img { object-position: center 72%; }
   .angle-entry img { object-position: 27% center; }
   .angle-shelf img { object-position: 76% center; }
+}
+
+.game-room .app-frame:has(.story-scene),
+.game-room .app-frame:has(.apprentice-screen) {
+  max-width: none;
+  background: transparent;
+  padding: 0;
+}
+
+.story-scene, .apprentice-screen {
+  --scene-pad: clamp(16px, 5vw, 84px);
+  color: #fff3da;
+  padding: max(env(safe-area-inset-top), 16px) var(--scene-pad) max(env(safe-area-inset-bottom), 20px);
+  isolation: isolate;
+}
+.story-scene {
+  display: grid;
+  grid-template-rows: auto minmax(120px, 1fr) auto;
+  min-height: 100svh;
+  height: 100dvh;
+  background: linear-gradient(180deg, #130e0b74, transparent 28%, transparent 66%, #100c09aa);
+}
+.story-scene[data-chapter="visitor"] {
+  background: linear-gradient(180deg, #181b35a6, #1b20394a 65%, #11101bcd);
+}
+.story-heading { display: flex; align-items: center; gap: 14px; z-index: 1; }
+.story-heading h1, .apprentice-panel h1 { font: 600 clamp(1.4rem, 3vw, 2.4rem)/1.35 var(--font-title), serif; text-shadow: 0 2px 12px #20160d; }
+.story-heading button, .apprentice-language {
+  border: 1px solid #d3b98e8c; border-radius: 8px; background: #21190fde; color: #fff4dc;
+}
+.story-heading button { width: 44px; height: 44px; font: 30px/1 serif; cursor: pointer; }
+.story-figure { position: relative; margin: 0 auto; width: min(100%, 1080px); min-height: 0; pointer-events: none; }
+.story-figure img {
+  position: absolute; left: 1%; bottom: -44px; width: 65%; height: calc(100% + 42px);
+  object-position: bottom left; object-fit: contain;
+  filter: drop-shadow(3px 4px 9px #271a1860);
+}
+.story-scene[data-chapter="visitor"] .story-figure img { left: auto; right: 1%; object-position: bottom right; }
+.story-dialogue, .apprentice-panel {
+  position: relative; border: 1px solid #ccb284; border-radius: 7px;
+  background: linear-gradient(118deg, #29201af7, #201c19fa 76%, #33281ff7);
+  box-shadow: inset 0 0 0 4px #312923, inset 0 0 0 5px #79664960, 0 8px 22px #150f0a65;
+}
+.story-dialogue { width: min(100%, 1080px); margin: auto; padding: 18px clamp(18px, 4vw, 50px) 14px; }
+.story-dialogue h2 { color: #eac89a; font: 650 1.15rem/1.4 var(--font-title), serif; margin-bottom: 7px; }
+.story-dialogue p { font-size: clamp(1rem, 1.5vw, 1.22rem); line-height: 1.65; min-height: 3.3em; word-break: keep-all; overflow-wrap: anywhere; }
+.story-controls { display: flex; justify-content: flex-end; align-items: center; gap: 18px; margin-top: 5px; }
+.story-prev { margin-right: auto; cursor: pointer; padding: 8px 0; color: #decebb; font-size: .9rem; }
+.story-controls .btn { min-height: 44px; }
+.apprentice-screen { align-items: center; justify-content: flex-end; padding-bottom: max(8svh, env(safe-area-inset-bottom)); }
+.apprentice-language { position: absolute; right: var(--scene-pad); top: max(16px, env(safe-area-inset-top)); display: flex; }
+.apprentice-language button { min-height: 44px; padding: 0 12px; cursor: pointer; }
+.apprentice-language button[aria-pressed="true"] { color: #f6ce8c; text-decoration: underline; text-underline-offset: 5px; }
+.apprentice-panel { text-align: center; width: min(100%, 560px); padding: 26px 18px; }
+.apprentice-panel h1 { font-size: clamp(1.35rem, 3vw, 1.85rem); }
+.apprentice-options { display: flex; justify-content: center; gap: 14px; margin-top: 20px; }
+.apprentice-options button { min-width: 100px; }
+.master-lesson { display: flex; align-items: flex-end; gap: 12px; padding: 10px 14px 10px 6px; background: #f4ead8; color: #3d3028; border-radius: 6px; }
+.master-lesson img { width: clamp(64px, 12vw, 92px); max-height: 108px; object-fit: contain; object-position: bottom; align-self: center; }
+.master-lesson p { line-height: 1.55; align-self: center; }
+@media (max-width: 600px) {
+  .story-figure img { left: -3%; width: 96%; }
+  .story-scene[data-chapter="visitor"] .story-figure img { right: -3%; }
+  .story-dialogue p { min-height: 4.95em; }
+}
+@media (max-height: 510px) and (orientation: landscape) {
+  .story-scene { padding-top: 6px; padding-bottom: 6px; }
+  .story-figure img { height: calc(100% + 74px); }
+  .story-dialogue { padding: 10px 20px; }
+  .story-dialogue p { min-height: 0; }
+}
+
+.game-room:has(.apprentice-screen) .angle-room { height: 100%; mask-image: none; }
+.game-room:has(.story-scene[data-chapter="visitor"]) .angle-entry img {
+  filter: brightness(.65) saturate(.65);
 }

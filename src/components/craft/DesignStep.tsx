@@ -53,6 +53,7 @@ import {
   type ShellStock,
 } from "@/lib/shellNest";
 import { costFor, useSave } from "@/lib/store";
+import { GIFT_ID } from "@/lib/workshopStory";
 import { StepHeader } from "./common";
 import NestStep, { motifPolygons, needsLargeSheet, type NestActions, type NestStatus } from "./NestStep";
 
@@ -341,7 +342,12 @@ export default function DesignStep({
   return (
     <div className="flex flex-col gap-3">
       <StepHeader title={t(lang, "design.title")} icon="pencil">
-        {commission ? <>{t(lang, "design.tipCommission")}</> : <>{t(lang, "design.tipFree")}</>}
+        {view === "shell" ? t(lang, "nest.tip") : view === "review"
+          ? (lang === "ko" ? "함에 얹을 무늬와 자개패에서 자를 자리를 모두 정했구나. 마음에 들면 제작을 시작하렴." : "The design and the cuts are ready. If you like how they sit, start crafting.")
+          : commission?.id === GIFT_ID ? (lang === "ko"
+            ? "흑칠함에 흰 나비를 올려 두었단다. 손끝으로 나비를 끌어 자리를 잡아 보렴. 마음에 들면 자개패에 올리기로 넘어가자."
+            : "I’ve set a white butterfly on the black box. Drag it to a spot you like, then lay it out on the shell sheet.")
+          : t(lang, commission ? "design.tipCommission" : "design.tipFree")}
       </StepHeader>
 
       <ol className="design-stepper">

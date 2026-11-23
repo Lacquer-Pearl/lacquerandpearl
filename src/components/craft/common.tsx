@@ -1,6 +1,7 @@
 "use client";
 
-import { useSave } from "@/lib/store";
+import { useSave, useUI } from "@/lib/store";
+import { GIFT_ID } from "@/lib/workshopStory";
 import Avatar from "@/components/Avatar";
 import UiIcon, { type UiIconId } from "@/components/UiIcon";
 import type { CustomerDef } from "@/lib/data";
@@ -48,6 +49,9 @@ export function StepHeader({
 }) {
   const lang = useSave(s => s.lang);
   const stage = useContext(TutorialStage);
+  const gift = useUI(s => s.commission?.id === GIFT_ID);
+  const firstWork = useSave(s => s.gallery.length === 0);
+  const guided = gift || firstWork;
   const learned = useSave(s => s.learned.includes(stage));
   return (
     <div className="flex flex-col gap-2">
@@ -58,10 +62,14 @@ export function StepHeader({
         </h2>
         {trailing}
       </div>
-      {children && <details open={!learned && !(["hemp","fretsaw","whetstone","brush","torch"].includes(icon))} className="demo-help">
+      {children && (guided ? <div className="master-lesson">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/npc/story/master.webp" alt="" />
+        <p><b className="master-name">{t(lang, "master.name")}</b>{children}</p>
+      </div> : <details open={!learned && !(["hemp","fretsaw","whetstone","brush","torch"].includes(icon))} className="demo-help">
         <summary>{lang === "ko" ? "조작 도움말" : "How to play"}</summary>
         <MasterTip>{children}</MasterTip>
-      </details>}
+      </details>)}
     </div>
   );
 }

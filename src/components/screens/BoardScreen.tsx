@@ -25,13 +25,15 @@ export default function BoardScreen() {
   const refresh = useSave((s) => s.refreshCommissions);
   const lang = useSave((s) => s.lang);
 
-  useEffect(() => ensure(), [ensure]);
+  const chapter = useSave(s => s.story.chapter);
+  useEffect(() => { if (chapter === "ending") ensure(); }, [ensure, chapter]);
+
+  if (chapter !== "ending") return <StoryCommission key={chapter} chapter={chapter} />;
 
   return (
     <div className="screen">
       <TopBar title={t(lang, "board.title")} onBack={() => go("title")} />
       <div className="screen-body">
-        <StoryCommission />
         <p className="panel text-sm leading-relaxed text-[var(--brown)]">{t(lang, "board.repHint")}</p>
         {commissions.map((c) => {
           const client = clientLabel(lang, c);

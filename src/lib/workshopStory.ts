@@ -6,9 +6,18 @@ export type Chapter = "gift" | "visitor" | "ending";
 export interface WorkshopStory {
   apprentice?: Apprentice;
   chapter: Chapter;
+  delivery?: boolean;
+  line?: number;
 }
 export const GIFT_ID = "workshop-friend-gift";
 export const VISITOR_ID = "workshop-moonlit-visitor";
+
+export function canAcceptCommission(story: WorkshopStory, id: string) {
+  if (!story.apprentice || story.delivery) return false;
+  if (id === GIFT_ID) return story.chapter === "gift";
+  if (id === VISITOR_ID) return story.chapter === "visitor";
+  return story.chapter === "ending";
+}
 
 export function storyOrder(apprentice: Apprentice, chapter: Exclude<Chapter, "ending">): Commission {
   const gift = chapter === "gift";

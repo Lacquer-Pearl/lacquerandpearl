@@ -28,7 +28,7 @@ import {
 } from "./shellNest";
 import type { Locale } from "./i18n";
 import { rememberNpcs, sanitizePatron } from "./npcs";
-import { ACHIEVEMENTS, earnedAchievements, GIFT_ID, VISITOR_ID, type Achievement, type Apprentice, type WorkshopStory } from "./workshopStory";
+import { ACHIEVEMENTS, canAcceptCommission, earnedAchievements, GIFT_ID, VISITOR_ID, type Achievement, type Apprentice, type WorkshopStory } from "./workshopStory";
 
 export type Inventory = Record<MaterialId, number>;
 
@@ -75,6 +75,8 @@ interface SaveState {
   story: WorkshopStory;
   achievements: Achievement[];
   chooseApprentice: (apprentice: Apprentice) => void;
+  setStoryLine: (line: number) => void;
+  finishDelivery: () => void;
   money: number;
   reputation: number;
   inventory: Inventory;
@@ -201,6 +203,14 @@ export const useSave = create<SaveState>()(
         if (!get().story.apprentice) set({ story: { ...get().story, apprentice } });
       },
 
+      setStoryLine: (line) => set(s => ({ story: { ...s.story, line } })),
+      finishDelivery: () => {
+        const { story } = get();
+        if (!story.delivery || story.chapter === "ending") return;
+        set({ story: { apprentice: story.apprentice, chapter: story.chapter === "gift" ? "visitor" : "ending" } });
+        get().ensureCommissions();
+      },
+
       buy: (id) => {
         const m = MATERIALS[id];
         const { money, inventory } = get();
@@ -268,12 +278,13 @@ export const useSave = create<SaveState>()(
 
       ensureCommissions: () => {
         const { commissions, reputation, npcRecent } = get();
-        if (commissions.length >= 3) return;
+        if (get().story.chapter !== "ending" || commissions.length >= 3) return;
         const { added, recentIds } = addCommissions(reputation, commissions, npcRecent, 3 - commissions.length);
         set({ commissions: [...commissions, ...added], npcRecent: recentIds });
       },
 
       refreshCommissions: () => {
+        if (get().story.chapter !== "ending") return;
         const { commissions, reputation, npcRecent } = get();
         const prior = commissions.flatMap((c) => (c.patron ? [c.patron.id] : []));
         const { added, recentIds } = addCommissions(reputation, [], rememberNpcs(npcRecent, prior), 3);
@@ -286,13 +297,13 @@ export const useSave = create<SaveState>()(
         if (existing) return existing;
         const awards = earnedAchievements(art, s.achievements);
         const recorded = { ...art, achievements: awards };
-        const chapter = art.commissionId === GIFT_ID && s.story.chapter === "gift"
-          ? "visitor" : art.commissionId === VISITOR_ID && s.story.chapter === "visitor" ? "ending" : s.story.chapter;
+        const delivery = (art.commissionId === GIFT_ID && s.story.chapter === "gift")
+          || (art.commissionId === VISITOR_ID && s.story.chapter === "visitor");
         const done = s.commissions.find((c) => c.id === art.commissionId);
         set({
           gallery: [recorded, ...s.gallery].slice(0, 60),
           craftProgress: null,
-          story: { ...s.story, chapter },
+          story: delivery ? { ...s.story, delivery: true, line: 0 } : s.story,
           achievements: [...s.achievements, ...awards],
           money: s.money + art.earned + awards.reduce((n, id) => n + ACHIEVEMENTS[id].coins, 0),
           reputation: s.reputation + repGain + awards.reduce((n, id) => n + ACHIEVEMENTS[id].rep, 0),
@@ -444,6 +455,7 @@ export const useUI = create<UIState>()((set, get) => ({
   },
   setDraft: (draft) => set({ draft }),
   startCraft: (commission) => {
+    if (commission && !canAcceptCommission(useSave.getState().story, commission.id)) return;
     craftBoot = null;
     set({ screen: "craft", prev: get().screen, commission, draft: undefined });
   },

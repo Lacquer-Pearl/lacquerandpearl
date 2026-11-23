@@ -47,6 +47,7 @@ export default function ResultScreen() {
   const art = useUI((s) => s.lastArtwork);
   const go = useUI((s) => s.go);
   const lang = useSave((s) => s.lang);
+  const storyComplete = useSave(s => s.story.chapter === "ending");
   const rep = useSave((s) => s.reputation);
   const surveyClaimed = useSave((s) => s.surveyClaimed);
   const claimSurveyReward = useSave((s) => s.claimSurveyReward);
@@ -135,13 +136,12 @@ export default function ResultScreen() {
           </Btn>
         </div>
       <section className="demo-epilogue">
-        <h3>{gift ? ko ? "돌아온 답" : "Your friend’s answer" : visitor ? ko ? "붉은 매듭의 패" : "The red-tasseled token" : ko ? "왕실에서 온 서신" : "A letter from the palace"}</h3>
-        <p>{gift
-          ? ko ? "“그해 여름까지 기억해 줬구나. 고마워. 나는 너와 오래 친구로 지내고 싶어.” 친구가 떠나고 등을 끄려는데, 낯선 손님이 문턱에서 나비문을 돌아본다." : "“You remembered that summer. Thank you. I hope we can always be friends.” As you reach to put out the lamp, a stranger pauses at the door to look at your butterfly."
-          : visitor
-            ? ko ? "“다음에는 그대 이름으로 만든 작품을 보고 싶소.” 손님이 떠난 자리에 왕실 문장이 새겨진 패가 남았다. 다시 만난다면, 궁의 장인으로 내 작품을 건네고 싶다." : "“Next time, let me see a piece that bears your name.” A token bearing the royal crest lies where the visitor stood. When you meet again, you want to present your work as a court artisan."
-            : ko ? "작품을 내려놓자 문틈으로 봉인된 서신 한 통이 들어온다. “다음 달 궁에 들일 나전함을 맡아 주시겠습니까?”" : "A sealed letter rests on your bench. “Would you make a lacquer box for the palace?”"}</p>
-        {gift && <Btn variant="gold" onClick={() => go("board")}>{ko ? "달밤의 손님 만나기" : "Meet the moonlit visitor"}</Btn>}
+        {gift || visitor ? <Btn variant="gold" onClick={() => go("board")}>{gift
+          ? (ko ? "친구에게 선물 건네기" : "Give your friend the gift")
+          : (ko ? "손님에게 작품 건네기" : "Present the finished piece")}</Btn> : storyComplete && <>
+          <h3>{ko ? "왕실에서 온 서신" : "A letter from the palace"}</h3>
+          <p>{ko ? "작품을 내려놓자 문틈으로 봉인된 서신 한 통이 들어온다. “다음 달 궁에 들일 나전함을 맡아 주시겠습니까?”" : "A sealed letter rests on your bench. “Would you make a lacquer box for the palace?”"}</p>
+        </>}
         <a href={SURVEY_URL[lang]} target="_blank" rel="noopener noreferrer" onClick={openSurvey}>
           {surveyClaimed ? (lang === "ko" ? "설문 다시 열기" : "Reopen survey") : t(lang, "result.surveyCta")}
         </a>
@@ -250,7 +250,7 @@ export default function ResultScreen() {
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          {art.commissionId && !gift && (
+          {art.commissionId && !gift && !visitor && (
             <Btn variant="pink" onClick={() => go("board")} className="col-span-2" size="lg">
               <UiIcon id="scroll" className="ui-icon-sm" /> {t(lang, "result.next")}
             </Btn>

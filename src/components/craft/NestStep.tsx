@@ -538,9 +538,7 @@ export default function NestStep({
 
   return (
     <div className="flex flex-col gap-3" data-nest-step="1">
-      {embedded ? (
-        <p className="panel py-2 text-sm text-[var(--brown)]">{t(lang, "nest.tip")}</p>
-      ) : (
+      {!embedded && (
         <StepHeader title={t(lang, "nest.title")} icon="cutter">
           {t(lang, "nest.tip")}
         </StepHeader>
