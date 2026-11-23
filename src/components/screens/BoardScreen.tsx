@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import Artwork from "@/components/Artwork";
 import Avatar from "@/components/Avatar";
+import StoryCommission from "./StoryCommission";
 import MotifIcon, { NacreSwatch } from "@/components/MotifIcon";
 import { Btn, Coin, TopBar } from "@/components/ui";
 import { LACQUERS, type MotifId } from "@/lib/data";
@@ -24,7 +25,10 @@ export default function BoardScreen() {
   const refresh = useSave((s) => s.refreshCommissions);
   const lang = useSave((s) => s.lang);
 
-  useEffect(() => ensure(), [ensure]);
+  const chapter = useSave(s => s.story.chapter);
+  useEffect(() => { if (chapter === "ending") ensure(); }, [ensure, chapter]);
+
+  if (chapter !== "ending") return <StoryCommission key={chapter} chapter={chapter} />;
 
   return (
     <div className="screen">

@@ -1,5 +1,7 @@
 /** PNG 자개 스탬프. 이미지 중심이 (0,0). 절단선은 motifCuts.ts에 있다. */
 export const STAMP_MOTIFS = {
+  cloud: { src: "/motifs/cloud.png", x: -31, y: -6.64, w: 62, h: 13.28 },
+  rock: { src: "/motifs/rock.png", x: -27.5, y: -10.63, w: 55, h: 21.26 },
   wave: { src: "/motifs/wave_arcs.png", x: -29.33, y: -12.75, w: 58.66, h: 25.49 },
   turtle: { src: "/motifs/turtle.png", x: -32.47, y: -22.74, w: 64.94, h: 45.47 },
   lotus: { src: "/motifs/lotus.png", x: -32.41, y: -22.37, w: 64.82, h: 44.75 },

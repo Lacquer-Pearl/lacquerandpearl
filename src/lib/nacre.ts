@@ -7,7 +7,7 @@ import type { PearlId } from "./data";
 /** 텍스처 한 장이 덮는 문양 좌표 크기 */
 export const NACRE_TILE = 96;
 const SIZE = 512;
-const VERSION = 4;
+const VERSION = 5;
 
 type RGB = readonly [number, number, number];
 
@@ -426,7 +426,21 @@ async function load(pearl: PearlId) {
   if (!data) {
     // 첫 화면이 먼저 그려지도록 한 프레임 양보합니다
     await new Promise((r) => setTimeout(r, 30));
-    data = render(RECIPES[pearl]);
+    if (pearl === "white") {
+      try {
+        const response = await fetch("/images/demo/nacre.webp");
+        if (response.ok) {
+          const blob = await response.blob();
+          if (blob.type.startsWith("image/")) data = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result));
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(blob);
+          });
+        }
+      } catch { /* The procedural shell also works offline. */ }
+    }
+    data ??= render(RECIPES[pearl]);
     try {
       localStorage.setItem(key, data);
     } catch {}

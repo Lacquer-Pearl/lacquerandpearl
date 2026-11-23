@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import Artwork, {
   MotifMasks,
   MotifSilhouette,
@@ -19,6 +19,8 @@ import { motifName, t, tNode } from "@/lib/i18n";
 import { sfx } from "@/lib/sound";
 import { useSave } from "@/lib/store";
 import AttachBreakGuide from "./AttachBreakGuide";
+import LessonGate, { LessonPaused } from "./LessonGate";
+import BenchLayout from "./BenchLayout";
 import { StepHeader } from "./common";
 import { claimCraftPointer, isForeignCraftPointer, releaseCraftPointer, useBlockCraftScroll } from "./craftTouch";
 
@@ -82,6 +84,7 @@ export default function AttachStep({
   const benchRef = useRef<HTMLDivElement>(null);
   const gesture = useRef<number | null>(null);
   useBlockCraftScroll(benchRef);
+  const paused = useContext(LessonPaused);
   const glueStart = useRef(0);
   const scores = useRef<number[]>([]);
   const regluePenalty = useRef(0);
@@ -96,13 +99,14 @@ export default function AttachStep({
   const piece = task?.piece;
 
   useEffect(() => {
+    if (paused) return;
     glueStart.current = performance.now();
     const id = setInterval(() => {
       const left = Math.max(0, 1 - (performance.now() - glueStart.current) / GLUE_MS);
       setGlue(left);
     }, 80);
     return () => clearInterval(id);
-  }, []);
+  }, [paused]);
 
   const pushPlaced = (score: number, nextPiece: PlacedPiece, note: string) => {
     scores.current.push(score);
@@ -129,7 +133,7 @@ export default function AttachStep({
 
   useEffect(() => {
     const active = tasks[current];
-    if (!active || active.kind !== "scrap") return;
+    if (paused || !active || active.kind !== "scrap") return;
     if (finishedPieces.current.has(active.piece.id)) return;
     setMsg(t(lang, "attach.scrapSkip"));
     const id = window.setTimeout(() => {
@@ -140,7 +144,7 @@ export default function AttachStep({
     return () => window.clearTimeout(id);
     // pushPlaced is recreated each render and only the current scrap task should arm the timer.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current, lang, tasks]);
+  }, [current, lang, tasks, paused]);
 
   const toLocal = (e: { clientX: number; clientY: number }) => {
     const r = wrapRef.current!.getBoundingClientRect();
@@ -217,10 +221,91 @@ export default function AttachStep({
   const pearl = piece ? piecePearl(piece, design) : design.pearl;
 
   return (
-    <div className="flex flex-col gap-3 select-none">
-      <StepHeader title={t(lang, "attach.title")} icon="paste" trailing={<AttachBreakGuide />}>
-        {tNode(lang, "attach.tip", { b: <b>{t(lang, "attach.tipB")}</b> })}
-      </StepHeader>
+    <LessonGate untilComplete lesson={placing && !drag && !glue && task?.kind !== "scrap" ? "newGlue" : undefined}>
+    <BenchLayout
+      tools={<>
+        <StepHeader title={t(lang, "attach.title")} icon="paste" trailing={<AttachBreakGuide />}>
+          {tNode(lang, "attach.tip", { b: <b>{t(lang, "attach.tipB")}</b> })}
+        </StepHeader>
+        <div className="panel craft-touch-area flex items-center justify-around gap-2">
+          <div
+            data-lesson={piece && task?.kind !== "scrap" ? "attach" : undefined}
+            className={`tray-piece ${glue > 0 ? "glued" : ""}`}
+            onPointerDown={(e) => {
+              if (!piece || task?.kind === "scrap" || !claimCraftPointer(e, gesture, benchRef.current)) return;
+              sfx.pop();
+              setDrag(toLocal(e));
+            }}
+          >
+            {placing && task?.kind !== "scrap" && (
+              <svg viewBox={fragmentTask ? "-40 -40 80 80" : "-30 -30 60 60"} className="h-full w-full">
+                <defs>
+                  <NacreDefs id="tray-nacre" pearl={pearl} />
+                  <MotifMasks id="tray-cut" motifs={[piece.motif]} />
+                </defs>
+                <g transform={`rotate(${piece.r + spin})`}>
+                  {fragmentTask ? (
+                    <PieceGraphics
+                      piece={loneFragment(piece, fragmentTask.cut, { ...fragmentTask.frag, dx: 0, dy: 0, r: 0 })}
+                      fill={nacreFill("tray-nacre", piece.id)}
+                      mask={motifMask("tray-cut", piece.motif)}
+                      light={pieceLight(piece)}
+                      clipPrefix={`tray-${piece.id}-${fragmentTask.part}`}
+                    />
+                  ) : (
+                    <NacrePiece
+                      motif={piece.motif}
+                      fill={nacreFill("tray-nacre", piece.id)}
+                      mask={motifMask("tray-cut", piece.motif)}
+                      light={pieceLight(piece)}
+                    />
+                  )}
+                </g>
+              </svg>
+            )}
+          </div>
+          <Btn
+            variant="gold"
+            size="sm"
+            data-lesson="newGlue" disabled={glue > 0.5 || !piece || task?.kind === "scrap"}
+            onClick={() => {
+              regluePenalty.current += 3;
+              glueStart.current = performance.now();
+              setGlue(1);
+              sfx.bubble();
+            }}
+          >
+            {t(lang, "attach.reglue")}
+          </Btn>
+        </div>
+      </>}
+      progress={<div className="panel"><div className="flex flex-1 flex-col gap-1">
+            <div className="text-sm text-[var(--brown)]">
+              {fragmentTask && placing
+                ? t(lang, "attach.fragment", {
+                    name: motifName(lang, fragmentTask.piece.motif),
+                    part: fragmentTask.part,
+                    parts: fragmentTask.parts,
+                    n: current + 1,
+                    max: tasks.length,
+                  })
+                : piece && placing
+                  ? t(lang, "attach.piece", { name: motifName(lang, piece.motif), n: current + 1, max: tasks.length })
+                  : t(lang, "attach.all")}
+            </div>
+            <Meter value={glue} color={glue > 0.4 ? "var(--gold)" : "var(--red)"} />
+            {fragmentTask && placing && (
+              <div className="mt-1 flex gap-1">
+                <Btn variant="cream" size="sm" onClick={() => setSpin((value) => turnPiece(value, -1))}>
+                  {t(lang, "attach.turnL")}
+                </Btn>
+                <Btn variant="cream" size="sm" onClick={() => setSpin((value) => turnPiece(value, 1))}>
+                  {t(lang, "attach.turnR")}
+                </Btn>
+              </div>
+            )}
+          </div></div>}
+    >
       <div
         ref={benchRef}
         className="workbench craft-touch-area relative"
@@ -316,83 +401,8 @@ export default function AttachStep({
           )}
         </div>
         {msg && <div className="event-toast pop-in">{msg}</div>}
-        <div className="mt-2 flex items-center gap-3 rounded-2xl bg-[#efe5d4] p-2">
-          <div
-            className={`tray-piece ${glue > 0 ? "glued" : ""}`}
-            onPointerDown={(e) => {
-              if (!piece || task?.kind === "scrap" || !claimCraftPointer(e, gesture, benchRef.current)) return;
-              sfx.pop();
-              setDrag(toLocal(e));
-            }}
-          >
-            {placing && task?.kind !== "scrap" && (
-              <svg viewBox={fragmentTask ? "-40 -40 80 80" : "-30 -30 60 60"} className="h-full w-full">
-                <defs>
-                  <NacreDefs id="tray-nacre" pearl={pearl} />
-                  <MotifMasks id="tray-cut" motifs={[piece.motif]} />
-                </defs>
-                <g transform={`rotate(${piece.r + spin})`}>
-                  {fragmentTask ? (
-                    <PieceGraphics
-                      piece={loneFragment(piece, fragmentTask.cut, { ...fragmentTask.frag, dx: 0, dy: 0, r: 0 })}
-                      fill={nacreFill("tray-nacre", piece.id)}
-                      mask={motifMask("tray-cut", piece.motif)}
-                      light={pieceLight(piece)}
-                      clipPrefix={`tray-${piece.id}-${fragmentTask.part}`}
-                    />
-                  ) : (
-                    <NacrePiece
-                      motif={piece.motif}
-                      fill={nacreFill("tray-nacre", piece.id)}
-                      mask={motifMask("tray-cut", piece.motif)}
-                      light={pieceLight(piece)}
-                    />
-                  )}
-                </g>
-              </svg>
-            )}
-          </div>
-          <div className="flex flex-1 flex-col gap-1">
-            <div className="text-sm text-[var(--brown)]">
-              {fragmentTask && placing
-                ? t(lang, "attach.fragment", {
-                    name: motifName(lang, fragmentTask.piece.motif),
-                    part: fragmentTask.part,
-                    parts: fragmentTask.parts,
-                    n: current + 1,
-                    max: tasks.length,
-                  })
-                : piece && placing
-                  ? t(lang, "attach.piece", { name: motifName(lang, piece.motif), n: current + 1, max: tasks.length })
-                  : t(lang, "attach.all")}
-            </div>
-            <Meter value={glue} color={glue > 0.4 ? "var(--gold)" : "var(--red)"} />
-            {fragmentTask && placing && (
-              <div className="mt-1 flex gap-1">
-                <Btn variant="cream" size="sm" onClick={() => setSpin((value) => turnPiece(value, -1))}>
-                  {t(lang, "attach.turnL")}
-                </Btn>
-                <Btn variant="cream" size="sm" onClick={() => setSpin((value) => turnPiece(value, 1))}>
-                  {t(lang, "attach.turnR")}
-                </Btn>
-              </div>
-            )}
-          </div>
-          <Btn
-            variant="gold"
-            size="sm"
-            disabled={glue > 0.5 || !piece || task?.kind === "scrap"}
-            onClick={() => {
-              regluePenalty.current += 3;
-              glueStart.current = performance.now();
-              setGlue(1);
-              sfx.bubble();
-            }}
-          >
-            {t(lang, "attach.reglue")}
-          </Btn>
-        </div>
       </div>
-    </div>
+    </BenchLayout>
+    </LessonGate>
   );
 }

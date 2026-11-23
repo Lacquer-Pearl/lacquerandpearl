@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useState, type ComponentType } from "react";
 import Image from "next/image";
+import WorkshopScene from "@/components/WorkshopScene";
 import TitleScreen from "@/components/screens/TitleScreen";
 import { App } from "@capacitor/app";
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
@@ -73,6 +74,10 @@ export default function Game() {
     if (Capacitor.isNativePlatform()) {
       handles.push(
         App.addListener("backButton", () => {
+          const drawer = document.querySelector<HTMLButtonElement>("dialog.tool-drawer[open] header button");
+          if (drawer) return drawer.click();
+          const lesson = document.querySelector<HTMLButtonElement>("[data-close-guide]");
+          if (lesson) return lesson.click();
           const backdrop = document.querySelector<HTMLElement>(".modal-backdrop");
           if (backdrop) return backdrop.click();
           const backBtn = document.querySelector<HTMLElement>("[data-nav-back]");
@@ -170,13 +175,16 @@ export default function Game() {
   }
 
   return (
-    <div className="app-frame">
-      {screen === "title" && <TitleScreen />}
-      {screen === "board" && <BoardScreen />}
-      {screen === "craft" && <CraftFlow />}
-      {screen === "result" && <ResultScreen />}
-      {screen === "gallery" && <GalleryScreen />}
-      {screen === "shop" && <ShopScreen />}
+    <div className="game-room" data-screen={screen}>
+      <WorkshopScene screen={screen} />
+      <div className="app-frame">
+        {screen === "title" && <TitleScreen />}
+        {screen === "board" && <BoardScreen />}
+        {screen === "craft" && <CraftFlow />}
+        {screen === "result" && <ResultScreen />}
+        {screen === "gallery" && <GalleryScreen />}
+        {screen === "shop" && <ShopScreen />}
+      </div>
     </div>
   );
 }

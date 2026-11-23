@@ -20,7 +20,8 @@ import {
   type ShellStock,
 } from "@/lib/shellNest";
 import { useSave } from "@/lib/store";
-import NestStep, { motifPolygons } from "./NestStep";
+import LessonGate from "./LessonGate";
+import NestStep, { motifPolygons, needsLargeSheet } from "./NestStep";
 
 function nestOf(piece: PlacedPiece, design: Design): NestPiece {
   return {
@@ -88,7 +89,9 @@ export default function RecutPanel({
   const pearl = piecePearl(piece, design);
   const openStock = (stock[pearl] ?? 0) + (stock[largeKey(pearl)] ?? 0);
   const fits = fitsWithoutNewSheet(nestOf(piece, design), ledger.sheets, polygonsOf);
-  const blocked = !fits && openStock < 1;
+  const canOpenSheet = (stock[largeKey(pearl)] ?? 0) > 0 ||
+    ((stock[pearl] ?? 0) > 0 && !needsLargeSheet(piece, pearl));
+  const blocked = !fits && !canOpenSheet;
   const reusable = pending.condition === "reusable-broken";
   const seed = useRef<{ key: string; plan?: ShellPlan }>({ key: "", plan: undefined });
   const nestMode = mode === "manual" || mode === "auto" || mode === "fresh" ? mode : null;
@@ -129,7 +132,10 @@ export default function RecutPanel({
     );
   }
 
+  const recoveryLesson = reusable && onJoin ? "join"
+    : fits ? "recut" : canOpenSheet ? "freshCut" : onShop ? "restock" : "pauseCut";
   return (
+    <LessonGate showOutsideTutorial untilComplete lesson={recoveryLesson}>
     <div className="flex flex-col gap-3" data-recut-panel="choose" data-recut-fit={fits ? "yes" : "no"}>
       <div className="panel flex flex-col gap-2 py-3 text-sm text-[var(--brown)]">
         <p className="text-base font-bold">{t(lang, reusable ? "cut.joinOffer" : "cut.scrapTitle")}</p>
@@ -142,7 +148,7 @@ export default function RecutPanel({
       </div>
       {reusable && onJoin && (
         <Btn
-          variant="pink"
+          variant="pink" data-lesson="join"
           onClick={() => {
             sfx.click();
             onJoin();
@@ -154,27 +160,28 @@ export default function RecutPanel({
       <Btn variant="gold" disabled={!fits} onClick={() => (sfx.click(), onMode("manual"))}>
         {t(lang, "cut.recutLeftover")}
       </Btn>
-      <Btn variant="gold" disabled={blocked} onClick={() => (sfx.click(), onMode("auto"))}>
+      <Btn variant="gold" data-lesson="recut" disabled={blocked} onClick={() => (sfx.click(), onMode("auto"))}>
         {t(lang, "cut.recutAuto")}
       </Btn>
-      <Btn variant="cream" disabled={openStock < 1} onClick={() => (sfx.click(), onMode("fresh"))}>
+      <Btn variant="cream" data-lesson="freshCut" disabled={!canOpenSheet} onClick={() => (sfx.click(), onMode("fresh"))}>
         {t(lang, "cut.recutFresh")} · {pearlName(lang, pearl)}
       </Btn>
       {blocked && (
         <div className="grid grid-cols-2 gap-2">
           {onShop && (
-            <Btn variant="pink" onClick={() => (sfx.click(), onShop())}>
+            <Btn variant="pink" data-lesson="restock" onClick={() => (sfx.click(), onShop())}>
               {t(lang, "cut.recutShop")}
             </Btn>
           )}
           {onPause && (
-            <Btn variant="cream" onClick={() => (sfx.click(), onPause())}>
+            <Btn variant="cream" data-lesson="pauseCut" onClick={() => (sfx.click(), onPause())}>
               {t(lang, "cut.recutPause")}
             </Btn>
           )}
         </div>
       )}
     </div>
+    </LessonGate>
   );
 }
 

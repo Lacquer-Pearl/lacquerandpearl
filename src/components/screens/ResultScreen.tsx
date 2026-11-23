@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Artwork from "@/components/Artwork";
 import Avatar, { type Mood } from "@/components/Avatar";
 import UiIcon, { STEP_ICONS } from "@/components/UiIcon";
-import { Btn, Coin, Meter, Modal, Sparkles, TopBar } from "@/components/ui";
+import { Btn, Coin, Meter, TopBar } from "@/components/ui";
 import { rankProgress } from "@/lib/data";
 import { GRADE_INFO, reputationGain, topMotif, type StepId } from "@/lib/game";
 import {
@@ -19,6 +19,8 @@ import {
 import { saveArtworkImage } from "@/lib/exportImage";
 import { sfx } from "@/lib/sound";
 import { useSave, useUI } from "@/lib/store";
+import LessonGate, { GiftLessons } from "@/components/craft/LessonGate";
+import { ACHIEVEMENTS, achievementHint, GIFT_ID, VISITOR_ID } from "@/lib/workshopStory";
 
 const SURVEY_URL = {
   ko: "https://forms.gle/s8UeDQ21n7m3Ug6V8",
@@ -46,12 +48,12 @@ export default function ResultScreen() {
   const art = useUI((s) => s.lastArtwork);
   const go = useUI((s) => s.go);
   const lang = useSave((s) => s.lang);
+  const storyComplete = useSave(s => s.story.chapter === "ending");
   const rep = useSave((s) => s.reputation);
   const surveyClaimed = useSave((s) => s.surveyClaimed);
   const claimSurveyReward = useSave((s) => s.claimSurveyReward);
   const svgRef = useRef<SVGSVGElement>(null);
   const [saved, setSaved] = useState<string | null>(null);
-  const [surveyOpen, setSurveyOpen] = useState(false);
   const [surveyFlash, setSurveyFlash] = useState<string | null>(null);
   const reaction = useMemo(
     () => (art ? reactionText(lang, art.grade, !art.commissionId) : ""),
@@ -65,23 +67,16 @@ export default function ResultScreen() {
     if (art.earned) setTimeout(sfx.coin, 900);
   }, [art]);
 
-  useEffect(() => {
-    if (!art || surveyClaimed) return;
-    const id = window.setTimeout(() => setSurveyOpen(true), 1200);
-    return () => window.clearTimeout(id);
-  }, [art, surveyClaimed]);
-
   const openSurvey = () => {
-    window.open(SURVEY_URL[lang], "_blank", "noopener,noreferrer");
     if (claimSurveyReward()) {
       sfx.coin();
       setSurveyFlash(t(lang, "result.surveyThanks", { n: 100 }));
       setTimeout(() => setSurveyFlash(null), 1800);
     }
-    setSurveyOpen(false);
   };
 
-  const repGain = art ? reputationGain(art.grade, !!art.commissionId) : 0;
+  const repGain = art ? reputationGain(art.grade, !!art.commissionId)
+    + (art.achievements ?? []).reduce((sum, id) => sum + ACHIEVEMENTS[id].rep, 0) : 0;
   const shownRep = useCountUp(Math.max(0, rep - repGain), rep);
   const beforeRank = rankProgress(Math.max(0, rep - repGain));
   const afterRank = rankProgress(rep);
@@ -102,14 +97,18 @@ export default function ResultScreen() {
           ? "neutral"
           : "sad";
   const pts = lang === "ko" ? "점" : " pts";
+  const ko = lang === "ko";
+  const gift = art.commissionId === GIFT_ID;
+  const visitor = art.commissionId === VISITOR_ID;
 
   return (
+    <GiftLessons.Provider value={gift}><LessonGate lesson="finish">
     <div className="screen">
       <TopBar title={t(lang, "result.title")} />
       <div className="screen-body">
-        <div className="display-silk relative overflow-hidden">
-          <Sparkles count={art.grade === "S" ? 14 : 6} />
-          <Artwork svgRef={svgRef} design={art.design} gloss={art.gloss} dull={art.dull} className="reveal aspect-square w-full" />
+        <div className="display-silk demo-display relative overflow-hidden">
+
+          <Artwork svgRef={svgRef} design={art.design} showcase gloss={art.gloss} dull={art.dull} className="reveal aspect-square w-full" />
           <div className="grade-seal stamp-in" style={{ background: g.color }}>
             <div className="text-4xl leading-none">{art.grade}</div>
             <div className="text-xs">{label}</div>
@@ -117,7 +116,43 @@ export default function ResultScreen() {
         </div>
         <h2 className="step-title text-center">{title}</h2>
 
-        {client ? (
+        <p className="demo-caption">{new Intl.DateTimeFormat(lang === "ko" ? "ko-KR" : "en", {dateStyle:"long"}).format(art.createdAt)} · {lang === "ko" ? "공방 제작 기록" : "Workshop collection"}</p>
+        <div className="grid grid-cols-2 gap-2">
+          <Btn
+            variant="lavender"
+            onClick={async () => {
+              if (!svgRef.current) return;
+              try {
+                await saveArtworkImage(svgRef.current, title, `${art.grade} ${label} · ${art.total}${pts}`, false);
+                setSaved(t(lang, "gallery.saved"));
+              } catch {
+                setSaved(lang === "ko" ? "저장 실패 · 다시 시도" : "Retry saving");
+              }
+              setTimeout(() => setSaved(null), 1800);
+            }}
+          >
+            <UiIcon id="frame" className="ui-icon-sm" /> {saved ?? t(lang, "result.save")}
+          </Btn>
+          <Btn variant="gold" onClick={() => go("gallery")}>
+            <UiIcon id="cabinet" className="ui-icon-sm" /> {t(lang, "result.toWorkshop")}
+          </Btn>
+        </div>
+      <section className="demo-epilogue">
+        {gift || visitor ? <Btn variant="gold" data-lesson="finish" onClick={() => go("board")}>{gift
+          ? (ko ? "친구에게 선물 건네기" : "Give your friend the gift")
+          : (ko ? "손님에게 작품 건네기" : "Present the finished piece")}</Btn> : storyComplete && <>
+          <h3>{ko ? "왕실에서 온 서신" : "A letter from the palace"}</h3>
+          <p>{ko ? "작품을 내려놓자 문틈으로 봉인된 서신 한 통이 들어온다. “다음 달 궁에 들일 나전함을 맡아 주시겠습니까?”" : "A sealed letter rests on your bench. “Would you make a lacquer box for the palace?”"}</p>
+        </>}
+        <a href={SURVEY_URL[lang]} target="_blank" rel="noopener noreferrer" onClick={openSurvey}>
+          {surveyClaimed ? (lang === "ko" ? "설문 다시 열기" : "Reopen survey") : t(lang, "result.surveyCta")}
+        </a>
+      </section>
+        {!!art.achievements?.length && <section className="panel">
+          <h3>{ko ? "새로 받은 낙관" : "New maker’s seals"}</h3>
+          {art.achievements.map(id => <p key={id}><b>{ACHIEVEMENTS[id][lang]}</b> · {achievementHint(id, lang)} · <Coin /> +{ACHIEVEMENTS[id].coins}</p>)}
+        </section>}
+        {gift || visitor ? null : client ? (
           <div className="panel flex items-center gap-3">
             <Avatar c={client.customer} portrait={client.portrait} mood={mood} className="h-16 w-16 shrink-0" />
             <div className="flex-1">
@@ -217,21 +252,7 @@ export default function ResultScreen() {
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          <Btn
-            variant="lavender"
-            onClick={async () => {
-              if (!svgRef.current) return;
-              const r = await saveArtworkImage(svgRef.current, title, `${art.grade} ${label} · ${art.total}${pts}`);
-              setSaved(t(lang, r === "shared" ? "gallery.shared" : "gallery.saved"));
-              setTimeout(() => setSaved(null), 1800);
-            }}
-          >
-            <UiIcon id="frame" className="ui-icon-sm" /> {saved ?? t(lang, "result.save")}
-          </Btn>
-          <Btn variant="gold" onClick={() => go("gallery")}>
-            <UiIcon id="cabinet" className="ui-icon-sm" /> {t(lang, "result.toWorkshop")}
-          </Btn>
-          {art.commissionId && (
+          {art.commissionId && !gift && !visitor && (
             <Btn variant="pink" onClick={() => go("board")} className="col-span-2" size="lg">
               <UiIcon id="scroll" className="ui-icon-sm" /> {t(lang, "result.next")}
             </Btn>
@@ -253,22 +274,7 @@ export default function ResultScreen() {
         </div>
       )}
 
-      {surveyOpen && !surveyClaimed && (
-        <Modal onClose={() => setSurveyOpen(false)}>
-          <div className="flex flex-col gap-3 text-[var(--brown)]">
-            <h3 className="step-title text-center">{t(lang, "result.surveyTitle")}</h3>
-            <p className="text-center text-sm leading-relaxed opacity-90">{t(lang, "result.surveyBody")}</p>
-            <div className="grid grid-cols-2 gap-2">
-              <Btn variant="cream" onClick={() => setSurveyOpen(false)}>
-                {t(lang, "result.surveyLater")}
-              </Btn>
-              <Btn variant="gold" sound={false} onClick={openSurvey}>
-                <UiIcon id="scroll" className="ui-icon-sm" /> {t(lang, "result.surveyCta")}
-              </Btn>
-            </div>
-          </div>
-        </Modal>
-      )}
     </div>
+    </LessonGate></GiftLessons.Provider>
   );
 }

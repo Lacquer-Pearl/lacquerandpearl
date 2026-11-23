@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MotifMasks, NacreDefs, NacrePiece, PieceGraphics, SheenGradient, motifMask } from "@/components/Artwork";
 import { TOOL_TIP, ToolGraphic, WorkPoint } from "@/components/Tools";
 import { Btn, Meter } from "@/components/ui";
@@ -25,8 +25,18 @@ import { loopLevel, sfx, startLoop, stopLoop } from "@/lib/sound";
 import { MACHINE_CUT_COST, useSave } from "@/lib/store";
 import MotifIcon from "@/components/MotifIcon";
 import UiIcon from "@/components/UiIcon";
-import { StepHeader } from "./common";
-import { claimCraftPointer, isForeignCraftPointer, releaseCraftPointer, toolLift, useBlockCraftScroll } from "./craftTouch";
+import LessonGate, { LessonPaused } from "./LessonGate";
+import BenchLayout from "./BenchLayout";
+import { StepHeader, TutorialStage } from "./common";
+import { claimCraftPointer, releaseCraftPointer, useBlockCraftScroll } from "./craftTouch";
+
+type SawPoint = { x: number; y: number };
+type SawCursor = SawPoint & { contact?: SawPoint; loupeX?: number };
+type SawPhase = "ready" | "saw";
+
+function gripBelow(point: SawPoint) {
+  return { x: point.x, y: Math.min(point.y + 38, 284) };
+}
 
 type Method = "jul" | "kkeun" | "auto";
 type Choice = Method | "each";
@@ -278,47 +288,15 @@ export default function CutStep({
   const recutSaw = !!hold && phase === "saw";
   if (!choice && !recutSaw)
     return (
-      <div className="flex flex-col gap-3">
-        <StepHeader title={t(lang, "cut.title")} icon="fretsaw">
+      <LessonGate lesson="cut" untilComplete><BenchLayout
+        tools={<>
+          <StepHeader title={t(lang, "cut.title")} icon="fretsaw">
           {tNode(lang, "cut.tip", { b: <b>{t(lang, "cut.tipB")}</b> })}
         </StepHeader>
-        {jobs.some((job) => job.placement) && <p className="panel py-2 text-sm text-[var(--brown)]">{t(lang, "cut.fromSheet")}</p>}
-        {jobs.length > 1 && (
-          <div className="panel py-2 text-center text-sm text-[var(--brown)]">
-            {t(lang, "cut.round", {
-              n: 1,
-              max: jobs.length,
-              motif: motifName(lang, jobs[0].motif),
-              pearl: pearlName(lang, jobs[0].pearl),
-            })}
-          </div>
-        )}
-        {recommended && (
-          <p className="panel py-2 text-center text-sm text-[var(--brown)]">
-            {t(lang, "cut.recommendOne", { method: t(lang, recommended === "jul" ? "cut.jul" : "cut.kkeun") })}
-          </p>
-        )}
-        {allKnown && known.length > 1 && (
-          <p className="panel py-2 text-center text-sm text-[var(--brown)]">{t(lang, "cut.recommendMixed")}</p>
-        )}
-        {openNames.length > 0 && (
-          <p className="panel py-2 text-center text-sm text-[var(--brown)]">{t(lang, "cut.recommendOpen", { names: openNames.join(", ") })}</p>
-        )}
-        {allKnown && (
-          <Btn
-            variant="pink"
-            onClick={() => {
-              sfx.click();
-              setChoice(recommended ?? "each");
-            }}
-          >
-            {t(lang, "cut.recommendStart")}
-          </Btn>
-        )}
-        {(["jul", "kkeun", "auto"] as Method[])
+          {(["jul", "kkeun", "auto"] as Method[])
           .sort((a, b) => Number(b === recommended) - Number(a === recommended))
           .map((id) => (
-            <button key={id} className={`method-card ${id === recommended ? "outline outline-2 outline-[var(--gold)]" : ""}`} onClick={() => (sfx.click(), setChoice(id))}>
+            <button key={id} data-lesson={id === "jul" ? "cut" : undefined} className={`method-card ${id === recommended ? "outline outline-2 outline-[var(--gold)]" : ""}`} onClick={() => (sfx.click(), setChoice(id))}>
               <UiIcon id={id === "jul" ? "fretsaw" : id === "kkeun" ? "knife" : "cutter"} />
               <span className="flex flex-col text-left">
                 <b className="text-lg">
@@ -331,7 +309,45 @@ export default function CutStep({
               </span>
             </button>
           ))}
-      </div>
+        </>}
+        progress={<>
+          {jobs.some((job) => job.placement) && <p className="panel py-2 text-sm text-[var(--brown)]">{t(lang, "cut.fromSheet")}</p>}
+          {jobs.length > 1 && (
+          <div className="panel py-2 text-center text-sm text-[var(--brown)]">
+            {t(lang, "cut.round", {
+              n: 1,
+              max: jobs.length,
+              motif: motifName(lang, jobs[0].motif),
+              pearl: pearlName(lang, jobs[0].pearl),
+            })}
+          </div>
+        )}
+          {recommended && (
+          <p className="panel py-2 text-center text-sm text-[var(--brown)]">
+            {t(lang, "cut.recommendOne", { method: t(lang, recommended === "jul" ? "cut.jul" : "cut.kkeun") })}
+          </p>
+        )}
+          {allKnown && known.length > 1 && (
+          <p className="panel py-2 text-center text-sm text-[var(--brown)]">{t(lang, "cut.recommendMixed")}</p>
+        )}
+          {openNames.length > 0 && (
+          <p className="panel py-2 text-center text-sm text-[var(--brown)]">{t(lang, "cut.recommendOpen", { names: openNames.join(", ") })}</p>
+        )}
+        </>}
+        next={allKnown && (
+          <Btn
+            variant="pink"
+            onClick={() => {
+              sfx.click();
+              setChoice(recommended ?? "each");
+            }}
+          >
+            {t(lang, "cut.recommendStart")}
+          </Btn>
+        )}
+      >
+        <div className="workbench cut-preview"><MotifIcon motif={job.motif} pearl={job.pearl} className="w-4/5" /></div>
+      </BenchLayout></LessonGate>
     );
 
   const method: Method | null = recutSaw
@@ -371,14 +387,14 @@ export default function CutStep({
     return (
       <div className="flex flex-col gap-3">
         {roundBanner}
-        <KkeunStep key={`${jobIdx}-kkeun`} motif={job.motif} pearl={job.pearl} onDone={finishJob} />
+        <LessonGate lesson="kkeun"><KkeunStep key={`${jobIdx}-kkeun`} motif={job.motif} pearl={job.pearl} onDone={finishJob} /></LessonGate>
       </div>
     );
   if (method !== "auto") return null;
   return (
     <div className="flex flex-col gap-3">
       {roundBanner}
-      <AutoStep key={`${jobIdx}-auto`} onDone={finishJob} onAbort={() => setChoice(null)} />
+      <LessonGate lesson="auto"><AutoStep key={`${jobIdx}-auto`} onDone={finishJob} onAbort={() => setChoice(null)} /></LessonGate>
     </div>
   );
 }
@@ -451,6 +467,11 @@ export function JulStep({
   onAbort: () => void;
 }) {
   const lang = useSave((s) => s.lang);
+  const inWorkshop = useContext(TutorialStage) === "cut";
+  const learnedStart = useSave(s => s.learned.includes("jul-start"));
+  const [started, setStarted] = useState(false);
+  const [resumeAfterBreak, setResumeAfterBreak] = useState(false);
+  const showStartHelp = !started && !learnedStart;
   const fit = useMemo(() => motifCutFit(motif), [motif]);
   const bounds = useMemo(() => motifLocalBox(motif), [motif]);
   const polygons = useMemo(() => motifCutRoutes(motif).flatMap((cut) => pathToPolygons(cut.d)), [motif]);
@@ -467,12 +488,12 @@ export function JulStep({
     [motif, fit],
   );
   const [routeIdx, setRouteIdx] = useState(0);
-  const [phase, setPhase] = useState<"saw" | "hop">("saw");
+  const [phase, setPhase] = useState<SawPhase>("ready");
   const [debug, setDebug] = useState(false);
   const [idx, setIdx] = useState(0);
   const [stress, setStress] = useState(0);
   const [breaks, setBreaks] = useState(0);
-  const [saw, setSaw] = useState<{ x: number; y: number; lift?: number } | null>(null);
+  const [saw, setSaw] = useState<SawCursor | null>(null);
   const [warn, setWarn] = useState<string | null>(null);
   const [shake, setShake] = useState(false);
   const [breakFx, setBreakFx] = useState<null | { result: PieceCutResult; gap: number }>(null);
@@ -485,7 +506,9 @@ export function JulStep({
   const st = useRef({
     route: 0,
     idx: 0,
-    phase: "saw" as "saw" | "hop",
+    phase: "ready" as SawPhase,
+    touchOffset: null as null | SawPoint,
+    loupeX: 6,
     stress: 0,
     err: 0,
     errN: 0,
@@ -548,12 +571,28 @@ export function JulStep({
     onDone(score, result);
   };
 
+  // A completed contour disarms both pointer and wheel. Only a fresh press can start another.
+  const parkSaw = () => {
+    const s = st.current;
+    s.phase = "ready";
+    s.down = false;
+    s.last = null;
+    s.touchOffset = null;
+    s.stress = 0;
+    s.lastErr = 0;
+    setPhase("ready");
+    setStress(0);
+    setSaw(null);
+    setWarn(null);
+    loopLevel(0);
+  };
+
   const crack = () => {
     const s = st.current;
     if (s.done || s.breaking) return;
     // 재고는 여기서 깎지 않는다. 이어 붙일 수 있으면 자개패를 더 쓰지 않고, 못 쓰는 파손만 재절단한다.
     for (let i = 0; i < s.route; i++) commitScar(routes[i]?.pts ?? [], "crack");
-    if (s.phase === "saw") commitScar((routes[s.route]?.pts ?? []).slice(0, s.idx + 1), "crack");
+    commitScar((routes[s.route]?.pts ?? []).slice(0, s.idx + 1), "crack");
     flushSkewTrail();
 
     s.breaking = true;
@@ -585,39 +624,26 @@ export function JulStep({
     timers.current.push(window.setTimeout(() => setShake(false), 400));
 
     const reusable = result.condition === "reusable-broken";
-    if (reusable || s.breaks >= 3) {
-      pending.current = result;
-      setBreakFx({ result, gap: reusable ? 2.6 : 1.45 });
-      setWarn(t(lang, reusable ? "cut.reusable" : "cut.scrapped"));
-      timers.current.push(window.setTimeout(() => setBreakFx({ result, gap: 1 }), 420));
-      timers.current.push(window.setTimeout(() => finish(), 780));
-      return;
-    }
-
-    setBreakFx({ result, gap: 1.7 });
-    setWarn(t(lang, "cut.recut"));
-    timers.current.push(
-      window.setTimeout(() => {
-        s.route = 0;
-        s.idx = 0;
-        s.phase = "saw";
-        s.stress = 0;
-        s.off = 0;
-        s.last = null;
-        s.breaking = false;
-        setBreakFx(null);
-        setWarn(null);
-        setRouteIdx(0);
-        setPhase("saw");
-        setIdx(0);
-        setStress(0);
-      }, 640),
-    );
+    const broken = reusable && pending.current ? pending.current : result;
+    pending.current = broken;
+    setBreakFx({ result: broken, gap: reusable ? 2.6 : 1.45 });
+    setWarn(t(lang, reusable ? "cut.reusable" : "cut.scrapped"));
+    timers.current.push(window.setTimeout(() => setBreakFx({ result: broken, gap: 1 }), 420));
+    timers.current.push(window.setTimeout(() => {
+      if (!reusable) {
+        finish();
+        return;
+      }
+      s.breaking = false;
+      parkSaw();
+      setBreakFx(null);
+      setResumeAfterBreak(true);
+    }, 780));
   };
 
   const advance = (to: number, err: number, speed: number) => {
     const s = st.current;
-    if (s.done) return;
+    if (s.done || s.breaking || s.phase !== "saw") return;
     s.err += err;
     s.errN++;
     s.lastErr = err;
@@ -643,61 +669,77 @@ export function JulStep({
       else {
         s.route += 1;
         s.idx = 0;
-        s.phase = "hop";
-        s.last = null;
+        parkSaw();
         setRouteIdx(s.route);
         setIdx(0);
-        setPhase("hop");
       }
     }
   };
 
-  const toLocal = (e: { clientX: number; clientY: number; pointerType?: string }) => {
-    const r = svgRef.current!.getBoundingClientRect();
-    const lift = toolLift(e.pointerType);
-    return {
-      x: ((e.clientX - r.left) / r.width) * 300,
-      y: ((e.clientY - lift - r.top) / r.height) * 300,
-      lift: (lift / r.height) * 300,
-    };
+  const toLocal = (e: React.PointerEvent<SVGSVGElement>): SawPoint => {
+    const r = e.currentTarget.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * 300 / r.width, y: (e.clientY - r.top) * 300 / r.height };
   };
 
-  const enterRoute = (p: { x: number; y: number }) => {
+  const startStroke = (e: React.PointerEvent<SVGSVGElement>) => {
     const s = st.current;
-    const pts = routes[s.route]?.pts ?? [];
-    const start = pts[0];
-    if (!start || Math.hypot(start.x - p.x, start.y - p.y) >= 28) return false;
-    let best = 0;
-    let bestD = Infinity;
-    for (let k = 0; k < Math.min(pts.length, 12); k++) {
-      const dist = Math.hypot(pts[k].x - p.x, pts[k].y - p.y);
-      if (dist < bestD) {
-        bestD = dist;
-        best = k;
-      }
+    if (s.done || s.breaking || !e.isPrimary || e.button !== 0 || gesture.current !== null) return;
+    const pts = routes[s.route]?.pts;
+    if (!pts?.length) return;
+    const target = pts[Math.min(pts.length - 1, s.phase === "ready" ? s.idx : s.idx + 1)];
+    const contact = toLocal(e);
+    const touch = e.pointerType === "touch";
+    const grip = gripBelow(target);
+    const near = (point: SawPoint) => Math.hypot(contact.x - point.x, contact.y - point.y);
+    const radius = touch ? Math.max(16, 22 * 300 / e.currentTarget.getBoundingClientRect().width) : 16;
+    if (near(target) > radius && !(touch && near(grip) <= radius)) return;
+    if (!claimCraftPointer(e, gesture)) return;
+    if (!started) {
+      setStarted(true);
+      if (inWorkshop && !learnedStart) useSave.getState().learn("jul-start");
     }
+    setResumeAfterBreak(false);
+    // Anchor where the player actually grabbed. A direct tap and the offset handle both start on the guide.
+    s.touchOffset = touch ? { x: target.x - contact.x, y: target.y - contact.y } : null;
+    s.loupeX = target.x < 150 ? 236 : 6;
+    s.last = touch ? target : contact;
+    s.lastT = performance.now();
+    s.down = true;
     s.phase = "saw";
-    s.idx = bestD < 28 ? best : 0;
-    s.last = p;
     setPhase("saw");
-    setIdx(s.idx);
-    return true;
+    setWarn(null);
+    setSaw(touch ? { ...target, contact, loupeX: s.loupeX } : contact);
   };
 
-  const onMove = (e: React.PointerEvent) => {
-    const p = toLocal(e);
+  const endStroke = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (!releaseCraftPointer(e, gesture)) return;
     const s = st.current;
-    if (s.breaking || s.done) return;
-    setSaw(p);
-    const pts = routes[s.route]?.pts ?? [];
-    if (!s.down || pts.length === 0) return;
-    if (s.phase === "hop") {
-      enterRoute(p);
-      return;
+    if ((e.pointerType === "touch" || e.type === "pointercancel") && !s.done && !s.breaking) {
+      s.phase = "ready";
+      setPhase("ready");
     }
+    s.down = false;
+    s.last = null;
+    s.touchOffset = null;
+    setSaw(null);
+    flushSkewTrail();
+    loopLevel(0);
+  };
+
+  const onMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    const s = st.current;
+    if (gesture.current !== e.pointerId || !s.down || s.phase !== "saw" || s.breaking || s.done) return;
+    const contact = toLocal(e);
+    const p = s.touchOffset ? { x: contact.x + s.touchOffset.x, y: contact.y + s.touchOffset.y } : contact;
+    const moved = s.last ? Math.hypot(p.x - s.last.x, p.y - s.last.y) : 0;
+    if (moved < 0.8) return;
+    const pts = routes[s.route].pts;
+    if (s.touchOffset && p.y < 80 && Math.abs(p.x - (s.loupeX + 29)) < 50) {
+      s.loupeX = s.loupeX === 6 ? 236 : 6;
+    }
+    setSaw(s.touchOffset ? { ...p, contact, loupeX: s.loupeX } : p);
     const now = performance.now();
     const dt = Math.max(1, now - s.lastT);
-    const moved = s.last ? Math.hypot(p.x - s.last.x, p.y - s.last.y) : 0;
     s.last = p;
     s.lastT = now;
     const speed = moved / dt;
@@ -752,14 +794,14 @@ export function JulStep({
   const onWheel = (e: React.WheelEvent) => {
     const s = st.current;
     const pts = routes[s.route]?.pts ?? [];
-    if (s.done || s.breaking || s.phase === "hop" || pts.length === 0) return;
+    if (s.done || s.breaking || s.touchOffset || s.phase !== "saw" || e.ctrlKey || !e.deltaY || pts.length === 0) return;
     const now = performance.now();
     const dt = Math.max(8, now - s.lastT);
     s.lastT = now;
     const amount = Math.min(4, Math.abs(e.deltaY) / 40);
     const speed = (amount * 3) / dt;
     advance(Math.min(pts.length - 1, s.idx + Math.max(1, Math.round(amount))), 2.2, speed * 0.6);
-    setSaw(pts[Math.min(pts.length - 1, st.current.idx)]);
+    if (s.phase === "saw" && !s.done && !s.breaking) setSaw(pts[s.idx]);
   };
 
   if (!routes.length) {
@@ -778,69 +820,85 @@ export function JulStep({
   const active = routes[Math.min(routeIdx, routes.length - 1)];
   const sawn = [
     ...routes.slice(0, routeIdx).map((route) => route.pts),
-    ...(phase === "saw" ? [active.pts.slice(0, idx + 1)] : []),
+    active.pts.slice(0, idx + 1),
   ].filter((part) => part.length > 1);
-  const next = phase === "hop" ? active.pts[0] : active.pts[Math.min(active.pts.length - 1, idx + 1)];
+  const next = phase === "ready" ? active.pts[idx] : active.pts[Math.min(active.pts.length - 1, idx + 1)];
+  const ahead = active.pts[Math.min(active.pts.length - 1, idx + 5)];
+  const arrowTransform = `translate(${ahead.x} ${ahead.y}) rotate(${Math.atan2(ahead.y - next.y, ahead.x - next.x) * 180 / Math.PI})`;
   const total = routes.reduce((sum, route) => sum + Math.max(1, route.pts.length - 1), 0);
   const done =
     routes.slice(0, routeIdx).reduce((sum, route) => sum + Math.max(1, route.pts.length - 1), 0) +
-    (phase === "saw" ? idx : 0);
+    idx;
 
   return (
-    <div className="flex flex-col gap-3">
-      <StepHeader title={t(lang, "cut.julTitle")} icon="fretsaw">
-        {tNode(lang, "cut.julTip", {
-          name: <b>{motifName(lang, motif)}</b>,
-          snap: <b>{t(lang, "cut.snap")}</b>,
-        })}
-      </StepHeader>
-      {process.env.NODE_ENV === "development" && (
-        <button type="button" className="self-end text-xs text-[var(--brown)] underline" onClick={() => setDebug((on) => !on)}>
-          {t(lang, "cut.debug")}
-        </button>
-      )}
-      <p className="craft-status-line">
-        {phase === "hop" ? t(lang, "cut.hop", { n: routeIdx + 1, max: routes.length }) : t(lang, "cut.liftHint")}
-      </p>
+    <LessonGate untilComplete showOutsideTutorial={resumeAfterBreak}
+      lesson={resumeAfterBreak ? "resumeCut" : showStartHelp && phase === "ready" ? "jul" : undefined}>
+    <BenchLayout
+      tools={<>
+        <StepHeader title={t(lang, "cut.julTitle")} icon="fretsaw">
+          {tNode(lang, "cut.julTip", {
+            name: <b>{motifName(lang, motif)}</b>,
+            snap: <b>{t(lang, "cut.snap")}</b>,
+          })}
+        </StepHeader>
+        {process.env.NODE_ENV === "development" && (
+          <button type="button" className="self-end text-xs text-[var(--brown)] underline" onClick={() => setDebug((on) => !on)}>
+            {t(lang, "cut.debug")}
+          </button>
+        )}
+        <div className="craft-status-line saw-instruction" aria-live="polite">
+          <strong>{t(lang, "cut.piece", { n: routeIdx + 1, max: routes.length })}</strong>
+          <div className="saw-cues">
+            <span aria-hidden={!showStartHelp || phase !== "ready"}>
+              <span className="saw-mouse-copy">{t(lang, "cut.pressStart")}</span>
+              <span className="saw-touch-copy">{t(lang, "cut.gripStart")}</span>
+            </span>
+            <span aria-hidden={phase === "ready"}>
+              <span className="saw-mouse-copy">{t(lang, "cut.trace")}</span>
+              <span className="saw-touch-copy">{t(lang, "cut.liftHint")}</span>
+            </span>
+          </div>
+        </div>
+      </>}
+      progress={<>
+        <div className="panel flex flex-col gap-2 py-3">
+          <Meter
+            value={total > 0 ? done / total : 0}
+            color="var(--pink)"
+            label={
+              <>
+                <span>
+                  {t(lang, "cut.progress")} · {t(lang, "cut.piece", { n: Math.min(routes.length, routeIdx + 1), max: routes.length })}
+                </span>
+                <span>{total > 0 ? Math.round((done / total) * 100) : 0}%</span>
+              </>
+            }
+          />
+          <Meter
+            value={Math.min(1, stress)}
+            zone={[0, 0.6]}
+            color={stress > 0.7 ? "var(--red)" : stress > 0.4 ? "var(--orange)" : "var(--mint-deep)"}
+            label={
+              <>
+                <span>{t(lang, "cut.force")}</span>
+                <span>{t(lang, "cut.breaks", { n: breaks })}</span>
+              </>
+            }
+          />
+        </div>
+      </>}
+    >
       <div className={`workbench relative ${shake ? "shake" : ""}`}>
         <svg
           ref={svgRef}
           viewBox="0 0 300 300"
-          className="craft-touch-area aspect-square w-full"
-          onPointerDown={(e) => {
-            if (st.current.breaking || st.current.done || !claimCraftPointer(e, gesture)) return;
-            const p = toLocal(e);
-            setSaw(p);
-            st.current.down = true;
-            st.current.last = p;
-            st.current.lastT = performance.now();
-            if (st.current.phase === "hop") enterRoute(p);
-          }}
-          onPointerMove={(e) => {
-            if (isForeignCraftPointer(e, gesture)) return;
-            onMove(e);
-          }}
-          onPointerUp={(e) => {
-            if (!releaseCraftPointer(e, gesture)) return;
-            st.current.down = false;
-            flushSkewTrail();
-            loopLevel(0);
-          }}
-          onPointerCancel={(e) => {
-            if (!releaseCraftPointer(e, gesture)) return;
-            st.current.down = false;
-            flushSkewTrail();
-          }}
-          onLostPointerCapture={(e) => {
-            if (!releaseCraftPointer(e, gesture)) return;
-            st.current.down = false;
-            flushSkewTrail();
-            loopLevel(0);
-          }}
-          onPointerLeave={() => {
-            if (st.current.down) return;
-            setSaw(null);
-          }}
+          className="craft-touch-area saw-board aspect-square w-full"
+          data-phase={phase}
+          onPointerDown={startStroke}
+          onPointerMove={onMove}
+          onPointerUp={endStroke}
+          onPointerCancel={endStroke}
+          onLostPointerCapture={endStroke}
           onWheel={onWheel}
         >
           <ShellSheet pearl={pearl} />
@@ -940,55 +998,58 @@ export function JulStep({
               strokeLinejoin="round"
             />
           ))}
-          {next && phase === "saw" && (
-            <circle cx={next.x} cy={next.y} r="7" fill="#d9b25f" stroke="#fff" strokeWidth="1.5" className="pulse" />
-          )}
-          {phase === "hop" && next && (
-            <g className="pointer-events-none">
-              <circle cx={next.x} cy={next.y} r="14" fill="none" stroke="#3ddc7a" strokeWidth="2" className="pulse" />
-              <circle cx={next.x} cy={next.y} r="5" fill="#3ddc7a" stroke="#fff" strokeWidth="1.5" />
-              <text x={next.x + 16} y={next.y + 4} fontSize="12" fill="#e7ffe8">
-                {routeIdx + 1}
-              </text>
-            </g>
-          )}
-          {saw && (
-            <g className="pointer-events-none">
-              <g transform={`translate(${saw.x - TOOL_TIP.saw[0] * 0.9} ${saw.y - TOOL_TIP.saw[1] * 0.9}) scale(0.9)`}>
-                <ToolGraphic tool="saw" />
-              </g>
-              <WorkPoint x={saw.x} y={saw.y} lift={saw.lift} />
+          {!breakFx && (
+            <g pointerEvents="none">
+              {!saw && <SawGrip tip={next} contact={gripBelow(next)} />}
+              <path d="M-4 -3 L1 0 L-4 3" transform={arrowTransform}
+                stroke="#30271e" strokeWidth="4" fill="none" strokeLinejoin="round" />
+              <path d="M-4 -3 L1 0 L-4 3" transform={arrowTransform}
+                stroke="#fff3ce" strokeWidth="1.6" fill="none" strokeLinejoin="round" />
+              <circle cx={next.x} cy={next.y} r={phase === "ready" ? 14 : 5} fill="none" stroke="#242019" strokeWidth="4" />
+              <circle cx={next.x} cy={next.y} r={phase === "ready" ? 14 : 5} fill={phase === "ready" ? "#183e3799" : "#edbd59"}
+                stroke={phase === "ready" ? "#abe9cd" : "#fff4d5"} strokeWidth="2" className="pulse" />
+              {phase === "ready" && <circle cx={next.x} cy={next.y} r="3" fill="#fff7dd" />}
+              {saw && (
+                <>
+                  {saw.contact && <SawGrip tip={saw} contact={saw.contact} active />}
+                  <g transform={`translate(${saw.x - TOOL_TIP.saw[0] * 0.75} ${saw.y - TOOL_TIP.saw[1] * 0.75}) scale(.75)`}>
+                    <ToolGraphic tool="saw" />
+                  </g>
+                  <WorkPoint x={saw.x} y={saw.y} />
+                  {saw.loupeX !== undefined && (
+                    <g transform={`translate(${saw.loupeX} 6)`} aria-hidden="true" data-saw-loupe="">
+                      <rect width="58" height="58" rx="8" fill="#28221c" stroke="#eddbb5" strokeWidth="1.5" />
+                      <svg x="3" y="3" width="52" height="52" viewBox={`${saw.x - 15} ${saw.y - 15} 30 30`} overflow="hidden">
+                        <path d={active.d} transform={motifXf} fill="none" stroke="#e4c98a" strokeWidth={1.2 / fit.scale} />
+                        <circle cx={next.x} cy={next.y} r="1.9" fill="#f4c866" />
+                        <WorkPoint x={saw.x} y={saw.y} r={3.5} />
+                      </svg>
+                    </g>
+                  )}
+                </>
+              )}
             </g>
           )}
         </svg>
-        {warn && <div className="event-toast pop-in">{warn}</div>}
+        {warn && <div role="status" className="event-toast pop-in">{warn}</div>}
       </div>
-      <div className="panel flex flex-col gap-2 py-3">
-        <Meter
-          value={total > 0 ? done / total : 0}
-          color="var(--pink)"
-          label={
-            <>
-              <span>
-                {t(lang, "cut.progress")} · {t(lang, "cut.piece", { n: Math.min(routes.length, routeIdx + 1), max: routes.length })}
-              </span>
-              <span>{total > 0 ? Math.round((done / total) * 100) : 0}%</span>
-            </>
-          }
-        />
-        <Meter
-          value={Math.min(1, stress)}
-          zone={[0, 0.6]}
-          color={stress > 0.7 ? "var(--red)" : stress > 0.4 ? "var(--orange)" : "var(--mint-deep)"}
-          label={
-            <>
-              <span>{t(lang, "cut.force")}</span>
-              <span>{t(lang, "cut.breaks", { n: breaks })}</span>
-            </>
-          }
-        />
-      </div>
-    </div>
+    </BenchLayout>
+    </LessonGate>
+  );
+}
+
+/** The fingertip and saw tip share the same coordinate mapping as the gesture. */
+function SawGrip({ tip, contact, active = false }: { tip: SawPoint; contact: SawPoint; active?: boolean }) {
+  return (
+    <g className={active ? undefined : "touch-grip"} aria-hidden="true">
+      <line x1={tip.x} y1={tip.y} x2={contact.x} y2={contact.y} stroke="#30261b" strokeWidth="3" />
+      <line x1={tip.x} y1={tip.y} x2={contact.x} y2={contact.y} stroke="#f9e6bf" strokeWidth="1.4" strokeDasharray="3 2" />
+      <g transform={`translate(${contact.x} ${contact.y})`}>
+        <circle r="12" fill="#2e261dec" stroke="#f6dfb4" strokeWidth="1.5" />
+        <path d="M-3 1 V-6 Q-2 -9 0 -6 V-1 Q2 -4 4 -1 Q6 -3 7 0 Q10 -1 10 3 V6 Q10 10 7 11 H1 L-7 4 Q-9 0 -6 0 Z"
+          fill="#ffebc5" stroke="#4b3626" strokeWidth="1.1" strokeLinejoin="round" />
+      </g>
+    </g>
   );
 }
 
@@ -1025,6 +1086,7 @@ function KkeunStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; o
   const lang = useSave((s) => s.lang);
   const layout = useMemo(() => buildKkeun(motif), [motif]);
   const marks = layout.marks;
+  const paused = useContext(LessonPaused);
   const [offset, setOffset] = useState(0);
   const [results, setResults] = useState<(number | null | undefined)[]>(() => Array(layout.count).fill(undefined));
   const [flash, setFlash] = useState<string | null>(null);
@@ -1037,6 +1099,7 @@ function KkeunStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; o
   });
 
   useEffect(() => {
+    if (paused) return;
     let raf = 0;
     let last = performance.now();
     const loop = (now: number) => {
@@ -1069,9 +1132,10 @@ function KkeunStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; o
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [marks, onDone, lang]);
+  }, [marks, onDone, lang, paused]);
 
   const tap = () => {
+    if (paused) return;
     const s = st.current;
     if (s.done) return;
     setChop(true);
@@ -1102,16 +1166,29 @@ function KkeunStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; o
   };
 
   return (
-    <div className="flex flex-col gap-3">
-      <StepHeader title={t(lang, "cut.kkeunTitle")} icon="knife">
-        {tNode(lang, "cut.kkeunTip", { b: <b>{t(lang, "cut.kkeunTipB")}</b> })}
-      </StepHeader>
-      <div className="panel flex items-center gap-3 py-2">
-        <MotifIcon motif={motif} pearl={pearl} className="h-14 w-14 shrink-0" />
-        <p className="text-sm text-[var(--brown)]">
-          {t(lang, "cut.kkeunLen", { name: motifName(lang, motif), n: layout.count, len: Math.round(layout.piece) })}
-        </p>
-      </div>
+    <BenchLayout
+      tools={<>
+        <StepHeader title={t(lang, "cut.kkeunTitle")} icon="knife">
+          {tNode(lang, "cut.kkeunTip", { b: <b>{t(lang, "cut.kkeunTipB")}</b> })}
+        </StepHeader>
+        <div className="strip-length panel flex items-center gap-3 py-2">
+          <MotifIcon motif={motif} pearl={pearl} className="h-14 w-14 shrink-0" />
+          <p className="text-sm text-[var(--brown)]">
+            {t(lang, "cut.kkeunLen", { name: motifName(lang, motif), n: layout.count, len: Math.round(layout.piece) })}
+          </p>
+        </div>
+      </>}
+      progress={<>
+        <div className="panel py-3 text-center text-[var(--brown)]">
+          {t(lang, "cut.pieces", { n: results.filter((r) => r != null).length, max: layout.count })}
+        </div>
+      </>}
+      next={<>
+        <Btn variant="pink" size="lg" data-lesson="kkeun" sound={false} onClick={tap}>
+          {t(lang, "cut.cutBtn")}
+        </Btn>
+      </>}
+    >
       <div
         className="workbench relative cursor-pointer select-none"
         style={{ touchAction: "manipulation" }}
@@ -1167,13 +1244,7 @@ function KkeunStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; o
         </svg>
         {flash && <div className="event-toast pop-in">{flash}</div>}
       </div>
-      <div className="panel py-3 text-center text-[var(--brown)]">
-        {t(lang, "cut.pieces", { n: results.filter((r) => r != null).length, max: layout.count })}
-      </div>
-      <Btn variant="pink" size="lg" sound={false} onClick={tap}>
-        {t(lang, "cut.cutBtn")}
-      </Btn>
-    </div>
+    </BenchLayout>
   );
 }
 
@@ -1184,19 +1255,23 @@ function AutoStep({ onDone, onAbort }: { onDone: (s: number) => void; onAbort: (
   const [paid, setPaid] = useState(false);
   if (!paid)
     return (
-      <div className="flex flex-col gap-3">
-        <StepHeader title={t(lang, "cut.autoTitle")} icon="gear">
+      <BenchLayout
+        tools={<>
+          <StepHeader title={t(lang, "cut.autoTitle")} icon="gear">
           {t(lang, "cut.autoTip")}
         </StepHeader>
-        <div className="panel flex flex-col items-center gap-2 py-4 text-center text-[var(--brown)]">
-          <UiIcon id="gear" className="ui-icon-2xl" />
+          <Btn variant="cream" onClick={onAbort}>
+          {t(lang, "cut.autoBack")}
+        </Btn>
+        </>}
+        progress={<div className="panel flex flex-col items-center gap-2 py-4 text-center text-[var(--brown)]">
           <p className="text-sm">{t(lang, "cut.autoPay", { n: MACHINE_CUT_COST, money })}</p>
           {money < MACHINE_CUT_COST && <p className="text-sm text-[var(--red)]">{t(lang, "cut.autoPoor")}</p>}
-        </div>
-        <Btn
+        </div>}
+        next={<Btn
           variant="pink"
           size="lg"
-          disabled={money < MACHINE_CUT_COST}
+          data-lesson="auto" disabled={money < MACHINE_CUT_COST}
           onClick={() => {
             if (!payCoins(MACHINE_CUT_COST)) {
               sfx.fail();
@@ -1207,11 +1282,10 @@ function AutoStep({ onDone, onAbort }: { onDone: (s: number) => void; onAbort: (
           }}
         >
           {t(lang, "cut.autoPayBtn", { n: MACHINE_CUT_COST })}
-        </Btn>
-        <Btn variant="cream" onClick={onAbort}>
-          {t(lang, "cut.autoBack")}
-        </Btn>
-      </div>
+        </Btn>}
+      >
+        <div className="workbench cut-preview"><UiIcon id="gear" className="ui-icon-2xl" /></div>
+      </BenchLayout>
     );
   return <AutoRun onDone={onDone} />;
 }
@@ -1239,25 +1313,30 @@ function AutoRun({ onDone }: { onDone: (s: number) => void }) {
     };
   }, [onDone]);
   return (
-    <div className="flex flex-col gap-3">
-      <StepHeader title={t(lang, "cut.autoTitle")} icon="gear">
-        {t(lang, "cut.autoTip")}
-      </StepHeader>
+    <BenchLayout
+      tools={<>
+        <StepHeader title={t(lang, "cut.autoTitle")} icon="gear">
+          {t(lang, "cut.autoTip")}
+        </StepHeader>
+      </>}
+      progress={<>
+        <div className="panel py-3">
+          <Meter
+            value={p / 100}
+            color="var(--blue)"
+            label={
+              <>
+                <span>{t(lang, "cut.autoProgress")}</span>
+                <span>{p}%</span>
+              </>
+            }
+          />
+        </div>
+      </>}
+    >
       <div className="workbench flex aspect-square items-center justify-center text-7xl">
         <UiIcon id="gear" className="spin ui-icon-2xl" />
       </div>
-      <div className="panel py-3">
-        <Meter
-          value={p / 100}
-          color="var(--blue)"
-          label={
-            <>
-              <span>{t(lang, "cut.autoProgress")}</span>
-              <span>{p}%</span>
-            </>
-          }
-        />
-      </div>
-    </div>
+    </BenchLayout>
   );
 }

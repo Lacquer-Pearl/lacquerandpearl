@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useState } from "react";
 import ReputationModal from "@/components/ReputationModal";
 import UiIcon from "@/components/UiIcon";
-import { Btn, Coin, Modal, Sparkles, SoundToggle } from "@/components/ui";
+import { Btn, Coin, Modal, SoundToggle } from "@/components/ui";
 import { MasterTip } from "@/components/craft/common";
 import { rankTitle, stepName, t, tNode, type Locale } from "@/lib/i18n";
 import type { StepId } from "@/lib/game";
@@ -58,7 +58,7 @@ export default function TitleScreen() {
   const rep = useSave((s) => s.reputation);
   const galleryCount = useSave((s) => s.gallery.length);
   const craftProgress = useSave((s) => s.craftProgress);
-  const tutorialSeen = useSave((s) => s.tutorialSeen);
+
   const setTutorialSeen = useSave((s) => s.setTutorialSeen);
   const resetSave = useSave((s) => s.resetSave);
   const lang = useSave((s) => s.lang);
@@ -67,19 +67,37 @@ export default function TitleScreen() {
   const [confirmReset, setConfirmReset] = useState(false);
   const [repOpen, setRepOpen] = useState(false);
 
+  const story = useSave(s => s.story);
+  const choose = useSave(s => s.chooseApprentice);
   const canResume = !!craftProgress && craftProgress.stepIdx >= 1;
 
   const signSrc = lang === "en" ? "/images/ui/sign-en.webp" : "/images/ui/sign-ko.webp";
   const signSize = lang === "en" ? { width: 770, height: 346 } : { width: 528, height: 233 };
 
+  if (!story.apprentice) return (
+    <div className="screen apprentice-screen">
+      <div className="apprentice-language" role="group" aria-label="한국어 / English">
+        {(["ko", "en"] as const).map(code => <button key={code} aria-pressed={lang === code}
+          onClick={() => setLang(code)}>{code === "ko" ? "한국어" : "English"}</button>)}
+      </div>
+      <section className="apprentice-panel">
+        <h1>{lang === "ko" ? "어떤 견습 장인으로 시작할까요?" : "Choose your apprentice"}</h1>
+        <div className="apprentice-options">
+          <Btn variant="cream" onClick={() => choose("woman")}>{lang === "ko" ? "여성 장인" : "Woman"}</Btn>
+          <Btn variant="cream" onClick={() => choose("man")}>{lang === "ko" ? "남성 장인" : "Man"}</Btn>
+        </div>
+      </section>
+    </div>
+  );
+
   return (
     <div className="screen title-screen">
-      <Sparkles count={10} />
+
       <div className="flex justify-end p-3">
         <SoundToggle />
       </div>
       <div className="flex flex-1 flex-col items-center justify-center gap-5 px-5 pb-8">
-        <div className="float logo-plaque w-full max-w-[440px]">
+        <div className="demo-hero w-full"><div className="demo-hero-sign">
           <Image
             key={signSrc}
             src={signSrc}
@@ -89,6 +107,7 @@ export default function TitleScreen() {
             priority
             className="h-auto w-full"
           />
+        </div>
         </div>
         <div className="flex gap-2">
           <button
@@ -123,9 +142,11 @@ export default function TitleScreen() {
               </div>
             </div>
           )}
-          <TitleMenuBtn size="lg" onClick={() => go("board")}>
+          <TitleMenuBtn size="lg" className="title-menu-btn-primary" onClick={() => go("board")}>
             <UiIcon id="scroll" />
-            {t(lang, "title.commission")}
+            {story.chapter === "ending" ? t(lang, "board.title")
+              : story.chapter === "gift" ? (lang === "ko" ? "공방 이야기 · 첫 선물" : "Workshop story · The first gift")
+              : (lang === "ko" ? "공방 이야기 · 달밤의 손님" : "Workshop story · The moonlit visitor")}
           </TitleMenuBtn>
           <TitleMenuBtn size="lg" onClick={() => startCraft(undefined)}>
             <UiIcon id="frame" />
@@ -162,7 +183,7 @@ export default function TitleScreen() {
 
       {repOpen && <ReputationModal lang={lang} rep={rep} onClose={() => setRepOpen(false)} />}
 
-      {(!tutorialSeen || settings) && (
+      {settings && (
         <Modal
           onClose={() => {
             setTutorialSeen();

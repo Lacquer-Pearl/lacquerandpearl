@@ -147,6 +147,12 @@ const PENTA = [293.66, 329.63, 392, 440, 493.88, 587.33, 659.25, 783.99, 880];
 
 export const sfx = {
   click: () => tone(720, { type: "sine", dur: 0.08, vol: 0.18, slide: 300 }),
+  knock: () => {
+    for (const delay of [0, 0.29]) {
+      tone(165, { type: "triangle", slide: -62, dur: 0.11, vol: 0.22, delay });
+      tone(510, { slide: -170, dur: 0.035, vol: 0.085, delay });
+    }
+  },
   pop: () => tone(520, { type: "triangle", dur: 0.12, vol: 0.22, slide: 500 }),
   place: () => {
     tone(880, { type: "sine", dur: 0.12, vol: 0.18 });
@@ -171,6 +177,10 @@ export const sfx = {
   },
   tick: () => tone(1500, { type: "sine", dur: 0.03, vol: 0.08 }),
   cut: () => noiseBurst(0.07, 3800, 0.35, 4),
+  paperLift: () => {
+    noiseBurst(0.22, 1800, 0.12, 0.8);
+    tone(1318, { type: "sine", vol: 0.04, dur: 0.32, delay: 0.12 });
+  },
   shimmer: () => [7, 8, 6, 8].forEach((n, i) => tone(PENTA[n] * 2, { dur: 0.3, vol: 0.05, delay: i * 0.07 })),
   bubble: () => tone(300 + Math.random() * 200, { type: "sine", dur: 0.1, vol: 0.12, slide: 400 }),
 };
