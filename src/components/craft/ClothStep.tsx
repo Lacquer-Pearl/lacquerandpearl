@@ -10,7 +10,7 @@ import { loopLevel, sfx, startLoop, stopLoop } from "@/lib/sound";
 import { useSave } from "@/lib/store";
 import LessonGate from "./LessonGate";
 import BenchLayout from "./BenchLayout";
-import { StepHeader } from "./common";
+import { StepHeader, WorkProgress } from "./common";
 import { claimCraftPointer, isForeignCraftPointer, releaseCraftPointer, useBlockCraftScroll } from "./craftTouch";
 
 const N = 50;
@@ -154,7 +154,7 @@ export default function ClothStep({ design, onDone }: { design: Design; onDone: 
   const score = () => Math.round(Math.max(0, Math.min(100, stats.good * 108 - stats.thick * 60 - stats.wrinkle * 30)));
 
   return (
-    <LessonGate untilComplete lesson={!strips.length ? "cloth" : ready && !active ? "stepDone" : undefined}><BenchLayout
+    <LessonGate untilComplete lesson={!strips.length ? "cloth" : undefined}><BenchLayout
       tools={<>
         <StepHeader title={t(lang, "cloth.title")} icon="hemp">
           {tNode(lang, "cloth.tip", { b: <b>{t(lang, "cloth.tipB")}</b> })}
@@ -163,21 +163,7 @@ export default function ClothStep({ design, onDone }: { design: Design; onDone: 
       </>}
       progress={<>
         <div className="panel flex flex-col gap-2 py-3">
-          <Meter
-            value={stats.covered}
-            color="var(--mint-deep)"
-            target={minCovered}
-            label={
-              <>
-                <span>{t(lang, "cloth.good")}</span>
-                <span>
-                  {ready
-                    ? t(lang, "paint.goalReached")
-                    : t(lang, "paint.toGoal", { n: Math.max(1, Math.ceil((minCovered - stats.covered) * 100)) })}
-                </span>
-              </>
-            }
-          />
+          <WorkProgress value={stats.covered} target={minCovered} color="var(--mint-deep)" label={t(lang, "cloth.good")} />
           <Meter
             value={Math.min(1, stats.wrinkle + stats.thick * 2)}
             color="var(--red)"
@@ -198,7 +184,7 @@ export default function ClothStep({ design, onDone }: { design: Design; onDone: 
           <Btn
             variant="mint"
             size="lg"
-            data-lesson="stepDone" disabled={!ready || done}
+            disabled={!ready || done}
             onClick={() => {
               setDone(true);
               const creases = strips.flatMap(strip => strip.creases.map(distance => ({

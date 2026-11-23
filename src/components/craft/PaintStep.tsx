@@ -10,7 +10,7 @@ import { useSave } from "@/lib/store";
 import PaintCanvas, { type PaintConfig, type PaintStats } from "./PaintCanvas";
 import LessonGate, { type Lesson } from "./LessonGate";
 import BenchLayout from "./BenchLayout";
-import { StepHeader, TutorialStage } from "./common";
+import { StepHeader, TutorialStage, WorkProgress } from "./common";
 
 export interface PaintStepDef {
   title: string;
@@ -59,9 +59,8 @@ export default function PaintStep({
   const stage = useContext(TutorialStage);
   const [stroking, setStroking] = useState(false);
   let paintLesson: Lesson | undefined;
-  if (ready && !stroking) paintLesson = "stepDone";
-  else if (usesInk && !firstDip) paintLesson = stage === "fill" ? "fill" : "lacquer";
-  else if (usesInk && ink < 0.03 && !stroking) paintLesson = "redip";
+  if (usesInk && !firstDip) paintLesson = stage === "fill" ? "fill" : "lacquer";
+  else if (!ready && usesInk && ink < 0.03 && !stroking) paintLesson = "redip";
   else if (!stats.touched) paintLesson = usesInk ? "brush" : stage === "iron" ? "iron" : "sand";
 
   const dip = () => {
@@ -123,21 +122,7 @@ export default function PaintStep({
                 <span className="paint-quality-swatch over">{t(lang, "paint.legendOver")}</span>
               </div>
             )}
-            <Meter
-              value={stats.touched}
-              color="var(--gold-deep)"
-              target={def.minTouched}
-              label={
-                <>
-                  <span>{t(lang, "paint.covered")}</span>
-                  <span>
-                    {ready
-                      ? t(lang, "paint.goalReached")
-                      : t(lang, "paint.toGoal", { n: Math.max(1, Math.ceil((def.minTouched - stats.touched) * 100)) })}
-                  </span>
-                </>
-              }
-            />
+            <WorkProgress value={stats.touched} target={def.minTouched} color="var(--gold-deep)" label={t(lang, "paint.covered")} />
             {def.thinLabel && (
               <Meter
                 value={stats.thin}
@@ -178,7 +163,7 @@ export default function PaintStep({
           <Btn
             variant="mint"
             size="lg"
-            data-lesson="stepDone" disabled={!ready || done}
+            disabled={!ready || done}
             onClick={() => {
               setDone(true);
               onDone(Math.max(0, Math.min(100, Math.round(def.score(stats)))), stats);

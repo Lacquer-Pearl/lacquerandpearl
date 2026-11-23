@@ -17,7 +17,6 @@ const lines = {
   confirmSheet: ["나비가 패에 잘 들어갔구나. 배치를 확인하고 도안을 살펴보자.", "The butterfly fits on the sheet. Confirm its placement to review the design."],
   buyMaterial: ["부족한 재료가 있구나. 표시한 재료를 채운 뒤 제작을 시작하렴.", "One of the materials is running low. Buy the highlighted material before you start."],
   replaceWork: ["이 선물 제작을 시작하면 전에 작업하던 작품을 대신하게 된단다. 계속하려면 새 작품 시작을 누르렴.", "Starting this gift will replace your unfinished piece. Choose Start new piece to continue."],
-  stepDone: ["이만하면 다음 공정으로 갈 수 있겠구나. ‘완료’를 눌러 네 작업을 마무리하렴.", "Your work is ready for the next stage. Choose Done to finish this step."],
   redip: ["붓끝의 옻이 다했구나. 그릇에 다시 적시고 남은 곳을 칠해 보렴.", "The brush has run dry. Dip it in the bowl again, then cover the remaining surface."],
   review: ["무늬도 재료도 갖췄구나. 함과 쓸 자개를 한 번 살펴보고 제작을 시작하렴.", "The pattern and materials are ready. Look over the box and the shell you’ll use, then begin."],
   cloth: ["나무 한쪽 끝을 짚고 반대편까지 곧게 끌어 보렴. 손을 떼면 삼베 한 장이 붙는다. 옆으로 자리를 옮겨 빈 곳도 덮어 주거라.", "Press one edge of the wood and drag straight across. Lift to lay one strip of hemp, then cover the bare wood beside it."],
@@ -59,7 +58,7 @@ const targets: Record<Lesson, string> = {
   art: "[data-lesson=art]", openSheet: "[data-lesson=openSheet]", buySheet: "[data-lesson=buySheet]",
   trayMotif: "[data-lesson=trayMotif]", putOnSheet: "[data-lesson=putOnSheet]", confirmSheet: "[data-lesson=confirmSheet]",
   review: "[data-lesson=review]", replaceWork: "[data-lesson=replaceWork]", buyMaterial: "[data-lesson=buyMaterial]",
-  stepDone: "[data-lesson=stepDone]", redip: ".lacquer-bowl",
+  redip: ".lacquer-bowl",
   cloth: ".bench-surface svg.craft-touch-area", lacquer: ".lacquer-bowl", brush: "[data-paint-canvas]",
   dry: "[data-lesson=dry]", humidify: "[data-lesson=humidify]", vent: "[data-lesson=vent]",
   heat: "[data-lesson=heat]", cool: "[data-lesson=cool]", cut: "[data-lesson=cut]", jul: ".saw-board", julNext: ".saw-board",
@@ -165,7 +164,6 @@ function PositionedHint({ target, lesson, untilComplete, dismiss }: HintProps & 
     const guard = (e: Event) => {
       const el = e.target;
       if (!(el instanceof Element) || target.contains(el) || el.closest(".work-hint, .modal-backdrop, .tool-drawer header")) return;
-      if (lesson === "stepDone" && el.closest(".workbench, .lacquer-bowl")) return;
       if (lesson === "art" && el.closest(".sketch-paper")) return;
       if ((lesson === "join" || lesson === "recut" || lesson === "restock") && el.closest("[data-recut-panel] button")) return;
       if (!el.closest(".craft-screen .screen-body, .tool-drawer")) return;

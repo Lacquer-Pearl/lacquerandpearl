@@ -3,6 +3,7 @@
 import { useSave, useUI } from "@/lib/store";
 import { GIFT_ID } from "@/lib/workshopStory";
 import Avatar from "@/components/Avatar";
+import { Meter } from "@/components/ui";
 import UiIcon, { type UiIconId } from "@/components/UiIcon";
 import type { CustomerDef } from "@/lib/data";
 import { createContext, useContext } from "react";
@@ -28,6 +29,31 @@ export function MasterTip({ children }: { children: React.ReactNode }) {
     <div className="flex items-start gap-2">
       <Avatar c={MASTER} mood="happy" portrait={MASTER_PORTRAIT} className="master h-12 w-12 shrink-0" />
       <div className="bubble flex-1 text-[15px] leading-snug"><b className="master-name">{t(lang, "master.name")}</b>{children}</div>
+    </div>
+  );
+}
+
+export function WorkProgress({ value, target, color, label }: {
+  value: number; target: number; color: string; label: string;
+}) {
+  const lang = useSave(s => s.lang);
+  const stage = useContext(TutorialStage);
+  const ready = value >= target;
+  return (
+    <div>
+      <Meter value={value} target={target} color={color} label={<>
+        <span>{label}</span>
+        <span>{ready
+          ? t(lang, "paint.goalReached", { n: Math.floor(value * 100) })
+          : t(lang, "paint.toGoal", { n: Math.ceil((target - value) * 100) })}
+        </span>
+      </>} />
+      <div role="status" aria-atomic="true">
+        {ready && <p className="mt-2 text-sm leading-relaxed text-[var(--brown)]">
+          <b className="master-name">{t(lang, "master.name")}</b>
+          {t(lang, "craft.finishWhenReady")} {t(lang, `craft.finishingTip.${stage}`)}
+        </p>}
+      </div>
     </div>
   );
 }
