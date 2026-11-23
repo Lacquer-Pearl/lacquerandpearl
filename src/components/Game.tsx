@@ -74,7 +74,9 @@ export default function Game() {
     if (Capacitor.isNativePlatform()) {
       handles.push(
         App.addListener("backButton", () => {
-          const lesson = document.querySelector<HTMLButtonElement>("dialog.master-scene[open] button");
+          const drawer = document.querySelector<HTMLButtonElement>("dialog.tool-drawer[open] header button");
+          if (drawer) return drawer.click();
+          const lesson = document.querySelector<HTMLButtonElement>("[data-close-guide]");
           if (lesson) return lesson.click();
           const backdrop = document.querySelector<HTMLElement>(".modal-backdrop");
           if (backdrop) return backdrop.click();

@@ -55,6 +55,7 @@ import {
 import { costFor, useSave } from "@/lib/store";
 import { GIFT_ID } from "@/lib/workshopStory";
 import LessonGate from "./LessonGate";
+import ToolDrawer from "./ToolDrawer";
 import BenchLayout from "./BenchLayout";
 import { StepHeader } from "./common";
 import NestStep, { motifPolygons, needsLargeSheet, type NestActions, type NestStatus } from "./NestStep";
@@ -157,6 +158,7 @@ export default function DesignStep({
   onStart: (plan: ShellPlan) => { ok: true } | { ok: false; missing: PearlId; large?: boolean };
 }) {
   const [selected, setSelectedIds] = useState<string[]>([]);
+  const [showLacquer, setShowLacquer] = useState(false);
   const [view, setView] = useState<Stage>("art");
   const [nestStatus, setNestStatus] = useState<NestStatus | null>(null);
   const nestActions = useRef<NestActions | null>(null);
@@ -433,6 +435,7 @@ export default function DesignStep({
           disabled={design.pieces.length === 0 || missing.length > 0 || nestLeft > 0 || !!short}
           onClick={() => {
             if (!lacquerReady) {
+              setShowLacquer(true);
               setView("art");
               setTimeout(() => document.getElementById("design-lacquer")?.scrollIntoView({ block: "center" }), 0);
               return;
@@ -481,7 +484,9 @@ export default function DesignStep({
           tools={<>
             {header}
             {view === "art" && (
-              <div className="panel flex flex-col gap-3 py-3">
+              <div className="design-tool-tabs">
+                <ToolDrawer label={lang === "ko" ? "문양" : "Motifs"} closeLabel={t(lang, "common.close")} onPickClose>
+                  <div className="panel flex flex-col gap-3 py-3">
                 {!commission && design.shape === "box" && <fieldset>
                   <legend className="label">{lang === "ko" ? "보석함 도안 불러오기" : "Jewel box patterns"}</legend>
                   <div className="box-patterns">
@@ -498,6 +503,58 @@ export default function DesignStep({
                     })}
                   </div>
                 </fieldset>}
+                {commission && (
+                  <div className="design-order-motifs">
+                    <div className="label flex items-center justify-between gap-2">
+                      <span>{t(lang, "design.orderMotifs")}</span>
+                      <small className={orderLeft === 0 ? "text-[var(--mint-deep)]" : "text-[var(--red)]"}>
+                        {orderLeft === 0 ? t(lang, "design.orderDone") : t(lang, "design.orderLeft", { n: orderLeft })}
+                      </small>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
+                      {(Object.entries(commission.motifs) as [MotifId, number][]).map(([m, n]) => (
+                        <button
+                          key={m}
+                          disabled={design.pieces.length >= MAX_PIECES} className={`motif-btn ${(counts[m] ?? 0) >= n ? "on" : ""}`}
+                          onClick={() => addMotif(m)}
+                          title={motifMeaning(lang, m)}
+                        >
+                          <MotifIcon motif={m} pearl={design.pearl} className="h-9 w-9" />
+                          <span>
+                            {motifName(lang, m)} {counts[m] ?? 0}/{n}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <div className="label">{t(lang, "design.motifs", { n: design.pieces.length, max: MAX_PIECES })}</div>
+                  <div className="grid grid-cols-4 gap-2">
+                    {(cloudUnlocked ? [...SHAPE_MOTIFS, MOTIFS.cloudLine] : SHAPE_MOTIFS).map((m) => (
+                      <button key={m.id} disabled={design.pieces.length >= MAX_PIECES} className="motif-btn" onClick={() => addMotif(m.id)} title={motifMeaning(lang, m.id)}>
+                        <MotifIcon motif={m.id} pearl={design.pearl} className="h-9 w-9" />
+                        <span>{motifName(lang, m.id)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="label">{t(lang, "design.patternMotifs")}</div>
+                  <div className="grid grid-cols-4 gap-2">
+                    {PATTERN_MOTIFS.map((m) => (
+                      <button key={m.id} disabled={design.pieces.length >= MAX_PIECES} className="motif-btn" onClick={() => addMotif(m.id)} title={motifMeaning(lang, m.id)}>
+                        <MotifIcon motif={m.id} pearl={design.pearl} className="h-9 w-9" />
+                        <span>{motifName(lang, m.id)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                  </div>
+                </ToolDrawer>
+                <ToolDrawer initiallyOpen={showLacquer && !lacquerReady} label={lang === "ko" ? "바탕과 재료" : "Base & materials"} closeLabel={t(lang, "common.close")}>
+                  <div className="panel flex flex-col gap-3 py-3">
                 {!commission && (
                   <div>
                     <div className="label">{t(lang, "design.shape")}</div>
@@ -578,54 +635,8 @@ export default function DesignStep({
                   </div>
                 </div>
 
-                {commission && (
-                  <div className="design-order-motifs">
-                    <div className="label flex items-center justify-between gap-2">
-                      <span>{t(lang, "design.orderMotifs")}</span>
-                      <small className={orderLeft === 0 ? "text-[var(--mint-deep)]" : "text-[var(--red)]"}>
-                        {orderLeft === 0 ? t(lang, "design.orderDone") : t(lang, "design.orderLeft", { n: orderLeft })}
-                      </small>
-                    </div>
-                    <div className="grid grid-cols-4 gap-2">
-                      {(Object.entries(commission.motifs) as [MotifId, number][]).map(([m, n]) => (
-                        <button
-                          key={m}
-                          className={`motif-btn ${(counts[m] ?? 0) >= n ? "on" : ""}`}
-                          onClick={() => addMotif(m)}
-                          title={motifMeaning(lang, m)}
-                        >
-                          <MotifIcon motif={m} pearl={design.pearl} className="h-9 w-9" />
-                          <span>
-                            {motifName(lang, m)} {counts[m] ?? 0}/{n}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
                   </div>
-                )}
-                <div>
-                  <div className="label">{t(lang, "design.motifs", { n: design.pieces.length, max: MAX_PIECES })}</div>
-                  <div className="grid grid-cols-4 gap-2">
-                    {(cloudUnlocked ? [...SHAPE_MOTIFS, MOTIFS.cloudLine] : SHAPE_MOTIFS).map((m) => (
-                      <button key={m.id} className="motif-btn" onClick={() => addMotif(m.id)} title={motifMeaning(lang, m.id)}>
-                        <MotifIcon motif={m.id} pearl={design.pearl} className="h-9 w-9" />
-                        <span>{motifName(lang, m.id)}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="label">{t(lang, "design.patternMotifs")}</div>
-                  <div className="grid grid-cols-4 gap-2">
-                    {PATTERN_MOTIFS.map((m) => (
-                      <button key={m.id} className="motif-btn" onClick={() => addMotif(m.id)} title={motifMeaning(lang, m.id)}>
-                        <MotifIcon motif={m.id} pearl={design.pearl} className="h-9 w-9" />
-                        <span>{motifName(lang, m.id)}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                </ToolDrawer>
               </div>
             )}
             {view === "review" && (

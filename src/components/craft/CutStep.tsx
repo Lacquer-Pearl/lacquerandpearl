@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MotifMasks, NacreDefs, NacrePiece, PieceGraphics, SheenGradient, motifMask } from "@/components/Artwork";
 import { TOOL_TIP, ToolGraphic, WorkPoint } from "@/components/Tools";
 import { Btn, Meter } from "@/components/ui";
@@ -25,7 +25,7 @@ import { loopLevel, sfx, startLoop, stopLoop } from "@/lib/sound";
 import { MACHINE_CUT_COST, useSave } from "@/lib/store";
 import MotifIcon from "@/components/MotifIcon";
 import UiIcon from "@/components/UiIcon";
-import LessonGate from "./LessonGate";
+import LessonGate, { LessonPaused } from "./LessonGate";
 import BenchLayout from "./BenchLayout";
 import { StepHeader } from "./common";
 import { claimCraftPointer, releaseCraftPointer, useBlockCraftScroll } from "./craftTouch";
@@ -296,7 +296,7 @@ export default function CutStep({
           {(["jul", "kkeun", "auto"] as Method[])
           .sort((a, b) => Number(b === recommended) - Number(a === recommended))
           .map((id) => (
-            <button key={id} className={`method-card ${id === recommended ? "outline outline-2 outline-[var(--gold)]" : ""}`} onClick={() => (sfx.click(), setChoice(id))}>
+            <button key={id} data-lesson={id === "jul" ? "cut" : undefined} className={`method-card ${id === recommended ? "outline outline-2 outline-[var(--gold)]" : ""}`} onClick={() => (sfx.click(), setChoice(id))}>
               <UiIcon id={id === "jul" ? "fretsaw" : id === "kkeun" ? "knife" : "cutter"} />
               <span className="flex flex-col text-left">
                 <b className="text-lg">
@@ -1075,6 +1075,7 @@ function KkeunStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; o
   const lang = useSave((s) => s.lang);
   const layout = useMemo(() => buildKkeun(motif), [motif]);
   const marks = layout.marks;
+  const paused = useContext(LessonPaused);
   const [offset, setOffset] = useState(0);
   const [results, setResults] = useState<(number | null | undefined)[]>(() => Array(layout.count).fill(undefined));
   const [flash, setFlash] = useState<string | null>(null);
@@ -1087,6 +1088,7 @@ function KkeunStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; o
   });
 
   useEffect(() => {
+    if (paused) return;
     let raf = 0;
     let last = performance.now();
     const loop = (now: number) => {
@@ -1119,9 +1121,10 @@ function KkeunStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; o
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [marks, onDone, lang]);
+  }, [marks, onDone, lang, paused]);
 
   const tap = () => {
+    if (paused) return;
     const s = st.current;
     if (s.done) return;
     setChop(true);
@@ -1170,7 +1173,7 @@ function KkeunStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; o
         </div>
       </>}
       next={<>
-        <Btn variant="pink" size="lg" sound={false} onClick={tap}>
+        <Btn variant="pink" size="lg" data-lesson="kkeun" sound={false} onClick={tap}>
           {t(lang, "cut.cutBtn")}
         </Btn>
       </>}
@@ -1257,7 +1260,7 @@ function AutoStep({ onDone, onAbort }: { onDone: (s: number) => void; onAbort: (
         next={<Btn
           variant="pink"
           size="lg"
-          disabled={money < MACHINE_CUT_COST}
+          data-lesson="auto" disabled={money < MACHINE_CUT_COST}
           onClick={() => {
             if (!payCoins(MACHINE_CUT_COST)) {
               sfx.fail();

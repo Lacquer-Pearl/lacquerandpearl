@@ -822,7 +822,7 @@ export default function NestStep({
             )}
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <Btn variant="gold" onClick={runAuto}>
+            <Btn variant="gold" data-lesson={!embedded ? "shell" : undefined} onClick={runAuto}>
               {t(lang, "nest.auto")}
             </Btn>
             <Btn

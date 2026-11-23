@@ -120,7 +120,7 @@ export default function DryStep({ design, onDone }: { design: Design; onDone: (s
   const inside = phase === "inside";
 
   return (
-    <LessonGate keepMounted lesson={inside && cue ? (["humidify", "vent", "heat", "cool"] as const)[practice] : undefined}>
+    <LessonGate lesson={inside && cue ? (["humidify", "vent", "heat", "cool"] as const)[practice] : undefined}>
       <BenchLayout
         tools={<>
           <StepHeader title={tr(lang, "dry.title")} icon="torch">
@@ -141,16 +141,16 @@ export default function DryStep({ design, onDone }: { design: Design; onDone: (s
           {(!inside || cue) && <p className="demo-hint" aria-live="polite">{inside ? cue?.[lang] : (lang === "ko" ? "건조장 문을 닫아 주세요." : "Close the cabinet.")}</p>}
           {inside && (
             <div className="grid grid-cols-4 gap-2">
-              <Btn size="sm" variant="lavender" sound={false} onClick={() => nudge(6, 0)} disabled={progress >= 100 || !!cue && cue.dh !== 6}>
+              <Btn size="sm" variant="lavender" sound={false} data-lesson="humidify" onClick={() => nudge(6, 0)} disabled={progress >= 100 || !!cue && cue.dh !== 6}>
                 <NudgeLabel text={tr(lang, "dry.humidify")} />
               </Btn>
-              <Btn size="sm" variant="cream" sound={false} onClick={() => nudge(-6, 0)} disabled={progress >= 100 || !!cue && cue.dh !== -6}>
+              <Btn size="sm" variant="cream" sound={false} data-lesson="vent" onClick={() => nudge(-6, 0)} disabled={progress >= 100 || !!cue && cue.dh !== -6}>
                 <NudgeLabel text={tr(lang, "dry.vent")} />
               </Btn>
-              <Btn size="sm" variant="pink" sound={false} onClick={() => nudge(0, 2)} disabled={progress >= 100 || !!cue && cue.dt !== 2}>
+              <Btn size="sm" variant="pink" sound={false} data-lesson="heat" onClick={() => nudge(0, 2)} disabled={progress >= 100 || !!cue && cue.dt !== 2}>
                 <NudgeLabel text={tr(lang, "dry.heat")} />
               </Btn>
-              <Btn size="sm" variant="mint" sound={false} onClick={() => nudge(0, -2)} disabled={progress >= 100 || !!cue && cue.dt !== -2}>
+              <Btn size="sm" variant="mint" sound={false} data-lesson="cool" onClick={() => nudge(0, -2)} disabled={progress >= 100 || !!cue && cue.dt !== -2}>
                 <NudgeLabel text={tr(lang, "dry.cool")} />
               </Btn>
             </div>
@@ -200,7 +200,7 @@ export default function DryStep({ design, onDone }: { design: Design; onDone: (s
         </>}
         next={<>
           {phase === "open" && (
-            <Btn variant="mint" size="lg" onClick={closeDoors}>
+            <Btn variant="mint" size="lg" data-lesson="dry" onClick={closeDoors}>
               {tr(lang, "dry.start")}
             </Btn>
           )}

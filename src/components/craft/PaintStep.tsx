@@ -67,7 +67,7 @@ export default function PaintStep({
   };
 
   return (
-    <LessonGate keepMounted lesson={firstDip ? "brush" : undefined}>
+    <LessonGate lesson={firstDip ? "brush" : undefined}>
       <BenchLayout
         tools={<>
           <StepHeader title={def.title} icon={def.icon}>

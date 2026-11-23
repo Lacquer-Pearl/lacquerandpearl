@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import Artwork, {
   MotifMasks,
   MotifSilhouette,
@@ -19,6 +19,7 @@ import { motifName, t, tNode } from "@/lib/i18n";
 import { sfx } from "@/lib/sound";
 import { useSave } from "@/lib/store";
 import AttachBreakGuide from "./AttachBreakGuide";
+import { LessonPaused } from "./LessonGate";
 import BenchLayout from "./BenchLayout";
 import { StepHeader } from "./common";
 import { claimCraftPointer, isForeignCraftPointer, releaseCraftPointer, useBlockCraftScroll } from "./craftTouch";
@@ -83,6 +84,7 @@ export default function AttachStep({
   const benchRef = useRef<HTMLDivElement>(null);
   const gesture = useRef<number | null>(null);
   useBlockCraftScroll(benchRef);
+  const paused = useContext(LessonPaused);
   const glueStart = useRef(0);
   const scores = useRef<number[]>([]);
   const regluePenalty = useRef(0);
@@ -97,13 +99,14 @@ export default function AttachStep({
   const piece = task?.piece;
 
   useEffect(() => {
+    if (paused) return;
     glueStart.current = performance.now();
     const id = setInterval(() => {
       const left = Math.max(0, 1 - (performance.now() - glueStart.current) / GLUE_MS);
       setGlue(left);
     }, 80);
     return () => clearInterval(id);
-  }, []);
+  }, [paused]);
 
   const pushPlaced = (score: number, nextPiece: PlacedPiece, note: string) => {
     scores.current.push(score);
@@ -130,7 +133,7 @@ export default function AttachStep({
 
   useEffect(() => {
     const active = tasks[current];
-    if (!active || active.kind !== "scrap") return;
+    if (paused || !active || active.kind !== "scrap") return;
     if (finishedPieces.current.has(active.piece.id)) return;
     setMsg(t(lang, "attach.scrapSkip"));
     const id = window.setTimeout(() => {
@@ -141,7 +144,7 @@ export default function AttachStep({
     return () => window.clearTimeout(id);
     // pushPlaced is recreated each render and only the current scrap task should arm the timer.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current, lang, tasks]);
+  }, [current, lang, tasks, paused]);
 
   const toLocal = (e: { clientX: number; clientY: number }) => {
     const r = wrapRef.current!.getBoundingClientRect();
@@ -225,6 +228,7 @@ export default function AttachStep({
         </StepHeader>
         <div className="panel craft-touch-area flex items-center justify-around gap-2">
           <div
+            data-lesson={piece && task?.kind !== "scrap" ? "attach" : undefined}
             className={`tray-piece ${glue > 0 ? "glued" : ""}`}
             onPointerDown={(e) => {
               if (!piece || task?.kind === "scrap" || !claimCraftPointer(e, gesture, benchRef.current)) return;

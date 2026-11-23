@@ -1930,6 +1930,38 @@ button.step-dot:focus-visible {
   filter: brightness(.65) saturate(.65);
 }
 
+/* Compact devices use the page's natural reading and scrolling order. */
+.craft-screen .screen-body { width: min(100%, 640px); margin-inline: auto; }
+.bench-layout, .bench-tools, .bench-status, .bench-readings { display: flex; flex-direction: column; gap: 12px; }
+.bench-surface { order: -1; }
+.bench-surface > .workbench { width: 100%; }
+.bench-surface .cut-preview { display: grid; place-items: center; aspect-ratio: 1; }
+.bench-layout .design-action-bar { position: static; margin: 0; padding: 0; background: none; }
+.bench-layout .design-order-bar, .bench-layout .nest-piece-bar-slot { position: static; }
+.bench-layout .design-sel-slot:has(> .panel:only-child):not(:has(button)) { display: none; }
+.bench-next > button { width: 100%; }
+.bench-next:empty, .bench-readings:empty { display: none; }
+.design-tool-tabs { display: flex; gap: 10px; }
+.tool-tab { flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 16px; min-height: 46px; color: #382a20; background: #f3e8d4; border: 1px solid #a68864; border-radius: 8px; font-weight: 650; }
+.bench-tools:has(.design-tool-tabs) .design-tool-tabs { order: -1; }
+.bench-status:has(.bench-next:not(:empty)) { display: contents; }
+.bench-next { position: sticky; bottom: 0; z-index: 15; padding: 6px 0 max(8px, env(safe-area-inset-bottom)); }
+.bench-layout .design-stepper { margin: 0; }
+.tool-drawer[open] { position: fixed; inset: auto 0 0; width: min(100%, 640px); max-width: 100%; max-height: 75dvh; margin: 0 auto; padding: 0; border: 0; border-radius: 18px 18px 0 0; background: #f3e9d8; color: #34291f; overflow: hidden; }
+.tool-drawer::backdrop { background: #17130c88; }
+.tool-drawer > section { display: flex; flex-direction: column; max-height: 75dvh; }
+.tool-drawer header { display: flex; flex: none; justify-content: space-between; align-items: center; padding: 8px 18px; border-bottom: 1px solid #c7b398; }
+.tool-drawer h2 { font: 650 1.2rem var(--font-title), serif; }
+.tool-drawer header button { width: 44px; height: 44px; font-size: 26px; }
+.tool-drawer-body { overflow: auto; overscroll-behavior: contain; padding: 8px 12px max(14px, env(safe-area-inset-bottom)); }
+.tool-drawer-body > .panel { border: 0; box-shadow: none; background: transparent; }
+body:has(.tool-drawer[open]) { overflow: hidden; }
+@media (prefers-reduced-motion: no-preference) {
+  .tool-drawer[open] { animation: drawer-rise .22s ease-out; }
+  @keyframes drawer-rise { from { transform: translateY(100%); } }
+}
+
+@media (min-width: 1024px) and (min-height: 560px) and (hover: hover) and (pointer: fine) {
 /* The playable surface and the two rails share the available viewport. */
 .craft-screen:has(.bench-layout) { height: 100dvh; min-height: 0; }
 .craft-screen:has(.bench-layout) > :not(.screen-body) { flex-shrink: 0; }
@@ -1953,47 +1985,26 @@ button.step-dot:focus-visible {
 .bench-layout .design-action-bar { position: static; margin: 0; padding: 0; background: none; }
 .bench-layout .design-stepper { margin: 0; }
 .bench-layout .nest-piece-bar { flex-wrap: wrap; border-radius: 10px; }
-@media (min-width: 850px) {
-  .app-frame:has(.craft-screen) { max-width: 1560px; }
+.app-frame:has(.craft-screen) { max-width: 1560px; }
   .craft-screen .screen-body:not(:has(.bench-layout)) { width: min(100%,650px); margin-inline: auto; }
   .bench-tools .grid-cols-4 { grid-template-columns: repeat(auto-fit,minmax(54px,1fr)); }
-}
-@media (max-width: 849px) {
-  .bench-layout { grid-template: "surface surface" minmax(0,1fr) "tools status" minmax(0,38%) / minmax(0,1fr) minmax(0,1fr); }
-  .bench-tools, .bench-status { padding: 7px; gap: 6px; }
-  .bench-layout .panel { padding: 7px; }
-  .bench-layout .step-title { font-size: 1rem; }
-  .bench-tools .grid-cols-4, .bench-tools .nest-stock-pick, .bench-tools .nest-stock-row { grid-template-columns: repeat(2,minmax(0,1fr)); }
-  .bench-layout .design-stepper, .bench-layout .box-patterns { display: flex; flex-wrap: wrap; }
-  .bench-tools .grid-cols-2:has(.opt-btn.row) { grid-template-columns: 1fr; }
-  .bench-layout .design-sel-slot { min-height: auto; }
-  .bench-layout :is(.btn, .opt-btn, .method-card) { white-space: normal; }
-}
-@media (max-height: 520px) and (orientation: landscape) {
-  .app-frame:has(.craft-screen) { max-width: none; }
-  .bench-layout { grid-template: "tools surface status" minmax(0,1fr) / minmax(145px,1fr) minmax(0,1.6fr) minmax(145px,1fr); }
-  .craft-screen .steps-bar { padding-block: 2px; }
+
+  .craft-screen .screen-body:has(.bench-layout) { width: 100%; }
+  .bench-tools:has(.design-tool-tabs) .design-tool-tabs, .bench-surface { order: 0; }
+  .design-tool-tabs { flex-direction: column; }
+  .bench-status:has(.bench-next:not(:empty)) { display: flex; }
+  .bench-next { position: static; padding: 0; }
 }
 
-dialog.master-scene[open] {
-  position: fixed; inset: 0; margin: 0; width: 100%; max-width: none; height: 100dvh; max-height: none;
-  display: grid; grid-template-rows: minmax(60px,1fr) auto;
-  padding: max(16px,env(safe-area-inset-top)) clamp(16px,5vw,80px) max(20px,env(safe-area-inset-bottom));
-  color: #fff3da; border: 0;
-  background: linear-gradient(180deg,#1c151455,transparent 50%,#211a1480),url("/images/workshop/bench.webp") center / cover;
+.work-hint { position: fixed; inset: 0; z-index: 80; pointer-events: none; overflow: hidden; }
+.work-hint-ring { position: absolute; border-radius: 8px; border: 2px solid #ffe8a5; box-shadow: 0 0 0 160vmax rgb(19 15 12 / 62%), 0 0 14px 3px #ffe0a1a6; }
+.work-hint-note { position: absolute; width: min(395px,calc(100vw - 24px)); display: flex; align-items: flex-end; gap: 10px; color: #fff7e7; padding: 12px 28px 0 5px; border: 1px solid #a88b62; border-radius: 12px; background: #30271ff5; box-shadow: 0 4px 18px #130d095c; }
+.work-hint-note img { flex: none; width: 25%; max-height: 145px; object-fit: contain; object-position: bottom; }
+.work-hint-note > div { align-self: center; padding-bottom: 12px; }
+.work-hint-note strong { color: #f0cf95; font-size: .88rem; }
+.work-hint-note p { color: #fff7e7; font-size: .97rem; line-height: 1.5; margin-top: 2px; word-break: keep-all; }
+.work-hint-note button { pointer-events: auto; position: absolute; top: 0; right: 0; width: 32px; height: 34px; font-size: 20px; }
+@media (max-height: 500px) {
+  .work-hint-note { width: min(300px,calc(100vw - 24px)); }
+  .work-hint-note img { width: 18%; }
 }
-.master-scene::backdrop { background: #2b211a; }
-.master-scene .story-figure img { height: min(100% + 38px, 890px); }
-.master-scene .story-dialogue { margin-bottom: 0; }
-@media (max-width: 849px) {
-  .app-frame:has(.craft-screen) { max-width: none; }
-  .bench-tools .nest-stock-row { grid-template-columns: 1fr; }
-  .bench-tools .nest-stock-pearl { max-width: 100%; }
-  .bench-next .btn-lg { font-size: 1rem; padding: 8px; min-height: 44px; }
-}
-/* Standalone practice screens sit outside the game's fixed-height stage. */
-.app-frame:not(:has(.craft-screen)) .bench-layout {
-  display: flex; flex-direction: column; gap: 10px;
-}
-.app-frame:not(:has(.craft-screen)) .bench-surface { container-type: normal; }
-.app-frame:not(:has(.craft-screen)) .bench-surface > .workbench { width: 100%; }

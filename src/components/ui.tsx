@@ -19,6 +19,7 @@ export function Btn({
   type = "button",
   title,
   "aria-label": ariaLabel,
+  "data-lesson": lesson,
 }: {
   children: React.ReactNode;
   variant?: Variant;
@@ -30,6 +31,7 @@ export function Btn({
   type?: "button" | "submit";
   title?: string;
   "aria-label"?: string;
+  "data-lesson"?: string;
 }) {
   return (
     <button
@@ -37,6 +39,7 @@ export function Btn({
       disabled={disabled}
       title={title}
       aria-label={ariaLabel}
+      data-lesson={lesson}
       className={`btn btn-${variant} btn-${size} ${className}`}
       onClick={() => {
         if (sound) sfx.click();

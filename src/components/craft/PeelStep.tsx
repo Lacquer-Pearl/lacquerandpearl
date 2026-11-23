@@ -72,7 +72,7 @@ export default function PeelStep({ design, onDone }: { design: Design; onDone: (
   const top = progress * 300;
 
   return (
-    <LessonGate keepMounted lesson={wet ? "wet" : undefined}>
+    <LessonGate lesson={wet ? "wet" : undefined}>
       <BenchLayout
         tools={<>
           <StepHeader title={t(lang, "peel.title")} icon="hanji">
@@ -84,7 +84,7 @@ export default function PeelStep({ design, onDone }: { design: Design; onDone: (
           <Btn
             variant="lavender"
             size="lg"
-            disabled={wet}
+            data-lesson="peel" disabled={wet}
             onClick={() => {
               setWet(true);
               sfx.bubble();

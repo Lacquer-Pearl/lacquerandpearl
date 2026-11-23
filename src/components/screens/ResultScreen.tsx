@@ -138,7 +138,7 @@ export default function ResultScreen() {
           </Btn>
         </div>
       <section className="demo-epilogue">
-        {gift || visitor ? <Btn variant="gold" onClick={() => go("board")}>{gift
+        {gift || visitor ? <Btn variant="gold" data-lesson="finish" onClick={() => go("board")}>{gift
           ? (ko ? "친구에게 선물 건네기" : "Give your friend the gift")
           : (ko ? "손님에게 작품 건네기" : "Present the finished piece")}</Btn> : storyComplete && <>
           <h3>{ko ? "왕실에서 온 서신" : "A letter from the palace"}</h3>
