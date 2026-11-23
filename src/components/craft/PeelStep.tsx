@@ -72,7 +72,7 @@ export default function PeelStep({ design, onDone }: { design: Design; onDone: (
   const top = progress * 300;
 
   return (
-    <LessonGate lesson={wet ? "wet" : undefined}>
+    <LessonGate untilComplete lesson={!wet ? "peel" : progress === 0 ? "wet" : undefined}>
       <BenchLayout
         tools={<>
           <StepHeader title={t(lang, "peel.title")} icon="hanji">

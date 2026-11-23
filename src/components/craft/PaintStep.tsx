@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useContext, useRef, useState } from "react";
 import type { UiIconId } from "@/components/UiIcon";
 import { Btn, Meter } from "@/components/ui";
 import type { ShapeId } from "@/lib/data";
@@ -8,9 +8,9 @@ import { t } from "@/lib/i18n";
 import { sfx } from "@/lib/sound";
 import { useSave } from "@/lib/store";
 import PaintCanvas, { type PaintConfig, type PaintStats } from "./PaintCanvas";
-import LessonGate from "./LessonGate";
+import LessonGate, { type Lesson } from "./LessonGate";
 import BenchLayout from "./BenchLayout";
-import { StepHeader } from "./common";
+import { StepHeader, TutorialStage } from "./common";
 
 export interface PaintStepDef {
   title: string;
@@ -56,6 +56,14 @@ export default function PaintStep({
 
   const [firstDip, setFirstDip] = useState(false);
 
+  const stage = useContext(TutorialStage);
+  const [stroking, setStroking] = useState(false);
+  let paintLesson: Lesson | undefined;
+  if (ready && !stroking) paintLesson = "stepDone";
+  else if (usesInk && !firstDip) paintLesson = stage === "fill" ? "fill" : "lacquer";
+  else if (usesInk && ink < 0.03 && !stroking) paintLesson = "redip";
+  else if (!stats.touched) paintLesson = usesInk ? "brush" : stage === "iron" ? "iron" : "sand";
+
   const dip = () => {
     if (done) return;
     setFirstDip(true);
@@ -67,7 +75,7 @@ export default function PaintStep({
   };
 
   return (
-    <LessonGate lesson={firstDip ? "brush" : undefined}>
+    <LessonGate untilComplete lesson={paintLesson}>
       <BenchLayout
         tools={<>
           <StepHeader title={def.title} icon={def.icon}>
@@ -170,7 +178,7 @@ export default function PaintStep({
           <Btn
             variant="mint"
             size="lg"
-            disabled={!ready || done}
+            data-lesson="stepDone" disabled={!ready || done}
             onClick={() => {
               setDone(true);
               onDone(Math.max(0, Math.min(100, Math.round(def.score(stats)))), stats);
@@ -180,7 +188,9 @@ export default function PaintStep({
           </Btn>
         </>}
       >
-        <div className="workbench">
+        <div className="workbench" onPointerDownCapture={() => setStroking(true)}
+          onPointerUpCapture={() => setStroking(false)} onPointerCancelCapture={() => setStroking(false)}
+          onLostPointerCapture={() => setStroking(false)}>
           <PaintCanvas
             shape={shape}
             config={def.config}

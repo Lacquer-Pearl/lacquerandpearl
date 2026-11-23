@@ -19,7 +19,7 @@ import { motifName, t, tNode } from "@/lib/i18n";
 import { sfx } from "@/lib/sound";
 import { useSave } from "@/lib/store";
 import AttachBreakGuide from "./AttachBreakGuide";
-import { LessonPaused } from "./LessonGate";
+import LessonGate, { LessonPaused } from "./LessonGate";
 import BenchLayout from "./BenchLayout";
 import { StepHeader } from "./common";
 import { claimCraftPointer, isForeignCraftPointer, releaseCraftPointer, useBlockCraftScroll } from "./craftTouch";
@@ -221,6 +221,7 @@ export default function AttachStep({
   const pearl = piece ? piecePearl(piece, design) : design.pearl;
 
   return (
+    <LessonGate untilComplete lesson={placing && !drag && !glue && task?.kind !== "scrap" ? "newGlue" : undefined}>
     <BenchLayout
       tools={<>
         <StepHeader title={t(lang, "attach.title")} icon="paste" trailing={<AttachBreakGuide />}>
@@ -266,7 +267,7 @@ export default function AttachStep({
           <Btn
             variant="gold"
             size="sm"
-            disabled={glue > 0.5 || !piece || task?.kind === "scrap"}
+            data-lesson="newGlue" disabled={glue > 0.5 || !piece || task?.kind === "scrap"}
             onClick={() => {
               regluePenalty.current += 3;
               glueStart.current = performance.now();
@@ -402,5 +403,6 @@ export default function AttachStep({
         {msg && <div className="event-toast pop-in">{msg}</div>}
       </div>
     </BenchLayout>
+    </LessonGate>
   );
 }

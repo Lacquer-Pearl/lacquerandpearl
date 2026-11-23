@@ -1933,7 +1933,7 @@ button.step-dot:focus-visible {
 /* Compact devices use the page's natural reading and scrolling order. */
 .craft-screen .screen-body { width: min(100%, 640px); margin-inline: auto; }
 .bench-layout, .bench-tools, .bench-status, .bench-readings { display: flex; flex-direction: column; gap: 12px; }
-.bench-surface { order: -1; }
+
 .bench-surface > .workbench { width: 100%; }
 .bench-surface .cut-preview { display: grid; place-items: center; aspect-ratio: 1; }
 .bench-layout .design-action-bar { position: static; margin: 0; padding: 0; background: none; }
@@ -1943,7 +1943,7 @@ button.step-dot:focus-visible {
 .bench-next:empty, .bench-readings:empty { display: none; }
 .design-tool-tabs { display: flex; gap: 10px; }
 .tool-tab { flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 16px; min-height: 46px; color: #382a20; background: #f3e8d4; border: 1px solid #a68864; border-radius: 8px; font-weight: 650; }
-.bench-tools:has(.design-tool-tabs) .design-tool-tabs { order: -1; }
+
 .bench-status:has(.bench-next:not(:empty)) { display: contents; }
 .bench-next { position: sticky; bottom: 0; z-index: 15; padding: 6px 0 max(8px, env(safe-area-inset-bottom)); }
 .bench-layout .design-stepper { margin: 0; }
@@ -1958,7 +1958,29 @@ button.step-dot:focus-visible {
 body:has(.tool-drawer[open]) { overflow: hidden; }
 @media (prefers-reduced-motion: no-preference) {
   .tool-drawer[open] { animation: drawer-rise .22s ease-out; }
-  @keyframes drawer-rise { from { transform: translateY(100%); } }
+  @keyframes drawer-rise { from { bottom: -75dvh; } }
+}
+
+/* On a phone, interleave the same controls in their original workshop order. */
+@media not all and (min-width: 1024px) and (min-height: 560px) and (hover: hover) and (pointer: fine) {
+  .bench-layout { reading-flow: flex-visual; }
+  .bench-tools, .bench-layout .bench-status, .bench-readings { display: contents; }
+  .bench-tools > * { order: 2; }
+  .bench-readings > * { order: 3; }
+  .bench-next { order: 5; }
+  .bench-tools > .bench-step-header { order: -8; }
+  .bench-readings > .design-stepper { order: -7; }
+  .bench-readings > .design-order-bar { order: -6; }
+  .bench-readings > .demo-undo, .bench-tools > .nest-stock { order: -5; }
+  .bench-tools > .nest-sheets { order: -4; }
+  .bench-readings > .nest-notice, .bench-tools > .saw-instruction,
+  .bench-tools > .demo-hint, .bench-tools > .strip-length { order: -3; }
+  .bench-readings > .design-sel-slot { order: 1; }
+  .bench-tools > .dry-controls, .bench-tools > [data-lesson=peel] { order: 4; }
+  .bench-layout:has(.cut-preview) .bench-surface { display: none; }
+  .bench-layout:has(.method-card) .bench-next { order: 4; position: static; }
+  .bench-tools > .method-card { order: 5; }
+  .bench-layout:has(.cut-preview) .bench-tools > button:not(.method-card) { order: 6; }
 }
 
 @media (min-width: 1024px) and (min-height: 560px) and (hover: hover) and (pointer: fine) {
@@ -2001,6 +2023,8 @@ body:has(.tool-drawer[open]) { overflow: hidden; }
 .work-hint-note { position: absolute; width: min(395px,calc(100vw - 24px)); display: flex; align-items: flex-end; gap: 10px; color: #fff7e7; padding: 12px 28px 0 5px; border: 1px solid #a88b62; border-radius: 12px; background: #30271ff5; box-shadow: 0 4px 18px #130d095c; }
 .work-hint-note img { flex: none; width: 25%; max-height: 145px; object-fit: contain; object-position: bottom; }
 .work-hint-note > div { align-self: center; padding-bottom: 12px; }
+.work-hint-note.folded { width: 34px; height: 34px; padding: 0; }
+.work-hint-note.folded :is(img, div) { display: none; }
 .work-hint-note strong { color: #f0cf95; font-size: .88rem; }
 .work-hint-note p { color: #fff7e7; font-size: .97rem; line-height: 1.5; margin-top: 2px; word-break: keep-all; }
 .work-hint-note button { pointer-events: auto; position: absolute; top: 0; right: 0; width: 32px; height: 34px; font-size: 20px; }

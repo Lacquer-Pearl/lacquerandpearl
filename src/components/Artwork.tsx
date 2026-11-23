@@ -724,7 +724,7 @@ export default function Artwork({
         {isLac && (
           <>
             <rect width="300" height="300" fill={`url(#${ids.lac})`} />
-            {design.shape === "box" && design.lacquer === "black" && <image href="/images/demo/lid.webp" x="30" y="55" width="240" height="190" preserveAspectRatio="none" />}
+            {design.shape === "box" && design.lacquer === "black" && <image data-lid-area="" href="/images/demo/lid.webp" x="30" y="55" width="240" height="190" preserveAspectRatio="none" />}
             <rect width="300" height="300" filter={`url(#${ids.micro})`} opacity="0.05" />
           </>
         )}

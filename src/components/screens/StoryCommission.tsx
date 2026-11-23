@@ -59,7 +59,7 @@ export default function StoryCommission({ chapter }: { chapter: Exclude<Chapter,
     ui.setDraft({
       shape: order.shape, lacquer: order.lacquer, pearl, lacquerChosen: true,
       pieces: gift
-        ? [{ ...newPiece("butterfly", pearl), x: 153, y: 139 }]
+        ? []
         : [{ ...newPiece("cloudLine", pearl), x: 116, y: 142, s: 0.85 }, { ...newPiece("plum", pearl), x: 182, y: 145, s: 1 }],
     });
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { MotifSilhouette } from "@/components/Artwork";
 import MotifIcon, { NacreSwatch } from "@/components/MotifIcon";
 import { Btn, Coin, Meter } from "@/components/ui";
@@ -39,6 +39,7 @@ import {
   type ShellSize,
   type ShellStock,
 } from "@/lib/shellNest";
+import LessonGate, { GiftLessons, type Lesson } from "./LessonGate";
 import BenchLayout from "./BenchLayout";
 import { StepHeader } from "./common";
 import { toolLift } from "./craftTouch";
@@ -180,6 +181,7 @@ export default function NestStep({
   const lang = useSave((s) => s.lang);
   const money = useSave((s) => s.money);
   const buy = useSave((s) => s.buy);
+  const firstGift = useContext(GiftLessons);
   const boot = useMemo(() => loadEditor(design, ledger, initial), [design, initial, ledger]);
   const [sheets, setSheets] = useState<ShellSheet[]>(boot.sheets);
   const [placements, setPlacements] = useState<ShellPlacement[]>(boot.placements);
@@ -289,6 +291,7 @@ export default function NestStep({
   }, [unplaced.length, design.pieces.length]);
 
   const [notice, setNotice] = useState("");
+  const [needsFreshSheet, setNeedsFreshSheet] = useState(false);
   const say = (key?: "nest.outside" | "nest.overlap" | "nest.fit" | "nest.cutLocked" | "nest.needLarge") => {
     setNotice(t(lang, key ?? "nest.fit"));
     sfx.fail();
@@ -351,6 +354,7 @@ export default function NestStep({
     const packed = autoNest([toNest(source, design)], [], unopened);
     const sheet = packed.opened[0];
     if (!sheet || !packed.placements.length) {
+      setNeedsFreshSheet(true);
       say(tooBig(id) ? "nest.needLarge" : "nest.fit");
       return false;
     }
@@ -508,6 +512,7 @@ export default function NestStep({
       sfx.fail();
       return;
     }
+    setNeedsFreshSheet(false);
     const sheet = makeSheet(pearl, undefined, size);
     remember();
     setSheets([...sheets, sheet]);
@@ -541,8 +546,17 @@ export default function NestStep({
   const unitPx = trayDrag?.unit ?? 1.6;
   const ghostBox = ghostPiece ? motifLocalBox(ghostPiece.motif) : null;
 
+  const sheetSizeNeeded = waiting[0] && tooBig(waiting[0].id) ? "large" : "standard";
+  const openSize = sheetSizeNeeded === "standard" && roomStd === 0 && roomLarge > 0 ? "large" : sheetSizeNeeded;
+  let sheetLesson: Lesson | undefined;
+  if (allPlaced) sheetLesson = "confirmSheet";
+  else if (waiting.length) {
+    if (!active || needsFreshSheet) sheetLesson = roomOf(openSize) > 0 ? "openSheet" : "buySheet";
+    else sheetLesson = selectedWaiting && !trayDrag ? "putOnSheet" : "trayMotif";
+  }
+
   return (
-    <div data-nest-step="1">
+    <LessonGate lesson={sheetLesson} untilComplete><div data-nest-step="1">
       <BenchLayout
         tools={<>
           {toolsHeading}
@@ -613,6 +627,7 @@ export default function NestStep({
                   {!legacyPrepaid && (
                     <button
                       type="button"
+                      data-lesson={cell.key === openSize ? "buySheet" : undefined}
                       className={`nest-buy ${cell.need ? "on cta-glow" : ""}`}
                       disabled={money < MATERIALS[cell.material].price}
                       onClick={() => {
@@ -627,7 +642,7 @@ export default function NestStep({
               ))}
             </div>
           </div>
-          <div className="flex flex-wrap gap-1">
+          <div className="nest-sheets flex flex-wrap gap-1">
             {visible.map((sheet, index) => (
               <Btn key={sheet.id} size="sm" variant={sheet.id === active?.id ? "gold" : "cream"} onClick={() => setActiveId(sheet.id)}>
                 {t(lang, sheetSize(sheet) === "large" ? "nest.sheetLarge" : "nest.sheet", { n: index + 1 })}
@@ -638,6 +653,7 @@ export default function NestStep({
               variant={needOpenStandard ? "gold" : "cream"}
               className={needOpenStandard ? "cta-glow" : ""}
               disabled={roomStd <= 0}
+              data-lesson={openSize === "standard" ? "openSheet" : undefined}
               onClick={() => openSheet("standard")}
             >
               {t(lang, "nest.newSheet")}
@@ -647,6 +663,7 @@ export default function NestStep({
               variant={needOpenLarge ? "gold" : "cream"}
               className={needOpenLarge ? "cta-glow" : ""}
               disabled={roomLarge <= 0}
+              data-lesson={openSize === "large" ? "openSheet" : undefined}
               onClick={() => openSheet("large")}
             >
               {t(lang, "nest.newLarge")}
@@ -655,7 +672,7 @@ export default function NestStep({
         </>}
         progress={<>
           {progressHeading}
-          {notice && <p role="status" className="demo-hint">{notice}</p>}
+          {notice && <p role="status" className="nest-notice demo-hint">{notice}</p>}
           <div className="text-sm text-[var(--cream)]">
             <div className="mb-1">{shown ? t(lang, "nest.free", { n: free }) : "\u00a0"}</div>
             <Meter value={free / 100} color="var(--gold)" />
@@ -671,9 +688,11 @@ export default function NestStep({
                       type="button"
                       data-nest-keep-select=""
                       aria-label={motifName(lang, piece.motif)}
+                      data-lesson={piece.id === waiting[0]?.id ? "trayMotif" : undefined}
+                      onClick={e => { if (firstGift || e.detail === 0) setSelected(piece.id); }}
                       className={`tray-piece nest-tray-piece shrink-0 ${selected === piece.id ? "ring-2 ring-[var(--gold-deep)]" : ""}`}
                       onPointerDown={(e) => {
-                        if (trayDrag) return;
+                        if (firstGift || trayDrag) return;
                         try {
                           e.currentTarget.setPointerCapture(e.pointerId);
                         } catch {
@@ -790,6 +809,7 @@ export default function NestStep({
                   <Btn
                     size="sm"
                     variant="cream"
+                    data-lesson="putOnSheet"
                     disabled={selectedPiece.kind !== "waiting"}
                     onClick={() => {
                       if (selectedPiece.kind !== "waiting") return;
@@ -822,7 +842,7 @@ export default function NestStep({
             )}
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <Btn variant="gold" data-lesson={!embedded ? "shell" : undefined} onClick={runAuto}>
+            <Btn variant="gold" onClick={runAuto}>
               {t(lang, "nest.auto")}
             </Btn>
             <Btn
@@ -841,6 +861,7 @@ export default function NestStep({
             {!hideConfirm && (
               <Btn
                 variant="pink"
+                data-lesson="confirmSheet"
                 className={`col-span-2 ${allPlaced ? "cta-glow" : ""}`}
                 disabled={unplaced.length > 0}
                 onClick={confirm}
@@ -999,7 +1020,7 @@ export default function NestStep({
           </svg>
         )}
       </BenchLayout>
-    </div>
+    </div></LessonGate>
   );
 }
 

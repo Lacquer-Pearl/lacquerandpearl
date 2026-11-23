@@ -20,6 +20,7 @@ import {
   type ShellStock,
 } from "@/lib/shellNest";
 import { useSave } from "@/lib/store";
+import LessonGate from "./LessonGate";
 import NestStep, { motifPolygons } from "./NestStep";
 
 function nestOf(piece: PlacedPiece, design: Design): NestPiece {
@@ -130,6 +131,7 @@ export default function RecutPanel({
   }
 
   return (
+    <LessonGate untilComplete lesson={reusable && onJoin ? "join" : blocked ? "restock" : "recut"}>
     <div className="flex flex-col gap-3" data-recut-panel="choose" data-recut-fit={fits ? "yes" : "no"}>
       <div className="panel flex flex-col gap-2 py-3 text-sm text-[var(--brown)]">
         <p className="text-base font-bold">{t(lang, reusable ? "cut.joinOffer" : "cut.scrapTitle")}</p>
@@ -142,7 +144,7 @@ export default function RecutPanel({
       </div>
       {reusable && onJoin && (
         <Btn
-          variant="pink"
+          variant="pink" data-lesson="join"
           onClick={() => {
             sfx.click();
             onJoin();
@@ -154,7 +156,7 @@ export default function RecutPanel({
       <Btn variant="gold" disabled={!fits} onClick={() => (sfx.click(), onMode("manual"))}>
         {t(lang, "cut.recutLeftover")}
       </Btn>
-      <Btn variant="gold" disabled={blocked} onClick={() => (sfx.click(), onMode("auto"))}>
+      <Btn variant="gold" data-lesson="recut" disabled={blocked} onClick={() => (sfx.click(), onMode("auto"))}>
         {t(lang, "cut.recutAuto")}
       </Btn>
       <Btn variant="cream" disabled={openStock < 1} onClick={() => (sfx.click(), onMode("fresh"))}>
@@ -163,7 +165,7 @@ export default function RecutPanel({
       {blocked && (
         <div className="grid grid-cols-2 gap-2">
           {onShop && (
-            <Btn variant="pink" onClick={() => (sfx.click(), onShop())}>
+            <Btn variant="pink" data-lesson="restock" onClick={() => (sfx.click(), onShop())}>
               {t(lang, "cut.recutShop")}
             </Btn>
           )}
@@ -175,6 +177,7 @@ export default function RecutPanel({
         </div>
       )}
     </div>
+    </LessonGate>
   );
 }
 

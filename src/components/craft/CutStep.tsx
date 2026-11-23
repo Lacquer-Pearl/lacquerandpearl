@@ -288,7 +288,7 @@ export default function CutStep({
   const recutSaw = !!hold && phase === "saw";
   if (!choice && !recutSaw)
     return (
-      <BenchLayout
+      <LessonGate lesson="cut" untilComplete><BenchLayout
         tools={<>
           <StepHeader title={t(lang, "cut.title")} icon="fretsaw">
           {tNode(lang, "cut.tip", { b: <b>{t(lang, "cut.tipB")}</b> })}
@@ -347,7 +347,7 @@ export default function CutStep({
         )}
       >
         <div className="workbench cut-preview"><MotifIcon motif={job.motif} pearl={job.pearl} className="w-4/5" /></div>
-      </BenchLayout>
+      </BenchLayout></LessonGate>
     );
 
   const method: Method | null = recutSaw
@@ -372,7 +372,7 @@ export default function CutStep({
     return (
       <div className="flex flex-col gap-3">
         {roundBanner}
-        <LessonGate lesson="jul"><JulStep
+        <JulStep
           key={`${job.pieceId}-${attempt}`}
           motif={job.motif}
           pearl={job.pearl}
@@ -380,7 +380,7 @@ export default function CutStep({
           onDone={finishJob}
           onReview={reviewCut}
           onAbort={() => setChoice(null)}
-        /></LessonGate>
+        />
       </div>
     );
   if (method === "kkeun")
@@ -821,6 +821,7 @@ export function JulStep({
     idx;
 
   return (
+    <LessonGate untilComplete lesson={phase === "ready" ? (routeIdx ? "julNext" : "jul") : undefined}>
     <BenchLayout
       tools={<>
         <StepHeader title={t(lang, "cut.julTitle")} icon="fretsaw">
@@ -1024,6 +1025,7 @@ export function JulStep({
         {warn && <div className="event-toast pop-in">{warn}</div>}
       </div>
     </BenchLayout>
+    </LessonGate>
   );
 }
 
@@ -1160,7 +1162,7 @@ function KkeunStep({ motif, pearl, onDone }: { motif: MotifId; pearl: PearlId; o
         <StepHeader title={t(lang, "cut.kkeunTitle")} icon="knife">
           {tNode(lang, "cut.kkeunTip", { b: <b>{t(lang, "cut.kkeunTipB")}</b> })}
         </StepHeader>
-        <div className="panel flex items-center gap-3 py-2">
+        <div className="strip-length panel flex items-center gap-3 py-2">
           <MotifIcon motif={motif} pearl={pearl} className="h-14 w-14 shrink-0" />
           <p className="text-sm text-[var(--brown)]">
             {t(lang, "cut.kkeunLen", { name: motifName(lang, motif), n: layout.count, len: Math.round(layout.piece) })}

@@ -120,7 +120,7 @@ export default function DryStep({ design, onDone }: { design: Design; onDone: (s
   const inside = phase === "inside";
 
   return (
-    <LessonGate lesson={inside && cue ? (["humidify", "vent", "heat", "cool"] as const)[practice] : undefined}>
+    <LessonGate untilComplete lesson={phase === "open" ? "dry" : inside && cue ? (["humidify", "vent", "heat", "cool"] as const)[practice] : undefined}>
       <BenchLayout
         tools={<>
           <StepHeader title={tr(lang, "dry.title")} icon="torch">
@@ -140,7 +140,7 @@ export default function DryStep({ design, onDone }: { design: Design; onDone: (s
           </StepHeader>
           {(!inside || cue) && <p className="demo-hint" aria-live="polite">{inside ? cue?.[lang] : (lang === "ko" ? "건조장 문을 닫아 주세요." : "Close the cabinet.")}</p>}
           {inside && (
-            <div className="grid grid-cols-4 gap-2">
+            <div className="dry-controls grid grid-cols-4 gap-2">
               <Btn size="sm" variant="lavender" sound={false} data-lesson="humidify" onClick={() => nudge(6, 0)} disabled={progress >= 100 || !!cue && cue.dh !== 6}>
                 <NudgeLabel text={tr(lang, "dry.humidify")} />
               </Btn>

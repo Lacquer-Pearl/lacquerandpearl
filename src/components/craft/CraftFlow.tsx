@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Artwork from "@/components/Artwork";
 import UiIcon, { STEP_ICONS } from "@/components/UiIcon";
 import { Btn, Modal, TopBar } from "@/components/ui";
@@ -296,7 +296,7 @@ export default function CraftFlow() {
   });
 
   const finishedStep = useRef<StepId | null>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     window.scrollTo({ top: 0 });
   }, [stepIdx, nestPending]);
 
@@ -446,7 +446,7 @@ export default function CraftFlow() {
       )}
 
       <GiftLessons.Provider value={!devSession && commission?.id === GIFT_ID}><TutorialStage.Provider value={step}><div className="screen-body" key={process.env.NODE_ENV === "development" && devSession ? `${step}-${devNonce}` : step}>
-        <LessonGate lesson={step === "design" ? undefined : step === "cut" && nestPending ? "shell" : step}>
+        <LessonGate lesson={step === "attach" ? "attach" : undefined}>
         {step === "design" && (
           <DesignStep
             design={design}

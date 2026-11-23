@@ -8,6 +8,7 @@ import type { Design, Finish } from "@/lib/game";
 import { t, tNode } from "@/lib/i18n";
 import { loopLevel, sfx, startLoop, stopLoop } from "@/lib/sound";
 import { useSave } from "@/lib/store";
+import LessonGate from "./LessonGate";
 import BenchLayout from "./BenchLayout";
 import { StepHeader } from "./common";
 import { claimCraftPointer, isForeignCraftPointer, releaseCraftPointer, useBlockCraftScroll } from "./craftTouch";
@@ -153,7 +154,7 @@ export default function ClothStep({ design, onDone }: { design: Design; onDone: 
   const score = () => Math.round(Math.max(0, Math.min(100, stats.good * 108 - stats.thick * 60 - stats.wrinkle * 30)));
 
   return (
-    <BenchLayout
+    <LessonGate untilComplete lesson={!strips.length ? "cloth" : ready && !active ? "stepDone" : undefined}><BenchLayout
       tools={<>
         <StepHeader title={t(lang, "cloth.title")} icon="hemp">
           {tNode(lang, "cloth.tip", { b: <b>{t(lang, "cloth.tipB")}</b> })}
@@ -197,7 +198,7 @@ export default function ClothStep({ design, onDone }: { design: Design; onDone: 
           <Btn
             variant="mint"
             size="lg"
-            disabled={!ready || done}
+            data-lesson="stepDone" disabled={!ready || done}
             onClick={() => {
               setDone(true);
               const creases = strips.flatMap(strip => strip.creases.map(distance => ({
@@ -302,6 +303,6 @@ export default function ClothStep({ design, onDone }: { design: Design; onDone: 
           {active && <circle cx={active.x} cy={active.y} r="4" fill="#d9b25f" stroke="#fff" strokeWidth="1.2" />}
         </svg>
       </div>
-    </BenchLayout>
+    </BenchLayout></LessonGate>
   );
 }

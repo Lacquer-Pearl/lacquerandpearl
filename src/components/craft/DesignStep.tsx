@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useContext, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import Artwork from "@/components/Artwork";
 import UiIcon, { MATERIAL_ICONS } from "@/components/UiIcon";
 import { Btn, Coin, Modal } from "@/components/ui";
@@ -54,8 +54,8 @@ import {
 } from "@/lib/shellNest";
 import { costFor, useSave } from "@/lib/store";
 import { GIFT_ID } from "@/lib/workshopStory";
-import LessonGate from "./LessonGate";
-import ToolDrawer from "./ToolDrawer";
+import LessonGate, { GiftLessons, type Lesson } from "./LessonGate";
+import ToolDrawer, { useDesktopBench } from "./ToolDrawer";
 import BenchLayout from "./BenchLayout";
 import { StepHeader } from "./common";
 import NestStep, { motifPolygons, needsLargeSheet, type NestActions, type NestStatus } from "./NestStep";
@@ -158,6 +158,11 @@ export default function DesignStep({
   onStart: (plan: ShellPlan) => { ok: true } | { ok: false; missing: PearlId; large?: boolean };
 }) {
   const [selected, setSelectedIds] = useState<string[]>([]);
+  const firstGift = useContext(GiftLessons);
+  const wide = useDesktopBench();
+  const [motifsOpen, setMotifsOpen] = useState(false);
+  const [placingButterfly, setPlacingButterfly] = useState(false);
+  const hasButterfly = design.pieces.some(p => p.motif === "butterfly");
   const [showLacquer, setShowLacquer] = useState(false);
   const [view, setView] = useState<Stage>("art");
   const [nestStatus, setNestStatus] = useState<NestStatus | null>(null);
@@ -210,6 +215,7 @@ export default function DesignStep({
     stage === "art" || (design.pieces.length > 0 && (stage === "shell" || nestLeft === 0));
   const goStage = (stage: Stage) => {
     if (!stageOpen(stage)) return;
+    if (firstGift && (STAGES.indexOf(stage) !== STAGES.indexOf(view) + 1 || !hasButterfly)) return;
     if (stage === "review" && view === "art") { setView("shell"); window.scrollTo({ top: 0 }); return; }
     if (stage === "review" && view === "shell") { nestActions.current?.confirm(); return; }
     setView(stage);
@@ -242,7 +248,15 @@ export default function DesignStep({
   const patch = (id: string, f: (p: PlacedPiece) => PlacedPiece) =>
     update(design.pieces.map((p) => (p.id === id ? f(p) : p)));
 
-  const addMotif = (m: MotifId) => {
+  const addMotif = (m: MotifId, position?: { x: number; y: number }) => {
+    if (firstGift && !position) {
+      if (m === "butterfly" && !hasButterfly) {
+        setPlacingButterfly(true);
+        setMotifsOpen(false);
+        sfx.click();
+      }
+      return;
+    }
     if (design.pieces.length >= MAX_PIECES) return;
     sfx.pop();
     let p = newPiece(m, design.pearl);
@@ -262,10 +276,17 @@ export default function DesignStep({
           pearl: origin.pearl ?? design.pearl,
         };
     }
+    if (position) p = { ...p, ...position };
     p = capPiece(p, piecePearl(p, design));
     if (!shapeHit(p.x, p.y)) p = { ...p, x: 150, y: 150 };
     update([...design.pieces, p]);
     setSelected(p.id);
+  };
+
+  const placeButterfly = (point: { x: number; y: number }) => {
+    if (!placingButterfly || !shapeHit(point.x, point.y)) return;
+    addMotif("butterfly", point);
+    setPlacingButterfly(false);
   };
 
   const setPieceShell = (ids: string[], pearl: PearlId) => {
@@ -348,8 +369,8 @@ export default function DesignStep({
       {view === "shell" ? t(lang, "nest.tip") : view === "review"
         ? (lang === "ko" ? "함에 얹을 무늬와 자개패에서 자를 자리를 모두 정했구나. 마음에 들면 제작을 시작하렴." : "The design and the cuts are ready. If you like how they sit, start crafting.")
         : commission?.id === GIFT_ID ? (lang === "ko"
-          ? "흑칠함에 흰 나비를 올려 두었단다. 손끝으로 나비를 끌어 자리를 잡아 보렴. 마음에 들면 자개패에 올리기로 넘어가자."
-          : "I’ve set a white butterfly on the black box. Drag it to a spot you like, then lay it out on the shell sheet.")
+          ? "문양에서 흰 나비를 고르고, 흑칠함 위에 놓을 자리를 짚어 보렴."
+          : "Choose a white butterfly from the motifs, then touch the spot where it should sit on the black lid.")
         : t(lang, commission ? "design.tipCommission" : "design.tipFree")}
     </StepHeader>
   );
@@ -362,7 +383,7 @@ export default function DesignStep({
             <button
               type="button"
               className={i === index ? "now" : i < index ? "done" : ""}
-              disabled={!stageOpen(stage)}
+              disabled={firstGift || !stageOpen(stage)}
               onClick={() => {
                 sfx.click();
                 goStage(stage);
@@ -406,7 +427,8 @@ export default function DesignStep({
           variant="pink"
           size="lg"
           className="w-full"
-          disabled={design.pieces.length === 0}
+          data-lesson="art"
+          disabled={design.pieces.length === 0 || firstGift && !hasButterfly}
           onClick={() => goStage("shell")}
         >
           {design.pieces.length === 0 ? t(lang, "design.needMotif") : t(lang, "design.nextShell")}
@@ -414,6 +436,8 @@ export default function DesignStep({
       )}
       {view === "shell" && (
         <Btn
+          data-lesson="confirmSheet"
+          disabled={firstGift && (!nestStatus || nestStatus.unplaced > 0)}
           variant={nestStatus && nestStatus.unplaced === 0 ? "pink" : "gold"}
           size="lg"
           className={`w-full ${nestStatus && nestStatus.unplaced === 0 ? "cta-glow" : ""}`}
@@ -422,7 +446,7 @@ export default function DesignStep({
             else nestActions.current?.auto();
           }}
         >
-          {nestStatus && nestStatus.unplaced === 0
+          {firstGift || nestStatus?.unplaced === 0
             ? t(lang, "design.nextReview")
             : `${t(lang, "design.autoNest")} (${nestStatus?.unplaced ?? nestLeft})`}
         </Btn>
@@ -431,6 +455,7 @@ export default function DesignStep({
         <Btn
           variant="pink"
           size="lg"
+          data-lesson="review"
           className={`w-full ${lacquerReady && !short && missing.length === 0 ? "cta-glow" : ""}`}
           disabled={design.pieces.length === 0 || missing.length > 0 || nestLeft > 0 || !!short}
           onClick={() => {
@@ -453,8 +478,16 @@ export default function DesignStep({
       )}
     </div>
   );
+  let designLesson: Lesson | undefined;
+  if (view === "art") {
+    if (hasButterfly) designLesson = "art";
+    else if (placingButterfly) designLesson = "placeButterfly";
+    else designLesson = wide || motifsOpen ? "butterfly" : "motifs";
+  } else if (view === "review") {
+    designLesson = confirmReplacement ? "replaceWork" : short || missing.length ? "buyMaterial" : "review";
+  }
   return (
-    <LessonGate lesson={view}>
+    <LessonGate lesson={designLesson} untilComplete>
       {view === "shell" ? (
         <NestStep
           embedded
@@ -485,7 +518,7 @@ export default function DesignStep({
             {header}
             {view === "art" && (
               <div className="design-tool-tabs">
-                <ToolDrawer label={lang === "ko" ? "문양" : "Motifs"} closeLabel={t(lang, "common.close")} onPickClose>
+                <ToolDrawer lesson="motifs" open={motifsOpen} onOpenChange={setMotifsOpen} label={lang === "ko" ? "문양" : "Motifs"} closeLabel={t(lang, "common.close")} onPickClose>
                   <div className="panel flex flex-col gap-3 py-3">
                 {!commission && design.shape === "box" && <fieldset>
                   <legend className="label">{lang === "ko" ? "보석함 도안 불러오기" : "Jewel box patterns"}</legend>
@@ -515,6 +548,7 @@ export default function DesignStep({
                       {(Object.entries(commission.motifs) as [MotifId, number][]).map(([m, n]) => (
                         <button
                           key={m}
+                          data-lesson={m === "butterfly" ? "butterfly" : undefined}
                           disabled={design.pieces.length >= MAX_PIECES} className={`motif-btn ${(counts[m] ?? 0) >= n ? "on" : ""}`}
                           onClick={() => addMotif(m)}
                           title={motifMeaning(lang, m)}
@@ -649,7 +683,7 @@ export default function DesignStep({
                       <UiIcon id={MATERIAL_ICONS[k]} className="ui-icon-sm" /> {lang === "ko" ? materialName(lang, k).split(" ")[0] : materialName(lang, k)} {inventory[k]}/{n}
                     </span>
                     <button
-                      className="mat-buy"
+                      className="mat-buy" data-lesson={inventory[k] < n ? "buyMaterial" : undefined}
                       disabled={money < MATERIALS[k].price}
                       title={t(lang, "design.buyPack", { n: MATERIALS[k].pack })}
                       onClick={() => {
@@ -694,7 +728,7 @@ export default function DesignStep({
                           {([def.material, def.largeMaterial] as MaterialId[]).map((k, i) => (
                             <button
                               key={k}
-                              className="mat-buy"
+                              className="mat-buy" data-lesson={(i === 0 ? lack.standard : lack.large) > 0 ? "buyMaterial" : undefined}
                               disabled={money < MATERIALS[k].price}
                               title={t(lang, "design.buyPack", { n: MATERIALS[k].pack })}
                               onClick={() => {
@@ -861,7 +895,7 @@ export default function DesignStep({
                 className="pointer-events-none aspect-square w-3/5 max-w-[240px]"
               />
               <p className="text-center text-sm text-[var(--brown)]">{t(lang, "design.allNested")}</p>
-              <Btn size="sm" variant="cream" onClick={() => goStage("shell")}>
+              <Btn size="sm" variant="cream" disabled={firstGift} onClick={() => goStage("shell")}>
                 {t(lang, "design.editLayout")}
               </Btn>
             </div>
@@ -870,6 +904,17 @@ export default function DesignStep({
             <div className="workbench sketch-paper">
               <svg
                 ref={svgRef}
+                data-lesson={placingButterfly ? "placeButterfly" : undefined}
+                role={placingButterfly ? "button" : undefined}
+                tabIndex={placingButterfly ? 0 : undefined}
+                aria-label={placingButterfly ? (lang === "ko" ? "흑칠함에 나비 놓기" : "Place butterfly on the lid") : undefined}
+                onKeyDown={e => {
+                  if (placingButterfly && (e.key === "Enter" || e.key === " ")) {
+                    e.preventDefault();
+                    placeButterfly({ x: 150, y: 150 });
+                  }
+                }}
+                onClick={e => { if (placingButterfly) placeButterfly(toLocal(e)); }}
                 viewBox="0 0 300 300"
                 className="aspect-square w-full"
                 style={{ touchAction: "none" }}
@@ -918,6 +963,7 @@ export default function DesignStep({
                 onPointerUp={endDrag}
                 onPointerCancel={endDrag}
                 onPointerDown={(e) => {
+                  if (placingButterfly) return;
                   e.currentTarget.setPointerCapture(e.pointerId);
                   const l = toLocal(e);
                   const add = e.shiftKey || e.metaKey || e.ctrlKey;
@@ -994,7 +1040,7 @@ export default function DesignStep({
         <p>{lang === "ko" ? "이 작품을 시작하면 이어 만들던 작품을 대신합니다. 아직 자르지 않은 자개 자리는 다시 쓸 수 있습니다." : "Starting this piece will replace your saved work. Uncut shell areas can be used again."}</p>
         <div className="mt-3 flex gap-2">
           <Btn variant="cream" onClick={() => setConfirmReplacement(false)}>{t(lang, "common.cancel")}</Btn>
-          <Btn variant="gold" onClick={begin}>{lang === "ko" ? "새 작품 시작" : "Start new piece"}</Btn>
+          <Btn variant="gold" data-lesson="replaceWork" onClick={begin}>{lang === "ko" ? "새 작품 시작" : "Start new piece"}</Btn>
         </div>
       </Modal>}
     </LessonGate>

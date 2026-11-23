@@ -54,7 +54,7 @@ export function StepHeader({
   const guided = !gift && firstWork;
   const learned = useSave(s => s.learned.includes(stage));
   return (
-    <div className="flex flex-col gap-2">
+    <div className="bench-step-header flex flex-col gap-2">
       <div className="flex items-center gap-2">
         <h2 className="step-title min-w-0 flex-1">
           <UiIcon id={icon} />
