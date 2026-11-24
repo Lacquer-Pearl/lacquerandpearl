@@ -4,9 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Artwork from "@/components/Artwork";
 import Avatar, { type Mood } from "@/components/Avatar";
 import UiIcon, { STEP_ICONS } from "@/components/UiIcon";
-import { Btn, Coin, Meter, TopBar } from "@/components/ui";
+import { Btn, Coin, Meter } from "@/components/ui";
 import { rankProgress } from "@/lib/data";
-import { GRADE_INFO, reputationGain, topMotif, type StepId } from "@/lib/game";
+import { reputationGain, topMotif, type StepId } from "@/lib/game";
 import {
   artworkTitle,
   clientLabel,
@@ -19,7 +19,6 @@ import {
 import { saveArtworkImage } from "@/lib/exportImage";
 import { sfx } from "@/lib/sound";
 import { useSave, useUI } from "@/lib/store";
-import LessonGate, { GiftLessons } from "@/components/craft/LessonGate";
 import { ACHIEVEMENTS, achievementHint, GIFT_ID, VISITOR_ID } from "@/lib/workshopStory";
 
 const SURVEY_URL = {
@@ -55,17 +54,30 @@ export default function ResultScreen() {
   const svgRef = useRef<SVGSVGElement>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const [surveyFlash, setSurveyFlash] = useState<string | null>(null);
+  const [canContinue, setCanContinue] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
+  const reviewHeading = useRef<HTMLHeadingElement>(null);
+  const grade = art?.grade;
+  const lighting = grade === "S" ? "radiant" : grade === "A" || grade === "B" ? "pearl" : "warm";
   const reaction = useMemo(
     () => (art ? reactionText(lang, art.grade, !art.commissionId) : ""),
     [art, lang],
   );
 
   useEffect(() => {
-    if (!art) return;
-    if (art.grade === "S" || art.grade === "A") sfx.fanfare();
-    else sfx.success();
-    if (art.earned) setTimeout(sfx.coin, 900);
-  }, [art]);
+    if (!grade) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const play = window.setTimeout(() => sfx.artworkReveal(lighting), reduced ? 0 : 420);
+    const ready = window.setTimeout(() => setCanContinue(true), reduced ? 0 : 2150);
+    return () => {
+      window.clearTimeout(play);
+      window.clearTimeout(ready);
+    };
+  }, [grade, lighting]);
+
+  useEffect(() => {
+    if (reviewing) reviewHeading.current?.focus({ preventScroll: true });
+  }, [reviewing]);
 
   const openSurvey = () => {
     if (claimSurveyReward()) {
@@ -83,7 +95,6 @@ export default function ResultScreen() {
   const promoted = beforeRank.index !== afterRank.index;
 
   if (!art) return null;
-  const g = GRADE_INFO[art.grade];
   const shownStep = rankProgress(shownRep);
   const label = gradeLabel(lang, art.grade);
   const title = artworkTitle(lang, art.design.shape, art.design.lacquer, topMotif(art.design));
@@ -102,20 +113,30 @@ export default function ResultScreen() {
   const visitor = art.commissionId === VISITOR_ID;
 
   return (
-    <GiftLessons.Provider value={gift}><LessonGate lesson="finish">
-    <div className="screen">
-      <TopBar title={t(lang, "result.title")} />
-      <div className="screen-body">
-        <div className="display-silk demo-display relative overflow-hidden">
-
-          <Artwork svgRef={svgRef} design={art.design} showcase gloss={art.gloss} dull={art.dull} className="reveal aspect-square w-full" />
-          <div className="grade-seal stamp-in" style={{ background: g.color }}>
-            <div className="text-4xl leading-none">{art.grade}</div>
-            <div className="text-xs">{label}</div>
-          </div>
+    <div className="screen result-screen">
+      <section className="result-reveal" data-lighting={lighting} data-reviewing={reviewing} aria-labelledby="finished-artwork-title">
+        <div className="result-artwork">
+          <Artwork svgRef={svgRef} design={art.design} showcase unveil gloss={art.gloss} dull={art.dull} className="block aspect-square w-full" />
         </div>
-        <h2 className="step-title text-center">{title}</h2>
+        <h1 className="result-artwork-title" id="finished-artwork-title">{title}</h1>
+        {!reviewing && (
+          <div className="result-reveal-action">
+            {canContinue && <Btn variant="cream" sound={false} onClick={() => setReviewing(true)}>
+              {ko ? "평가 보기" : "View appraisal"}
+            </Btn>}
+          </div>
+        )}
+      </section>
 
+      {reviewing && <div className="screen-body">
+        <div className="panel result-appraisal">
+          <h2 ref={reviewHeading} tabIndex={-1}>{t(lang, "result.gradeLabel")}</h2>
+          <p><strong>{art.grade}</strong> {label} · {art.total}{pts}</p>
+        </div>
+        {(gift || visitor) && <Btn variant="gold" onClick={() => go("board")}>{gift
+          ? (ko ? "친구에게 선물 건네기" : "Give your friend the gift")
+          : (ko ? "손님에게 작품 건네기" : "Present the finished piece")}
+        </Btn>}
         <p className="demo-caption">{new Intl.DateTimeFormat(lang === "ko" ? "ko-KR" : "en", {dateStyle:"long"}).format(art.createdAt)} · {lang === "ko" ? "공방 제작 기록" : "Workshop collection"}</p>
         <div className="grid grid-cols-2 gap-2">
           <Btn
@@ -138,9 +159,7 @@ export default function ResultScreen() {
           </Btn>
         </div>
       <section className="demo-epilogue">
-        {gift || visitor ? <Btn variant="gold" data-lesson="finish" onClick={() => go("board")}>{gift
-          ? (ko ? "친구에게 선물 건네기" : "Give your friend the gift")
-          : (ko ? "손님에게 작품 건네기" : "Present the finished piece")}</Btn> : storyComplete && <>
+        {!gift && !visitor && storyComplete && <>
           <h3>{ko ? "왕실에서 온 서신" : "A letter from the palace"}</h3>
           <p>{ko ? "작품을 내려놓자 문틈으로 봉인된 서신 한 통이 들어온다. “다음 달 궁에 들일 나전함을 맡아 주시겠습니까?”" : "A sealed letter rests on your bench. “Would you make a lacquer box for the palace?”"}</p>
         </>}
@@ -219,12 +238,6 @@ export default function ResultScreen() {
             )}
           </div>
           <div className="flex justify-between gap-3">
-            <span>{t(lang, "result.gradeLabel")}</span>
-            <b>
-              {art.grade} {label}
-            </b>
-          </div>
-          <div className="flex justify-between gap-3">
             <span>{t(lang, "result.repGain")}</span>
             <b>+{repGain}</b>
           </div>
@@ -266,7 +279,7 @@ export default function ResultScreen() {
             <UiIcon id="cabinet" className="ui-icon-sm" /> {t(lang, "result.home")}
           </Btn>
         </div>
-      </div>
+      </div>}
 
       {surveyFlash && (
         <div className="score-toast-wrap pointer-events-none">
@@ -275,6 +288,5 @@ export default function ResultScreen() {
       )}
 
     </div>
-    </LessonGate></GiftLessons.Provider>
   );
 }

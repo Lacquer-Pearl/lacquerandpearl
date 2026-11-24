@@ -147,6 +147,11 @@ const PENTA = [293.66, 329.63, 392, 440, 493.88, 587.33, 659.25, 783.99, 880];
 
 export const sfx = {
   click: () => tone(720, { type: "sine", dur: 0.08, vol: 0.18, slide: 300 }),
+  artworkReveal: (lighting: "warm" | "pearl" | "radiant") => {
+    const notes = lighting === "radiant" ? [0, 2, 4, 5, 7] : lighting === "pearl" ? [0, 2, 5] : [0, 2];
+    notes.forEach((note, i) => pluck(PENTA[note], i * 0.2, i === 0 ? 0.17 : 0.12));
+    if (lighting === "radiant") tone(1174.66, { dur: 1.15, vol: 0.035, delay: 0.7 });
+  },
   knock: () => {
     for (const delay of [0, 0.29]) {
       tone(165, { type: "triangle", slide: -62, dur: 0.11, vol: 0.22, delay });

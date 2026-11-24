@@ -252,8 +252,8 @@ export default function CraftFlow() {
   const built: Design = { ...design, pieces: placed.length ? placed : design.pieces };
   const defs = paintDefs(design, lang);
 
-  const complete = useCallback(() => {
-    const d: Design = { ...design, pieces: placedRef.current.length ? placedRef.current : design.pieces };
+  const complete = useCallback((finishedDesign: Design = design) => {
+    const d: Design = { ...finishedDesign, pieces: placedRef.current.length ? placedRef.current : finishedDesign.pieces };
     const designScore = scoreDesign(d, commission);
     const craftScore = scoreCraft(scores.current);
     const total = Math.round(commission ? designScore * 0.4 + craftScore * 0.6 : designScore * 0.25 + craftScore * 0.75);
@@ -329,19 +329,22 @@ export default function CraftFlow() {
     else setStepIdx(index);
   };
 
-  const onStepDone = useCallback((score: number) => {
+  const onStepDone = useCallback((score: number, finishedDesign?: Design) => {
     const id = stepRef.current as StepId;
     if (finishedStep.current === id) return;
     finishedStep.current = id;
     scores.current[id] = score;
     if (!devSession) useSave.getState().learn(id);
+    if (id === "sand") {
+      completeRef.current(finishedDesign);
+      return;
+    }
     setToast({ score, label: cheer(lang, score) });
     if (score >= 75) sfx.success();
     else sfx.pop();
     setTimeout(() => {
       setToast(null);
-      if (id === "sand") completeRef.current();
-      else setStepIdx((i) => i + 1);
+      setStepIdx((i) => i + 1);
     }, 1500);
   }, [lang, devSession]);
 
@@ -386,10 +389,13 @@ export default function CraftFlow() {
   const onPaintDone = useCallback(
     (score: number, stats: PaintStats) => {
       const stage = stepRef.current;
-      if (stage === "sand") sandStats.current = stats;
-      if (stage === "lacquer" || stage === "fill" || stage === "iron" || stage === "sand") {
+    if (stage === "sand") {
+      sandStats.current = stats;
+      onStepDone(score, { ...design, finish: { ...design.finish, sand: stats.marks ?? [], unpolished: stats.unpolished } });
+      return;
+    }
+    if (stage === "lacquer" || stage === "fill" || stage === "iron") {
         const finish = { ...design.finish, [stage]: stats.marks ?? [] };
-        if (stage === "sand") finish.unpolished = stats.unpolished;
         setDraft({ ...design, finish });
       }
       onStepDone(score);

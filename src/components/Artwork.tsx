@@ -33,6 +33,7 @@ export interface ArtworkProps {
   className?: string;
   shimmer?: boolean;
   showcase?: boolean;
+  unveil?: boolean;
   shadow?: boolean;
   children?: React.ReactNode;
   onPiecePointerDown?: (e: React.PointerEvent, piece: PlacedPiece) => void;
@@ -147,29 +148,42 @@ export function NacreDefs({ id, pearl, scale = 1 }: { id: string; pearl: Design[
 }
 
 /** 완성품을 비추는 하나의 창빛을 옻면과 자개가 함께 반사합니다. */
-function ShowcaseReflection() {
+function ShowcaseReflection({ unveil = false }: { unveil?: boolean }) {
   return (
-    <animateTransform
-      attributeName="gradientTransform"
-      type="translate"
-      values="-95 -70; 95 70; -95 -70"
-      keyTimes="0; 0.5; 1"
-      calcMode="spline"
-      keySplines="0.42 0 0.58 1; 0.42 0 0.58 1"
-      dur="8s"
-      repeatCount="indefinite"
-    />
+    <>
+      {unveil && <animateTransform
+        attributeName="gradientTransform"
+        type="translate"
+        values="-95 -70; 95 70"
+        calcMode="spline"
+        keyTimes="0; 1"
+        keySplines="0.32 0 0.58 1"
+        dur="1.9s"
+      />}
+      <animateTransform
+        attributeName="gradientTransform"
+        type="translate"
+        values={unveil ? "95 70; -95 -70; 95 70" : "-95 -70; 95 70; -95 -70"}
+        begin={unveil ? "1.9s" : "0s"}
+        keyTimes="0; 0.5; 1"
+        calcMode="spline"
+        keySplines="0.42 0 0.58 1; 0.42 0 0.58 1"
+        dur="8s"
+        repeatCount="indefinite"
+      />
+    </>
   );
 }
 
 /** 빛이 자개 위를 비스듬히 훑고 지나가는 반사광 */
 export function SheenGradient({
-  id, animate = true, size = 300, showcase = false,
+  id, animate = true, size = 300, showcase = false, unveil = false,
 }: {
   id: string;
   animate?: boolean;
   size?: number;
   showcase?: boolean;
+  unveil?: boolean;
 }) {
   return (
     <linearGradient
@@ -189,7 +203,7 @@ export function SheenGradient({
       <stop offset="0.54" stopColor="#d4c4e0" stopOpacity="0.26" />
       <stop offset="0.6" stopColor="#c8b8c4" stopOpacity="0" />
       <stop offset="1" stopColor="#f2f0ec" stopOpacity="0" />
-      {animate && showcase && <ShowcaseReflection />}
+      {animate && showcase && <ShowcaseReflection unveil={unveil} />}
       {animate && !showcase && (
         <animateTransform
           attributeName="gradientTransform"
@@ -503,6 +517,7 @@ export default function Artwork({
   className,
   shimmer: requestedShimmer = true,
   showcase = false,
+  unveil = false,
   shadow = true,
   children,
   onPiecePointerDown,
@@ -546,7 +561,7 @@ export default function Artwork({
         {pearls.map((pl) => (
           <NacreDefs key={pl} id={`${ids.nacre}-${pl}`} pearl={pl} />
         ))}
-        <SheenGradient id={ids.sheen} animate={shimmer} showcase={showcase} />
+        <SheenGradient id={ids.sheen} animate={shimmer} showcase={showcase} unveil={unveil} />
         {showPieces && list.length > 0 && (
           <>
             <MotifMasks id={ids.cuts} motifs={list.map((p) => p.motif)} />
@@ -616,7 +631,7 @@ export default function Artwork({
           <stop offset="0.56" stopColor="#faf7f2" stopOpacity={0.06 * reflectedLight} />
           <stop offset="0.62" stopColor="#faf7f2" stopOpacity="0" />
           <stop offset="1" stopColor="#faf7f2" stopOpacity="0" />
-          {shimmer && gloss > 0 && showcase && <ShowcaseReflection />}
+          {shimmer && gloss > 0 && showcase && <ShowcaseReflection unveil={unveil} />}
           {shimmer && gloss > 0 && !showcase && (
             <animateTransform
               attributeName="gradientTransform"

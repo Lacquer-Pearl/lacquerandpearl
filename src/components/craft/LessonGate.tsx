@@ -44,7 +44,6 @@ const lines = {
   wet: ["종이가 부드러워졌지? 위쪽 가장자리를 잡고 아래로 천천히 내려 보렴.", "The paper is softer now. Take its top edge and draw it slowly down."],
   fill: ["종이를 걷었으니 조각 사이를 메울 차례다. 붓을 옻에 적시고 빈틈 위로 얇게 펴 바르렴.", "With the paper gone, we can fill the gaps. Dip your brush and spread a thin coat over the inlay."],
   sand: ["칠 아래에 나비가 숨어 있단다. 숫돌로 살살 문질러 빛이 돌아오는 걸 보렴. 빛이 난 곳은 두고 옆으로 옮겨 가거라.", "Your butterfly is beneath the lacquer. Rub gently until the shell catches the light, then move to the next patch."],
-  finish: ["손을 멈추고 빛에 비춰 보렴. 처음 작업대에 놓았던 그 나비로구나. 이제 네 손으로 친구에게 건네거라.", "Put down the stone and turn the lid to the light. There’s the butterfly you placed at the start. It’s yours to give to your friend."],
 } as const;
 
 export const GiftLessons = createContext(false);
@@ -67,7 +66,6 @@ const targets: Record<Lesson, string> = {
   join: "[data-lesson=join]", recut: "[data-lesson=recut]", freshCut: "[data-lesson=freshCut]", pauseCut: "[data-lesson=pauseCut]", restock: "[data-lesson=restock]", newGlue: "[data-lesson=newGlue]",
   kkeun: "[data-lesson=kkeun]", auto: "[data-lesson=auto]", attach: "[data-lesson=attach]", iron: "[data-paint-canvas]",
   peel: "[data-lesson=peel]", wet: ".bench-surface .craft-touch-area", fill: ".lacquer-bowl", sand: "[data-paint-canvas]",
-  finish: "[data-lesson=finish]",
 };
 
 export default function LessonGate({ lesson, untilComplete = false, showOutsideTutorial = false, children }: {
