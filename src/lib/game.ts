@@ -179,7 +179,7 @@ export interface CutJob {
   placement?: ShellPlacement;
 }
 
-/** 문양 인스턴스마다 한 번씩. 같은 모란 세 개도 절단 결과가 따로다. */
+/** 자개패에 배치한 조각마다 절단 결과와 사용한 자리를 따로 기록한다. */
 export function cutJobs(design: Design, placements: ShellPlacement[] = []): CutJob[] {
   if (!design.pieces.length) return [{ pieceId: "fallback", pearl: design.pearl, motif: "plum" }];
   return design.pieces.map((p) => ({

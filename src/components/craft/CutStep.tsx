@@ -82,13 +82,14 @@ export default function CutStep({
       }),
     [jobs, saved],
   );
+  const firstUncut = jobs.findIndex(job => !prior.some(cut => cut.pieceId === job.pieceId));
   const [boot] = useState<RecutSession | null>(() => {
     if (!session || prior.length >= jobs.length) return null;
-    const id = jobs[prior.length]?.pieceId;
+    const id = jobs[firstUncut]?.pieceId;
     return session.pieceId === id ? session : null;
   });
   const [choice, setChoice] = useState<Choice | null>(null);
-  const [jobIdx, setJobIdx] = useState(prior.length);
+  const [jobIdx, setJobIdx] = useState(Math.max(0, firstUncut));
   const [hold, setHold] = useState<PieceCutResult | null>(boot?.pending ?? null);
   const [phase, setPhase] = useState<"saw" | "choose" | "nest">(() => {
     if (!boot) return "saw";
@@ -100,8 +101,7 @@ export default function CutStep({
   );
   const [draft, setDraft] = useState<ShellPlan | undefined>(boot?.draft);
   const [attempt, setAttempt] = useState(0);
-  const scores = useRef<number[]>(prior.map((item) => item.cutScore));
-  const results = useRef<PieceCutResult[]>(prior);
+  const results = useRef<PieceCutResult[]>([...prior]);
   const sent = useRef(false);
   const holdRef = useRef<PieceCutResult | null>(boot?.pending ?? null);
   const extraRef = useRef(boot?.openSheets ?? 0);
@@ -120,23 +120,31 @@ export default function CutStep({
 
   const finishJob = useCallback(
     (score: number, result?: PieceCutResult) => {
-      const current = jobs[scores.current.length];
-      if (!current || results.current.some((item) => item.pieceId === current.pieceId)) return;
-      const made = result ?? intactResult(current.pieceId, current.motif, score);
-      results.current.push({ ...made, pieceId: current.pieceId, motifId: current.motif, cutScore: score });
-      scores.current.push(score);
-      if (current.pieceId !== "fallback") onPieceCut?.(current.pieceId);
-      onPiece?.(results.current);
-      if (scores.current.length < jobs.length) {
-        setJobIdx(scores.current.length);
+      if (!job || sent.current || results.current.some(cut => cut.pieceId === job.pieceId)) return;
+      // Only the fretsaw supplies a cut result. Strip cutting and paid machining stay per piece.
+      const completedIds = new Set(results.current.map(cut => cut.pieceId));
+      const batch = result ? jobs.filter(item => item.motif === job.motif) : [job];
+      for (const item of batch) {
+        if (completedIds.has(item.pieceId)) continue;
+        const cut = item.pieceId === job.pieceId && result
+          ? result
+          : intactResult(item.pieceId, item.motif, score);
+        results.current.push({ ...cut, cutScore: score });
+        completedIds.add(item.pieceId);
+        if (item.pieceId !== "fallback") onPieceCut?.(item.pieceId);
+      }
+      onPiece?.([...results.current]);
+      sealedRef.current = false;
+      const next = jobs.findIndex(item => !completedIds.has(item.pieceId));
+      if (next >= 0) {
+        setJobIdx(next);
         return;
       }
-      if (sent.current) return;
       sent.current = true;
-      const avg = scores.current.reduce((a, b) => a + b, 0) / scores.current.length;
+      const avg = results.current.reduce((sum, cut) => sum + cut.cutScore, 0) / results.current.length;
       onDone(Math.round(avg), results.current);
     },
-    [jobs, onDone, onPiece, onPieceCut],
+    [job, jobs, onDone, onPiece, onPieceCut],
   );
 
   const publish = useCallback(
@@ -315,10 +323,10 @@ export default function CutStep({
           {jobs.length > 1 && (
           <div className="panel py-2 text-center text-sm text-[var(--brown)]">
             {t(lang, "cut.round", {
-              n: 1,
+              n: prior.length + 1,
               max: jobs.length,
-              motif: motifName(lang, jobs[0].motif),
-              pearl: pearlName(lang, jobs[0].pearl),
+              motif: motifName(lang, job.motif),
+              pearl: pearlName(lang, job.pearl),
             })}
           </div>
         )}
@@ -359,8 +367,11 @@ export default function CutStep({
   const roundBanner =
     jobs.length > 1 ? (
       <div className="panel py-2 text-center text-sm text-[var(--brown)]">
-        {t(lang, "cut.round", {
-          n: jobIdx + 1,
+        {method === "jul" ? t(lang, "cut.sawBatch", {
+          motif: motifName(lang, job.motif),
+          n: jobs.filter(item => item.motif === job.motif && !prior.some(cut => cut.pieceId === item.pieceId)).length,
+        }) : t(lang, "cut.round", {
+          n: prior.length + 1,
           max: jobs.length,
           motif: motifName(lang, job.motif),
           pearl: pearlName(lang, job.pearl),

@@ -53,7 +53,14 @@ export default function StoryCommission({ chapter }: { chapter: Exclude<Chapter,
       shape: order.shape, lacquer: order.lacquer, pearl, lacquerChosen: true,
       pieces: gift
         ? []
-        : [{ ...newPiece("cloudLine", pearl), x: 116, y: 142, s: 0.85 }, { ...newPiece("plum", pearl), x: 182, y: 145, s: 1 }],
+        : [
+            { ...newPiece("moon", pearl), x: 97, y: 104, s: 0.85, r: -15 },
+            { ...newPiece("cloudLine", pearl), x: 105, y: 133, s: 1.15 },
+            { ...newPiece("plum", pearl), x: 212, y: 121, s: 0.62, r: 15 },
+            { ...newPiece("plum", pearl), x: 193, y: 155, s: 1.1, r: -15 },
+            { ...newPiece("plum", pearl), x: 158, y: 179, s: 0.75, r: 30 },
+            { ...newPiece("plum", pearl), x: 129, y: 192, s: 0.5 },
+          ],
     });
   }
   return (

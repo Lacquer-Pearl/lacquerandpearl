@@ -332,7 +332,7 @@ const ko: Dict = {
   "cut.tipB": "힘을 너무 주면",
   "cut.jul": "줄음질",
   "cut.julDesc":
-    "실톱으로 밑그림 선을 따라 천천히 오려요. 손이 많이 가지만 가장 정교해요.",
+    "실톱으로 밑그림 선을 따라 오려요. 같은 문양은 하나만 오리면 모두 준비돼요.",
   "cut.kkeun": "끊음질",
   "cut.kkeunDesc": "가늘게 켠 자개 실을 칼로 톡톡 끊어요. 표시가 칼날 밑에 올 때 탭!",
   "cut.auto": "기계 가공",
@@ -381,6 +381,7 @@ const ko: Dict = {
   "cut.autoTitle": "기계 가공",
   "cut.autoTip": "기계는 빠르지만, 장인의 손끝 같은 섬세함은 없단다.",
   "cut.autoProgress": "가공 중…",
+  "cut.sawBatch": "{motif} · 한 번 오리면 {n}개가 준비돼요.",
   "cut.round": "자개 {n}/{max} · {motif} · {pearl}",
   "cut.reusable": "둘로 갈라졌지만 두 조각 모두 쓸 수 있어요. 손을 떼고 남은 선을 마저 잘라 주세요.",
   "cut.recut": "자개가 산산이 갈라졌어요. 다시 잘라 주세요.",
@@ -641,7 +642,7 @@ const ko: Dict = {
   "npc.line.foreigner.2": "고국에 가져갈 기념이 될 물건을 찾고 있어요.",
   "npc.line.foreigner.3": "옻칠과 자개가 어떻게 만나는지 보고 싶어요.",
   "npc.line.story.gift": "기억나? 여름이면 뒤뜰에 흰나비가 가득했잖아. 난 아직도 나비무늬가 제일 좋아.",
-  "npc.line.story.visitor": "흑칠 위에 전복 자개로 구름 한 줄기와 매화 한 송이를 놓아 주시겠소? 달빛을 받으면 두 빛이 나란히 보이도록.",
+  "npc.line.story.visitor": "흑칠 위에 전복 자개로 구름 한 줄기와 매화를 놓아 주시겠소? 달빛을 받으면 두 빛이 나란히 보이도록.",
   "master.name": "옻골 스승님",
   "master.title": "나전칠기 명장",
 };
@@ -967,7 +968,7 @@ const en: Dict = {
   "cut.tipB": "too much force and",
   "cut.jul": "Jureumjil (fretsaw)",
   "cut.julDesc":
-    "Saw slowly along the sketch line. It takes care, but it is the most precise.",
+    "Follow the outline with the fretsaw. Cut each motif once to prepare every copy.",
   "cut.kkeun": "Kkeuneumjil (snip)",
   "cut.kkeunDesc": "Snip a thin shell strip. Tap when the mark is under the blade!",
   "cut.auto": "Machine cut",
@@ -1016,6 +1017,7 @@ const en: Dict = {
   "cut.autoTitle": "Machine cut",
   "cut.autoTip": "Machines are fast, but they lack a master's touch.",
   "cut.autoProgress": "Cutting…",
+  "cut.sawBatch": "{motif} · Cut once to prepare all {n}.",
   "cut.round": "Shell {n}/{max} · {motif} · {pearl}",
   "cut.reusable": "Both pieces are usable. Lift your hand, then finish the remaining outline.",
   "cut.recut": "The shell shattered. Cut this one again.",
@@ -1276,7 +1278,7 @@ const en: Dict = {
   "npc.line.foreigner.2": "I am looking for a piece I can take home as a keepsake.",
   "npc.line.foreigner.3": "I want to see how the lacquer and the nacre meet.",
   "npc.line.story.gift": "Remember the white butterflies in our yard every summer? They’re still my favorite.",
-  "npc.line.story.visitor": "Set a wisp of cloud beside a plum blossom in abalone on black lacquer. I want to see both catch the moonlight.",
+  "npc.line.story.visitor": "Set a wisp of cloud beside plum blossoms in abalone on black lacquer. I want to see both catch the moonlight.",
   "master.name": "Master Ottgol",
   "master.title": "Najeon master",
 };
