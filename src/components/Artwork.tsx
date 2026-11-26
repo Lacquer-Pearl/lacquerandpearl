@@ -34,6 +34,8 @@ export interface ArtworkProps {
   shimmer?: boolean;
   showcase?: boolean;
   shadow?: boolean;
+  /** true면 바깥 <svg> 없이 내용만 넣어, 부모 SVG 안에 중첩할 때 잔상을 막는다 */
+  inline?: boolean;
   children?: React.ReactNode;
   onPiecePointerDown?: (e: React.PointerEvent, piece: PlacedPiece) => void;
   svgRef?: React.Ref<SVGSVGElement>;
@@ -237,23 +239,41 @@ export function motifMask(id: string, motif: MotifId) {
   return m.detail || m.holes ? `url(#${id}-${motif})` : undefined;
 }
 
+/** PNG 알파로 단색 실루엣. mask+transform 조합이 브라우저에서 어긋나 잔상처럼 보이므로 flood+alpha로 칠한다. */
+function StampSilhouette({
+  stamp,
+  color,
+}: {
+  stamp: { src: string; x: number; y: number; w: number; h: number };
+  color: string;
+}) {
+  const uid = useId().replace(/:/g, "");
+  const fid = `silf${uid}`;
+  return (
+    <g>
+      <defs>
+        <filter id={fid} x="-2%" y="-2%" width="104%" height="104%" colorInterpolationFilters="sRGB">
+          <feFlood floodColor={color} result="flood" />
+          <feComposite in="flood" in2="SourceAlpha" operator="in" />
+        </filter>
+      </defs>
+      <image
+        href={stamp.src}
+        x={stamp.x}
+        y={stamp.y}
+        width={stamp.w}
+        height={stamp.h}
+        preserveAspectRatio="xMidYMid meet"
+        filter={`url(#${fid})`}
+      />
+    </g>
+  );
+}
+
 /** 문양 전체를 한 색으로 (그림자·마스크용) */
 export function MotifSilhouette({ motif, color }: { motif: MotifId; color: string }) {
-  const uid = useId().replace(/:/g, "");
   const stamp = MOTIFS[motif].stamp;
-  if (stamp) {
-    const mid = `sil${uid}`;
-    return (
-      <g>
-        <defs>
-          <mask id={mid} maskUnits="userSpaceOnUse" mask-type="alpha" x={stamp.x} y={stamp.y} width={stamp.w} height={stamp.h}>
-            <image href={stamp.src} x={stamp.x} y={stamp.y} width={stamp.w} height={stamp.h} preserveAspectRatio="xMidYMid meet" />
-          </mask>
-        </defs>
-        <rect x={stamp.x} y={stamp.y} width={stamp.w} height={stamp.h} fill={color} mask={`url(#${mid})`} />
-      </g>
-    );
-  }
+  if (stamp) return <StampSilhouette stamp={stamp} color={color} />;
   return (
     <>
       {motifParts(motif).map((d, i) => (
@@ -299,14 +319,29 @@ export function NacrePiece({
   const tint = light > 0 ? "#fffaf0" : "#120b08";
   const tintOpacity = Math.abs(light) * (light > 0 ? 0.07 : 0.1);
   const joint = 0.38 / s;
-  const stampMask = stamp ? `nps${uid}` : undefined;
+  const stampFill = stamp ? `npsf${uid}` : undefined;
+  const stampTint = stamp && light !== 0 ? `npst${uid}` : undefined;
+  const stampDull = stamp && dull > 0 ? `npsd${uid}` : undefined;
   return (
     <g mask={mask}>
       {stamp && (
         <defs>
-          <mask id={stampMask} maskUnits="userSpaceOnUse" mask-type="alpha" x={stamp.x} y={stamp.y} width={stamp.w} height={stamp.h}>
-            <image href={stamp.src} x={stamp.x} y={stamp.y} width={stamp.w} height={stamp.h} preserveAspectRatio="xMidYMid meet" />
-          </mask>
+          <filter id={stampFill} x="-2%" y="-2%" width="104%" height="104%" colorInterpolationFilters="sRGB">
+            <feFlood floodColor={fill.startsWith("url(") ? "#e8e4dc" : fill} result="flood" />
+            <feComposite in="flood" in2="SourceAlpha" operator="in" />
+          </filter>
+          {stampTint && (
+            <filter id={stampTint} x="-2%" y="-2%" width="104%" height="104%" colorInterpolationFilters="sRGB">
+              <feFlood floodColor={tint} floodOpacity={tintOpacity} result="flood" />
+              <feComposite in="flood" in2="SourceAlpha" operator="in" />
+            </filter>
+          )}
+          {stampDull && (
+            <filter id={stampDull} x="-2%" y="-2%" width="104%" height="104%" colorInterpolationFilters="sRGB">
+              <feFlood floodColor="#a9a199" floodOpacity={Math.min(0.75, dull)} result="flood" />
+              <feComposite in="flood" in2="SourceAlpha" operator="in" />
+            </filter>
+          )}
         </defs>
       )}
       {onPointerDown && (
@@ -328,20 +363,62 @@ export function NacrePiece({
         </g>
       ))}
       {stamp && (
-        <g mask={`url(#${stampMask})`} pointerEvents="none">
-          <rect x={stamp.x} y={stamp.y} width={stamp.w} height={stamp.h} fill={fill} />
-          {light !== 0 && (
-            <rect x={stamp.x} y={stamp.y} width={stamp.w} height={stamp.h} fill={tint} opacity={tintOpacity} pointerEvents="none" />
-          )}
-          {dull > 0 && (
-            <rect
+        <g pointerEvents="none">
+          {fill.startsWith("url(") ? (
+            <g>
+              <defs>
+                <mask
+                  id={`npsm${uid}`}
+                  maskUnits="userSpaceOnUse"
+                  maskContentUnits="userSpaceOnUse"
+                  x={stamp.x}
+                  y={stamp.y}
+                  width={stamp.w}
+                  height={stamp.h}
+                >
+                  <image
+                    href={stamp.src}
+                    x={stamp.x}
+                    y={stamp.y}
+                    width={stamp.w}
+                    height={stamp.h}
+                    preserveAspectRatio="xMidYMid meet"
+                  />
+                </mask>
+              </defs>
+              <rect x={stamp.x} y={stamp.y} width={stamp.w} height={stamp.h} fill={fill} mask={`url(#npsm${uid})`} />
+            </g>
+          ) : (
+            <image
+              href={stamp.src}
               x={stamp.x}
               y={stamp.y}
               width={stamp.w}
               height={stamp.h}
-              fill="#a9a199"
-              opacity={Math.min(0.75, dull)}
-              pointerEvents="none"
+              preserveAspectRatio="xMidYMid meet"
+              filter={`url(#${stampFill})`}
+            />
+          )}
+          {stampTint && (
+            <image
+              href={stamp.src}
+              x={stamp.x}
+              y={stamp.y}
+              width={stamp.w}
+              height={stamp.h}
+              preserveAspectRatio="xMidYMid meet"
+              filter={`url(#${stampTint})`}
+            />
+          )}
+          {stampDull && (
+            <image
+              href={stamp.src}
+              x={stamp.x}
+              y={stamp.y}
+              width={stamp.w}
+              height={stamp.h}
+              preserveAspectRatio="xMidYMid meet"
+              filter={`url(#${stampDull})`}
             />
           )}
         </g>
@@ -370,7 +447,15 @@ function SilhouetteMask({ id, motif }: { id: string; motif: MotifId }) {
   const stamp = MOTIFS[motif].stamp;
   if (stamp) {
     return (
-      <mask id={id} maskUnits="userSpaceOnUse" mask-type="alpha" x={stamp.x - 2} y={stamp.y - 2} width={stamp.w + 4} height={stamp.h + 4}>
+      <mask
+        id={id}
+        maskUnits="userSpaceOnUse"
+        maskContentUnits="userSpaceOnUse"
+        x={stamp.x - 2}
+        y={stamp.y - 2}
+        width={stamp.w + 4}
+        height={stamp.h + 4}
+      >
         <image href={stamp.src} x={stamp.x} y={stamp.y} width={stamp.w} height={stamp.h} preserveAspectRatio="xMidYMid meet" />
       </mask>
     );
@@ -504,6 +589,7 @@ export default function Artwork({
   shimmer: requestedShimmer = true,
   showcase = false,
   shadow = true,
+  inline = false,
   children,
   onPiecePointerDown,
   svgRef,
@@ -540,8 +626,8 @@ export default function Artwork({
   const rimHighlight = liftedLight(lac.light);
   const pearls = [...new Set(showPieces ? list.map((p) => piecePearl(p, design)) : [])];
 
-  return (
-    <svg ref={svgRef} viewBox="0 0 300 300" className={className} style={{ touchAction: "none" }}>
+  const body = (
+    <>
       <defs>
         {pearls.map((pl) => (
           <NacreDefs key={pl} id={`${ids.nacre}-${pl}`} pearl={pl} />
@@ -857,6 +943,13 @@ export default function Artwork({
         <path d="M150 282 Q143 300 153 297 Q159 295 151 282" stroke="#83443d" strokeWidth="1.6" />
       </g>}
       {children}
+    </>
+  );
+
+  if (inline) return <g className={className}>{body}</g>;
+  return (
+    <svg ref={svgRef} viewBox="0 0 300 300" className={className} style={{ touchAction: "none" }}>
+      {body}
     </svg>
   );
 }

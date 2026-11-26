@@ -538,7 +538,13 @@ export default function NestStep({
   const shown = active
     ? {
         ...active,
-        placements: [...active.placements, ...mineOnSheet],
+        // 시트에 남은 잠금/절단 조각 + 편집 중 조각. 같은 pieceId는 편집본만 그린다(잔상 방지).
+        placements: (() => {
+          const byId = new Map<string, (typeof mineOnSheet)[number]>();
+          for (const item of active.placements) byId.set(item.pieceId, item);
+          for (const item of mineOnSheet) byId.set(item.pieceId, item);
+          return [...byId.values()];
+        })(),
       }
     : null;
   const free = shown ? Math.round(freeRatio(shown, polyOf) * 100) : 0;

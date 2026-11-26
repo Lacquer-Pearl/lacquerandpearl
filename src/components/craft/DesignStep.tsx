@@ -999,6 +999,7 @@ export default function DesignStep({
                 }}
               >
                 <Artwork
+                  inline
                   design={design}
                   surface={lacquerReady ? "lacquer" : "wood"}
                   selectedIds={selected}
