@@ -90,13 +90,34 @@ export default function TitleScreen() {
     </div>
   );
 
+  const openRep = () => {
+    sfx.click();
+    setRepOpen(true);
+  };
+
+  const statsChips = (className: string) => (
+    <div className={className}>
+      <button type="button" className="chip" aria-haspopup="dialog" onClick={openRep}>
+        <UiIcon id="medal" className="ui-icon-sm" /> {rankTitle(lang, rep)}
+      </button>
+      <span className="chip">
+        <Coin /> {money.toLocaleString()}
+      </span>
+      <span className="chip">
+        <UiIcon id="star" className="ui-icon-sm" /> {rep}
+      </span>
+    </div>
+  );
+
   return (
     <div className="screen title-screen">
-
-      <div className="flex justify-end p-3">
-        <SoundToggle />
+      <div className="title-topbar">
+        {statsChips("title-stats flex gap-2")}
+        <div className="title-sound">
+          <SoundToggle />
+        </div>
       </div>
-      <div className="flex flex-1 flex-col items-center justify-center gap-5 px-5 pb-8">
+      <div className="title-main flex flex-1 flex-col items-center justify-center gap-5 px-5 pb-8">
         <div className="demo-hero w-full"><div className="demo-hero-sign">
           <Image
             key={signSrc}
@@ -109,25 +130,7 @@ export default function TitleScreen() {
           />
         </div>
         </div>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            className="chip"
-            aria-haspopup="dialog"
-            onClick={() => {
-              sfx.click();
-              setRepOpen(true);
-            }}
-          >
-            <UiIcon id="medal" className="ui-icon-sm" /> {rankTitle(lang, rep)}
-          </button>
-          <span className="chip">
-            <Coin /> {money.toLocaleString()}
-          </span>
-          <span className="chip">
-            <UiIcon id="star" className="ui-icon-sm" /> {rep}
-          </span>
-        </div>
+        {statsChips("title-stats-mobile flex gap-2")}
         <div className="grid w-full max-w-[360px] grid-cols-1 gap-3">
           {canResume && craftProgress && (
             <div className="flex flex-col gap-1">

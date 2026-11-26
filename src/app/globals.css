@@ -1758,16 +1758,36 @@ button.step-dot:focus-visible {
   .saw-board .pulse { animation: none; }
 }
 
+.title-topbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  z-index: 2;
+}
+.title-topbar .title-stats { display: none; }
+.title-sound { display: flex; }
+
 @media (min-width: 850px) {
   .app-frame:has(.title-screen) { max-width: 1080px; }
-  .title-screen > .flex.flex-1 {
+  .title-topbar {
+    justify-content: space-between;
+    padding: 16px 20px 0;
+  }
+  .title-topbar .title-stats {
+    display: flex;
+    flex-wrap: wrap;
+  }
+  .title-stats-mobile { display: none; }
+  .title-screen > .title-main {
     display: grid;
     grid-template-columns: minmax(0, 1.55fr) minmax(260px, 1fr);
     grid-template-rows: auto 1fr;
     align-content: center;
     align-items: start;
     column-gap: 34px;
-    padding: 2rem 3rem 3rem;
+    padding: 1rem 3rem 3rem;
     flex: 0 1 auto;
     margin: auto 0;
   }
@@ -1777,7 +1797,6 @@ button.step-dot:focus-visible {
     max-height: none;
   }
   .title-screen .demo-hero-sign { width: 39%; }
-  .title-screen .demo-hero + div { flex-wrap: wrap; }
 }
 
 @media (prefers-reduced-motion: no-preference) {
