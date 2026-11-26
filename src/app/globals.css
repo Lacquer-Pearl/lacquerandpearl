@@ -1768,6 +1768,22 @@ button.step-dot:focus-visible {
 }
 .title-topbar .title-stats { display: none; }
 .title-sound { display: flex; }
+.title-topbar .chip,
+.title-stats-mobile .chip {
+  height: 36px;
+  border-radius: 11px;
+  padding: 0 10px;
+  box-sizing: border-box;
+  background: #fffdf8;
+  border: 1.5px solid var(--line-deep);
+  box-shadow: 0 2px 0 var(--line-deep);
+  color: var(--brown);
+}
+.title-topbar button.chip:active,
+.title-stats-mobile button.chip:active {
+  transform: translateY(2px);
+  box-shadow: none;
+}
 
 @media (min-width: 850px) {
   .app-frame:has(.title-screen) { max-width: 1080px; }
