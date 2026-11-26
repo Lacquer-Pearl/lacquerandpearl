@@ -624,7 +624,7 @@ svg.craft-touch-area * {
 .design-sel-slot > .panel {
   flex: 1;
 }
-/* 의뢰 주문서: 스크롤해도 상단바 아래에 떠 따라온다 */
+/* 의뢰 주문서: 한지 위에 붓으로 적은 느낌 */
 .design-order-bar {
   position: sticky;
   top: 60px;
@@ -632,15 +632,79 @@ svg.craft-touch-area * {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 8px 14px;
   margin: 0;
-  padding: 8px 12px;
-  border-radius: 18px;
-  border: 1.5px solid rgba(140, 110, 70, 0.22);
-  background: rgba(255, 250, 240, 0.94);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 4px 14px rgba(40, 24, 12, 0.1);
+  padding: 12px 14px 14px;
+  border-radius: 3px;
+  border: 1px solid #c4b091;
+  background:
+    var(--hanji),
+    linear-gradient(180deg, #f7efe0 0%, #efe2cc 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 250, 240, 0.7) inset,
+    0 4px 12px rgba(40, 24, 12, 0.12);
+  color: #3a2c20;
+  font-family: var(--font-title), "Gowun Batang", serif;
   font-size: 14px;
+  line-height: 1.35;
+}
+.design-order-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding-bottom: 6px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid rgba(90, 64, 36, 0.28);
+  font-size: 15px;
+  letter-spacing: 0.04em;
+}
+.design-order-title b {
+  color: #4a3424;
+  font-weight: 700;
+}
+.design-order-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: #3f2e24;
+}
+.design-order-line em {
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+.design-order-line.is-met {
+  color: #4d6b55;
+}
+.design-order-warn {
+  color: var(--red);
+  font-family: var(--font-body), sans-serif;
+  font-size: 12px;
+}
+.design-order-lac {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border-radius: 2px;
+  border: 1px solid rgba(40, 24, 12, 0.35);
+  box-shadow: inset 0 -2px 3px rgba(0, 0, 0, 0.25);
+}
+.design-order-nacre {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border-radius: 2px;
+  border: 1px solid rgba(40, 24, 12, 0.3);
+  overflow: hidden;
+}
+.design-order-motif {
+  width: 18px;
+  height: 18px;
+  flex: none;
 }
 
 .design-action-bar {
@@ -2073,6 +2137,27 @@ body:has(.tool-drawer[open]) { overflow: hidden; }
 .bench-layout .design-action-bar { position: static; margin: 0; padding: 0; background: none; }
 .bench-layout .design-stepper { margin: 0; }
 .bench-layout .nest-piece-bar { flex-wrap: wrap; border-radius: 10px; }
+/* PC: 주문서 한 줄씩 */
+.bench-layout .design-order-bar {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 0;
+}
+.bench-layout .design-order-title {
+  width: 100%;
+  margin-bottom: 4px;
+}
+.bench-layout .design-order-line {
+  display: flex;
+  width: 100%;
+  padding: 7px 2px;
+  border-bottom: 1px dashed rgba(90, 64, 36, 0.22);
+}
+.bench-layout .design-order-line:last-child {
+  border-bottom: 0;
+  padding-bottom: 2px;
+}
 .app-frame:has(.craft-screen) { max-width: 1560px; }
   .craft-screen .screen-body:not(:has(.bench-layout)) { width: min(100%,650px); margin-inline: auto; }
   .bench-tools .grid-cols-4 { grid-template-columns: repeat(auto-fit,minmax(54px,1fr)); }

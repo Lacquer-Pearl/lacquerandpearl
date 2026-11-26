@@ -398,24 +398,52 @@ export default function DesignStep({
     </ol>
     {commission && (
       <div className="design-order-bar" aria-label={t(lang, "design.order")}>
-        <b className="text-[var(--brown)]">{t(lang, "design.order")}</b>
-        <span className="chip">{shapeName(lang, commission.shape)}</span>
-        <span className={`chip ${lacquerReady && design.lacquer === commission.lacquer ? "chip-ok" : ""}`}>
-          <span className="swatch" style={{ background: LACQUERS[commission.lacquer].color }} />
-          {lacquerName(lang, commission.lacquer)}
-          {lacquerReady && design.lacquer !== commission.lacquer && (
-            <small className="text-[var(--red)]"> · {t(lang, "design.lacquerOff")}</small>
-          )}
-        </span>
-        {commission.pearl && (
-          <span className={`chip ${pearlShare(design, commission.pearl) >= 0.5 ? "chip-ok" : ""}`}>
-            <NacreSwatch pearl={commission.pearl} className="swatch" /> {pearlName(lang, commission.pearl)}
+        <div className="design-order-title">
+          <UiIcon id="scroll" className="ui-icon-sm" />
+          <b>{t(lang, "design.order")}</b>
+        </div>
+        <div className="design-order-line">
+          <UiIcon id="wood" className="ui-icon-sm" />
+          <span>{shapeName(lang, commission.shape)}</span>
+        </div>
+        <div
+          className={`design-order-line ${
+            lacquerReady && design.lacquer === commission.lacquer ? "is-met" : ""
+          }`}
+        >
+          <UiIcon id="lacquer" className="ui-icon-sm" />
+          <span
+            className="design-order-lac"
+            style={{ background: LACQUERS[commission.lacquer].color }}
+            aria-hidden
+          />
+          <span>
+            {lacquerName(lang, commission.lacquer)}
+            {lacquerReady && design.lacquer !== commission.lacquer && (
+              <small className="design-order-warn"> · {t(lang, "design.lacquerOff")}</small>
+            )}
           </span>
+        </div>
+        {commission.pearl && (
+          <div
+            className={`design-order-line ${
+              pearlShare(design, commission.pearl) >= 0.5 ? "is-met" : ""
+            }`}
+          >
+            <NacreSwatch pearl={commission.pearl} round={false} className="design-order-nacre" />
+            <span>{pearlName(lang, commission.pearl)}</span>
+          </div>
         )}
         {(Object.entries(commission.motifs) as [MotifId, number][]).map(([m, n]) => (
-          <span key={m} className={`chip ${(counts[m] ?? 0) === n ? "chip-ok" : ""}`}>
-            <MotifIcon motif={m} className="h-5 w-5" /> {motifName(lang, m)} {counts[m] ?? 0}/{n}
-          </span>
+          <div key={m} className={`design-order-line ${(counts[m] ?? 0) === n ? "is-met" : ""}`}>
+            <MotifIcon motif={m} className="design-order-motif" />
+            <span>
+              {motifName(lang, m)}{" "}
+              <em>
+                {counts[m] ?? 0}/{n}
+              </em>
+            </span>
+          </div>
         ))}
       </div>
     )}
