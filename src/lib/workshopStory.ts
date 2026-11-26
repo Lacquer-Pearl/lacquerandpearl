@@ -37,7 +37,7 @@ export function storyOrder(apprentice: Apprentice, chapter: Exclude<Chapter, "en
     patron: {
       id: gift ? "story-friend" : "story-visitor",
       nameKo: gift ? feminine ? "분이" : "재겸" : "달밤의 손님",
-      nameEn: gift ? feminine ? "Bun-i" : "Jae-gyeom" : "Moonlit visitor",
+      nameEn: gift ? feminine ? "Buni" : "Jaegyeom" : "Moonlit visitor",
       roleKo: gift ? "소꿉친구" : "이름을 밝히지 않은 의뢰인",
       roleEn: gift ? "Childhood friend" : "A stranger at the workshop",
       presentation: feminine ? "feminine" : "masculine",

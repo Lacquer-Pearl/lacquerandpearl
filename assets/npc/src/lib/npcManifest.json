@@ -17,7 +17,7 @@
       "suggested_name_ko": "장순덕",
       "is_story_npc": true,
       "named_file": "named_portraits/001_jang_sun_deok.png",
-      "name_en": "Jang Sun-deok",
+      "name_en": "Jang Sundeok",
       "number": 1,
       "crop_box": [
         0,
@@ -46,7 +46,7 @@
       "suggested_name_ko": "이윤겸",
       "is_story_npc": false,
       "named_file": "named_portraits/002_lee_yun_gyeom.png",
-      "name_en": "Lee Yun-gyeom",
+      "name_en": "Lee Yungyeom",
       "number": 2,
       "crop_box": [
         200,
@@ -75,7 +75,7 @@
       "suggested_name_ko": "윤서화",
       "is_story_npc": false,
       "named_file": "named_portraits/003_yun_seo_hwa.png",
-      "name_en": "Yun Seo-hwa",
+      "name_en": "Yun Seohwa",
       "number": 3,
       "crop_box": [
         386,
@@ -104,7 +104,7 @@
       "suggested_name_ko": "한도겸",
       "is_story_npc": false,
       "named_file": "named_portraits/004_han_do_gyeom.png",
-      "name_en": "Han Do-gyeom",
+      "name_en": "Han Dogyeom",
       "number": 4,
       "crop_box": [
         576,
@@ -162,7 +162,7 @@
       "suggested_name_ko": "김만복",
       "is_story_npc": false,
       "named_file": "named_portraits/006_kim_man_bok.png",
-      "name_en": "Kim Man-bok",
+      "name_en": "Kim Manbok",
       "number": 6,
       "crop_box": [
         960,
@@ -191,7 +191,7 @@
       "suggested_name_ko": "박연실",
       "is_story_npc": false,
       "named_file": "named_portraits/007_park_yeon_sil.png",
-      "name_en": "Park Yeon-sil",
+      "name_en": "Park Yeonsil",
       "number": 7,
       "crop_box": [
         1152,
@@ -220,7 +220,7 @@
       "suggested_name_ko": "서정훈",
       "is_story_npc": false,
       "named_file": "named_portraits/008_seo_jeong_hun.png",
-      "name_en": "Seo Jeong-hun",
+      "name_en": "Seo Jeonghun",
       "number": 8,
       "crop_box": [
         1340,
@@ -249,7 +249,7 @@
       "suggested_name_ko": "최덕수",
       "is_story_npc": false,
       "named_file": "named_portraits/009_choi_deok_su.png",
-      "name_en": "Choi Deok-su",
+      "name_en": "Choi Deoksu",
       "number": 9,
       "crop_box": [
         0,
@@ -278,7 +278,7 @@
       "suggested_name_ko": "송분이",
       "is_story_npc": false,
       "named_file": "named_portraits/010_song_bun_i.png",
-      "name_en": "Song Bun-i",
+      "name_en": "Song Buni",
       "number": 10,
       "crop_box": [
         200,
@@ -307,7 +307,7 @@
       "suggested_name_ko": "정연화",
       "is_story_npc": false,
       "named_file": "named_portraits/011_jeong_yeon_hwa.png",
-      "name_en": "Jeong Yeon-hwa",
+      "name_en": "Jeong Yeonhwa",
       "number": 11,
       "crop_box": [
         386,
@@ -336,7 +336,7 @@
       "suggested_name_ko": "임재겸",
       "is_story_npc": false,
       "named_file": "named_portraits/012_im_jae_gyeom.png",
-      "name_en": "Im Jae-gyeom",
+      "name_en": "Im Jaegyeom",
       "number": 12,
       "crop_box": [
         576,
@@ -365,7 +365,7 @@
       "suggested_name_ko": "이채련",
       "is_story_npc": false,
       "named_file": "named_portraits/013_lee_chae_ryeon.png",
-      "name_en": "Lee Chae-ryeon",
+      "name_en": "Lee Chaeryeon",
       "number": 13,
       "crop_box": [
         768,
@@ -394,7 +394,7 @@
       "suggested_name_ko": "윤석돌",
       "is_story_npc": false,
       "named_file": "named_portraits/014_yun_seok_dol.png",
-      "name_en": "Yun Seok-dol",
+      "name_en": "Yun Seokdol",
       "number": 14,
       "crop_box": [
         960,
@@ -423,7 +423,7 @@
       "suggested_name_ko": "오길동",
       "is_story_npc": false,
       "named_file": "named_portraits/015_oh_gil_dong.png",
-      "name_en": "Oh Gil-dong",
+      "name_en": "Oh Gildong",
       "number": 15,
       "crop_box": [
         1152,
@@ -481,7 +481,7 @@
       "suggested_name_ko": "한복례",
       "is_story_npc": false,
       "named_file": "named_portraits/017_han_bok_rye.png",
-      "name_en": "Han Bok-rye",
+      "name_en": "Han Bokrye",
       "number": 17,
       "crop_box": [
         0,
@@ -510,7 +510,7 @@
       "suggested_name_ko": "조춘식",
       "is_story_npc": false,
       "named_file": "named_portraits/018_jo_chun_sik.png",
-      "name_en": "Jo Chun-sik",
+      "name_en": "Jo Chunsik",
       "number": 18,
       "crop_box": [
         200,
@@ -539,7 +539,7 @@
       "suggested_name_ko": "장옥이",
       "is_story_npc": false,
       "named_file": "named_portraits/019_jang_ok_i.png",
-      "name_en": "Jang Ok-i",
+      "name_en": "Jang Oki",
       "number": 19,
       "crop_box": [
         386,
@@ -568,7 +568,7 @@
       "suggested_name_ko": "홍만수",
       "is_story_npc": false,
       "named_file": "named_portraits/020_hong_man_su.png",
-      "name_en": "Hong Man-su",
+      "name_en": "Hong Mansu",
       "number": 20,
       "crop_box": [
         576,
@@ -597,7 +597,7 @@
       "suggested_name_ko": "백도현",
       "is_story_npc": false,
       "named_file": "named_portraits/021_baek_do_hyeon.png",
-      "name_en": "Baek Do-hyeon",
+      "name_en": "Baek Dohyeon",
       "number": 21,
       "crop_box": [
         768,
@@ -626,7 +626,7 @@
       "suggested_name_ko": "김소담",
       "is_story_npc": false,
       "named_file": "named_portraits/022_kim_so_dam.png",
-      "name_en": "Kim So-dam",
+      "name_en": "Kim Sodam",
       "number": 22,
       "crop_box": [
         960,
@@ -655,7 +655,7 @@
       "suggested_name_ko": "박학수",
       "is_story_npc": false,
       "named_file": "named_portraits/023_park_hak_su.png",
-      "name_en": "Park Hak-su",
+      "name_en": "Park Haksu",
       "number": 23,
       "crop_box": [
         1152,
@@ -684,7 +684,7 @@
       "suggested_name_ko": "이성복",
       "is_story_npc": false,
       "named_file": "named_portraits/024_lee_seong_bok.png",
-      "name_en": "Lee Seong-bok",
+      "name_en": "Lee Seongbok",
       "number": 24,
       "crop_box": [
         1340,
@@ -713,7 +713,7 @@
       "suggested_name_ko": "민재하",
       "is_story_npc": false,
       "named_file": "named_portraits/025_min_jae_ha.png",
-      "name_en": "Min Jae-ha",
+      "name_en": "Min Jaeha",
       "number": 25,
       "crop_box": [
         0,
@@ -742,7 +742,7 @@
       "suggested_name_ko": "최꽃분",
       "is_story_npc": false,
       "named_file": "named_portraits/026_choi_kkot_bun.png",
-      "name_en": "Choi Kkot-bun",
+      "name_en": "Choi Kkotbun",
       "number": 26,
       "crop_box": [
         200,
@@ -771,7 +771,7 @@
       "suggested_name_ko": "조덕구",
       "is_story_npc": false,
       "named_file": "named_portraits/027_jo_deok_gu.png",
-      "name_en": "Jo Deok-gu",
+      "name_en": "Jo Deokgu",
       "number": 27,
       "crop_box": [
         386,
@@ -800,7 +800,7 @@
       "suggested_name_ko": "김정헌",
       "is_story_npc": false,
       "named_file": "named_portraits/028_kim_jeong_heon.png",
-      "name_en": "Kim Jeong-heon",
+      "name_en": "Kim Jeongheon",
       "number": 28,
       "crop_box": [
         576,
@@ -829,7 +829,7 @@
       "suggested_name_ko": "서연희",
       "is_story_npc": false,
       "named_file": "named_portraits/029_seo_yeon_hui.png",
-      "name_en": "Seo Yeon-hui",
+      "name_en": "Seo Yeonhui",
       "number": 29,
       "crop_box": [
         768,
@@ -858,7 +858,7 @@
       "suggested_name_ko": "남성원",
       "is_story_npc": false,
       "named_file": "named_portraits/030_nam_seong_won.png",
-      "name_en": "Nam Seong-won",
+      "name_en": "Nam Seongwon",
       "number": 30,
       "crop_box": [
         960,
@@ -887,7 +887,7 @@
       "suggested_name_ko": "오금순",
       "is_story_npc": false,
       "named_file": "named_portraits/031_oh_geum_sun.png",
-      "name_en": "Oh Geum-sun",
+      "name_en": "Oh Geumsun",
       "number": 31,
       "crop_box": [
         1152,
@@ -916,7 +916,7 @@
       "suggested_name_ko": "배만복",
       "is_story_npc": false,
       "named_file": "named_portraits/032_bae_man_bok.png",
-      "name_en": "Bae Man-bok",
+      "name_en": "Bae Manbok",
       "number": 32,
       "crop_box": [
         1340,
@@ -945,7 +945,7 @@
       "suggested_name_ko": "황연실",
       "is_story_npc": false,
       "named_file": "named_portraits/033_hwang_yeon_sil.png",
-      "name_en": "Hwang Yeon-sil",
+      "name_en": "Hwang Yeonsil",
       "number": 33,
       "crop_box": [
         0,
@@ -974,7 +974,7 @@
       "suggested_name_ko": "임복남",
       "is_story_npc": false,
       "named_file": "named_portraits/034_im_bok_nam.png",
-      "name_en": "Im Bok-nam",
+      "name_en": "Im Boknam",
       "number": 34,
       "crop_box": [
         200,
@@ -1003,7 +1003,7 @@
       "suggested_name_ko": "강도치",
       "is_story_npc": false,
       "named_file": "named_portraits/035_kang_do_chi.png",
-      "name_en": "Kang Do-chi",
+      "name_en": "Kang Dochi",
       "number": 35,
       "crop_box": [
         386,
@@ -1032,7 +1032,7 @@
       "suggested_name_ko": "윤매화",
       "is_story_npc": false,
       "named_file": "named_portraits/036_yun_mae_hwa.png",
-      "name_en": "Yun Mae-hwa",
+      "name_en": "Yun Maehwa",
       "number": 36,
       "crop_box": [
         576,
@@ -1061,7 +1061,7 @@
       "suggested_name_ko": "이만석",
       "is_story_npc": false,
       "named_file": "named_portraits/037_lee_man_seok.png",
-      "name_en": "Lee Man-seok",
+      "name_en": "Lee Manseok",
       "number": 37,
       "crop_box": [
         768,
@@ -1090,7 +1090,7 @@
       "suggested_name_ko": "신초희",
       "is_story_npc": false,
       "named_file": "named_portraits/038_shin_cho_hui.png",
-      "name_en": "Shin Cho-hui",
+      "name_en": "Shin Chohui",
       "number": 38,
       "crop_box": [
         960,
@@ -1119,7 +1119,7 @@
       "suggested_name_ko": "최재문",
       "is_story_npc": false,
       "named_file": "named_portraits/039_choi_jae_mun.png",
-      "name_en": "Choi Jae-mun",
+      "name_en": "Choi Jaemun",
       "number": 39,
       "crop_box": [
         1152,
@@ -1148,7 +1148,7 @@
       "suggested_name_ko": "송아린",
       "is_story_npc": false,
       "named_file": "named_portraits/040_song_a_rin.png",
-      "name_en": "Song A-rin",
+      "name_en": "Song Arin",
       "number": 40,
       "crop_box": [
         1340,
