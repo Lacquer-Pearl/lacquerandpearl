@@ -2114,6 +2114,25 @@ body:has(.tool-drawer[open]) { overflow: hidden; }
 }
 
 @media (min-width: 1024px) and (min-height: 560px) and (hover: hover) and (pointer: fine) {
+/* PC: 제작 단계 바가 더 잘 보이게 */
+.craft-screen .steps-bar {
+  gap: 8px;
+  padding: 12px 20px 6px;
+  justify-content: center;
+}
+.craft-screen .step-dot {
+  height: 40px;
+  width: 40px;
+  border-width: 1.5px;
+}
+.craft-screen .step-dot.now {
+  transform: scale(1.12);
+  box-shadow: 0 0 0 4px rgba(214, 180, 110, 0.28);
+}
+.craft-screen .step-dot .ui-icon {
+  width: 26px;
+  height: 26px;
+}
 /* The playable surface and the two rails share the available viewport. */
 .craft-screen:has(.bench-layout) { height: 100dvh; min-height: 0; }
 .craft-screen:has(.bench-layout) > :not(.screen-body) { flex-shrink: 0; }
